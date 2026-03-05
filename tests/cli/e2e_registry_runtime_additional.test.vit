@@ -1,0 +1,77 @@
+.test.cli.e2e.registry.strict_requires_ids.
+.begin.
+.sys.exec.capture."DOTS_BACKEND_STRICT=1 DOTS_REGISTRY_MODE=fake dots update --json --retries 0".$out.
+.assert.contains.$out."POLICY_INVALID".
+.ret.
+.end.
+
+.test.cli.e2e.registry.strict_with_ids_ok.
+.begin.
+.sys.exec.capture."DOTS_BACKEND_STRICT=1 DOTS_RUN_ID=r1 DOTS_REQUEST_ID=q1 DOTS_REGISTRY_MODE=fake dots update --json --retries 0".$out.
+.assert.contains.$out."\"command\":\"update\"".
+.ret.
+.end.
+
+.test.cli.e2e.registry.events_and_doctor_subcommands.
+.begin.
+.sys.exec.capture."bash -lc 'DOTS_REGISTRY_MODE=fake dots update --json --retries 0 >/dev/null; dots registry doctor --json; dots registry events --lines 5'".$out.
+.assert.contains.$out."state_root=".
+.ret.
+.end.
+
+.test.cli.e2e.registry.reset_safe.
+.begin.
+.sys.exec.capture."bash -lc 'DOTS_REGISTRY_MODE=fake dots update --json --retries 0 >/dev/null; dots registry reset --safe --json'".$out.
+.assert.contains.$out."reset-safe".
+.ret.
+.end.
+
+.test.cli.e2e.registry.jitter_invalid_warning_event.
+.begin.
+.sys.exec.capture."bash -lc 'DOTS_JITTER_POLICY=bad DOTS_REGISTRY_MODE=fake dots update --json --retries 0 >/dev/null; dots registry events --lines 20'".$out.
+.assert.contains.$out."POLICY_ENV".
+.assert.contains.$out."invalid DOTS_JITTER_POLICY".
+.ret.
+.end.
+
+.test.cli.e2e.registry.retry_on_category.
+.begin.
+.sys.exec.capture."bash -lc 'DOTS_RETRY_ON=application:E_TIMEOUT DOTS_REGISTRY_MODE=real DOTS_REGISTRY_REAL_STUB=1 DOTS_FAKE_ENDPOINT_FAIL=x dots update --json --mirror x --retries 1'".$out.
+.assert.contains.$out."ENDPOINT_UNREACHABLE".
+.ret.
+.end.
+
+.test.cli.e2e.registry.strict_sha_tool_absent.
+.begin.
+.sys.exec.capture."bash -lc 'PATH=/nonexistent DOTS_BACKEND_STRICT=1 DOTS_RUN_ID=r DOTS_REQUEST_ID=q DOTS_REGISTRY_MODE=fake dots update --json --retries 0'".$out.
+.assert.contains.$out."error".
+.ret.
+.end.
+
+.test.cli.e2e.registry.schema_invalid_strict_vs_non_strict.
+.begin.
+.sys.exec.capture."bash -lc 'rm -rf .dots/e2e-schema-state .dots/e2e-schema-reg; scripts/fake_registry.sh init .dots/e2e-schema-reg >/dev/null; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-schema-reg DOTS_STATE_DIR=.dots/e2e-schema-state dots update --json --retries 0 >/dev/null; ws=${#PWD}; printf \"{\\\"v\\\":\\\"2\\\",\\\"k\\\":\\\"mode\\\",\\\"value\\\":\\\"fake\\\"}\\n\" > .dots/e2e-schema-state/$ws/state.v2.jsonl; DOTS_BACKEND_STRICT=1 DOTS_RUN_ID=r DOTS_REQUEST_ID=q DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-schema-reg DOTS_STATE_DIR=.dots/e2e-schema-state dots update --json --retries 0 >/tmp/strict_schema.json; DOTS_BACKEND_STRICT=0 DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-schema-reg DOTS_STATE_DIR=.dots/e2e-schema-state dots update --json --retries 0 >/tmp/non_strict_schema.json; cat /tmp/strict_schema.json; cat /tmp/non_strict_schema.json'".$out.
+.assert.contains.$out."strict".
+.ret.
+.end.
+
+.test.cli.e2e.registry.reentrant_lock_same_request_id.
+.begin.
+.sys.exec.capture."bash -lc 'DOTS_REGISTRY_MODE=fake DOTS_RUN_ID=r DOTS_REQUEST_ID=same dots update --json --retries 0 >/tmp/re1.json; DOTS_REGISTRY_MODE=fake DOTS_RUN_ID=r DOTS_REQUEST_ID=same dots update --json --retries 0 >/tmp/re2.json; cat /tmp/re1.json /tmp/re2.json'".$out.
+.assert.contains.$out."\"command\":\"update\"".
+.ret.
+.end.
+
+.test.cli.e2e.registry.parallel_install_update_publish.
+.begin.
+.sys.exec.capture."bash -lc 'rm -rf .dots/e2e-par-reg .dots/e2e-par-state .dots/e2e-par-proj; scripts/fake_registry.sh init .dots/e2e-par-reg >/dev/null; scripts/fake_registry.sh add-pkg .dots/e2e-par-reg px 1.0.0 >/dev/null; mkdir -p .dots/e2e-par-proj; printf \"{\\\"name\\\":\\\"px\\\",\\\"version\\\":\\\"1.0.1\\\",\\\"license\\\":\\\"MIT\\\"}\\n\" > .dots/e2e-par-proj/dots.json; printf \"# c\\n\" > .dots/e2e-par-proj/CHANGELOG.md; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-par-reg DOTS_STATE_DIR=.dots/e2e-par-state dots install --json px >/tmp/par_i.json & DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-par-reg DOTS_STATE_DIR=.dots/e2e-par-state dots update --json >/tmp/par_u.json & (cd .dots/e2e-par-proj && DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=../e2e-par-reg DOTS_STATE_DIR=../e2e-par-state DOTS_PUBLISH_SKIP_GIT=1 dots publish --json --tag next >/tmp/par_p.json) & wait; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-par-reg DOTS_STATE_DIR=.dots/e2e-par-state dots registry status --json'".$out.
+.assert.contains.$out."registry.status".
+.ret.
+.end.
+
+.test.cli.e2e.registry.events_component_filter_exact.
+.begin.
+.sys.exec.capture."bash -lc 'DOTS_JITTER_POLICY=bad DOTS_REGISTRY_MODE=fake dots update --json --retries 0 >/dev/null; dots registry events --component policy --lines 50'".$out.
+.assert.contains.$out."\"component\":\"policy\"".
+.ret.
+.end.

@@ -1,0 +1,20 @@
+.test.cli.e2e.registry.concurrent_append_flush.
+.begin.
+.sys.exec.capture."bash -lc 'rm -rf .dots/e2e-concur-state .dots/e2e-concur-reg; scripts/fake_registry.sh init .dots/e2e-concur-reg >/dev/null; scripts/fake_registry.sh add-pkg .dots/e2e-concur-reg c1 1.0.0 >/dev/null; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-concur-reg DOTS_STATE_DIR=.dots/e2e-concur-state DOTS_JSONL_BATCH_LINES=2 dots update --json --retries 0 >/tmp/c1.json & DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-concur-reg DOTS_STATE_DIR=.dots/e2e-concur-state DOTS_JSONL_BATCH_LINES=2 dots update --json --retries 0 >/tmp/c2.json & wait; echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.cli.e2e.registry.kill_during_write_recovery.
+.begin.
+.sys.exec.capture."bash -lc 'rm -rf .dots/e2e-kill-state .dots/e2e-kill-reg; scripts/fake_registry.sh init .dots/e2e-kill-reg >/dev/null; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-kill-reg DOTS_STATE_DIR=.dots/e2e-kill-state DOTS_JSONL_BATCH_LINES=99999 dots update --json --retries 0 >/tmp/kill.json & pid=$!; sleep 0.05; kill -9 $pid >/dev/null 2>&1 || true; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-kill-reg DOTS_STATE_DIR=.dots/e2e-kill-state dots update --json --retries 0; echo recovered'".$out.
+.assert.contains.$out."recovered".
+.ret.
+.end.
+
+.test.cli.e2e.registry.readonly_state_dir.
+.begin.
+.sys.exec.capture."bash -lc 'rm -rf .dots/e2e-ro-state .dots/e2e-ro-reg; scripts/fake_registry.sh init .dots/e2e-ro-reg >/dev/null; mkdir -p .dots/e2e-ro-state; chmod -w .dots/e2e-ro-state; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-ro-reg DOTS_STATE_DIR=.dots/e2e-ro-state DOTS_BACKEND_STRICT=1 DOTS_RUN_ID=r DOTS_REQUEST_ID=q dots update --json --retries 0; chmod +w .dots/e2e-ro-state; echo done'".$out.
+.assert.contains.$out."done".
+.ret.
+.end.
