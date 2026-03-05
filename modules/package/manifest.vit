@@ -1,0 +1,55 @@
+space modules/package/manifest
+
+pull core/fs
+pull core/str
+
+proc manifest_raw() -> string
+{
+    if !fs.exists("dots.json") { give "" }
+    give fs.read_file("dots.json")
+}
+
+proc manifest_field(key: string) -> string
+{
+    let raw = manifest_raw()
+    if raw == "" { give "" }
+
+    let pat = "\"" + key + "\":\""
+    if !str.contains(raw, pat) { give "" }
+
+    let p = str.split(raw, pat)
+    if p.len < 2 { give "" }
+
+    let tail = p[1]
+    let q = str.split(tail, "\"")
+    if q.len < 1 { give "" }
+
+    give q[0]
+}
+
+proc manifest_name() -> string { give manifest_field("name") }
+proc manifest_version() -> string { give manifest_field("version") }
+proc manifest_license() -> string { give manifest_field("license") }
+
+proc manifest_has_version() -> bool
+{
+    give manifest_version() != ""
+}
+
+proc manifest_has_name() -> bool
+{
+    give manifest_name() != ""
+}
+
+proc manifest_has_license() -> bool
+{
+    give manifest_license() != ""
+}
+
+proc manifest_validate_schema() -> string?
+{
+    if manifest_name() == "" { give "manifest.name missing" }
+    if manifest_version() == "" { give "manifest.version missing" }
+    if manifest_license() == "" { give "manifest.license missing" }
+    give null
+}

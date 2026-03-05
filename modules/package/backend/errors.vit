@@ -1,0 +1,25 @@
+space modules/package/backend/errors
+
+pull modules/package/backend/types
+
+proc backend_default_error_message(code: string, bin: string) -> string
+{
+    if code == E_REAL_BACKEND_PROTOCOL
+    {
+        give "real backend missing or incompatible protocol_version"
+    }
+
+    if code == E_REAL_BACKEND_ERROR
+    {
+        give "real backend command failed: " + bin
+    }
+
+    if code == E_TIMEOUT { give "registry request timeout" }
+
+    give "real backend command failed: " + bin
+}
+
+proc backend_parse_error(endpoint: string, detail: string) -> BackendResult
+{
+    give backend_err(E_REAL_BACKEND_ERROR, "parse", "real backend parse error: " + detail, false, 502, 0, endpoint)
+}

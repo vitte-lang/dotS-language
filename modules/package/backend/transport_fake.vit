@@ -1,0 +1,376 @@
+space modules/package/backend/transport_fake
+
+pull core/fs
+pull core/str
+pull core/time
+pull core/process
+
+pull modules/package/manifest
+pull modules/package/backend/types
+pull modules/package/backend/state
+
+proc list_lines(path: string) -> [string]
+{
+    let out: [string] = []
+    if !fs.exists(path) { give out }
+
+    let lines = str.split(fs.read_file(path), "\n")
+    loop l in lines
+    {
+        let line = str.trim(l)
+        if line != "" { out = out.push(line) }
+    }
+
+    give out
+}
+
+proc contains_line(lines: [string], value: string) -> bool
+{
+    loop l in lines
+    {
+        if l == value { give true }
+    }
+    give false
+}
+
+proc json_field(line: string, key: string) -> string
+{
+    let pat = "\"" + key + "\":\""
+    if !str.contains(line, pat) { give "" }
+    let p = str.split(line, pat)
+    if p.len < 2 { give "" }
+    let q = str.split(p[1], "\"")
+    if q.len < 1 { give "" }
+    give q[0]
+}
+
+proc checksum_for(name: string, version: string) -> string
+{
+    give name + "-" + version
+}
+
+proc signature_for(name: string, version: string) -> string
+{
+    give "SIG_" + str.upper(name) + "_" + str.replace(version, ".", "_")
+}
+
+proc parse_old_pkg_line(line: string) -> [string]
+{
+    give str.split(line, "|")
+}
+
+proc old_pkg_name(namever: string) -> string
+{
+    let p = str.split(namever, "@")
+    if p.len < 1 { give "" }
+    give p[0]
+}
+
+proc old_pkg_version(namever: string) -> string
+{
+    let p = str.split(namever, "@")
+    if p.len < 2 { give "" }
+    give p[1]
+}
+
+proc registry_find_package(name: string) -> string
+{
+    let raw = read_with_checksum(file_packages())
+    if raw != ""
+    {
+        let lines = str.split(raw, "\n")
+        loop l in lines
+        {
+            let line = str.trim(l)
+            if line == "" { continue }
+            if json_field(line, "name") == name
+            {
+                give line
+            }
+        }
+    }
+
+    let old = list_lines(file_packages_v1())
+    loop l in old
+    {
+        let parts = parse_old_pkg_line(l)
+        if parts.len < 1 { continue }
+        if old_pkg_name(parts[0]) == name
+        {
+            give l
+        }
+    }
+
+    give ""
+}
+
+proc package_signature_valid(line: string) -> bool
+{
+    if str.starts_with(line, "{")
+    {
+        let name = json_field(line, "name")
+        let version = json_field(line, "version")
+        let checksum = json_field(line, "checksum")
+        let sig = json_field(line, "sig")
+        if checksum != checksum_for(name, version) { give false }
+        if sig != signature_for(name, version) { give false }
+        give true
+    }
+
+    let parts = parse_old_pkg_line(line)
+    if parts.len < 3 { give false }
+    let name = old_pkg_name(parts[0])
+    let version = old_pkg_version(parts[0])
+    let c = str.replace(parts[1], "checksum=", "")
+    let s = str.replace(parts[2], "sig=", "")
+    if c != checksum_for(name, version) { give false }
+    if s != signature_for(name, version) { give false }
+    give true
+}
+
+proc add_registry_package(name: string, version: string) -> void
+{
+    let existing = registry_find_package(name)
+    if existing != ""
+    {
+        if str.starts_with(existing, "{")
+        {
+            if json_field(existing, "version") == version { give }
+        }
+        else
+        {
+            let p = parse_old_pkg_line(existing)
+            if p.len > 0 && old_pkg_version(p[0]) == version { give }
+        }
+    }
+
+    append_jsonl(file_packages(), "{\"v\":\"2\",\"name\":\"" + name + "\",\"version\":\"" + version + "\",\"checksum\":\"" + checksum_for(name, version) + "\",\"sig\":\"" + signature_for(name, version) + "\"}")
+}
+
+proc consume_failure(op: string) -> bool
+{
+    if !fs.exists(file_failures_v1()) { give false }
+    let lines = str.split(fs.read_file(file_failures_v1()), "\n")
+    let out: [string] = []
+    let hit = false
+
+    loop l in lines
+    {
+        let line = str.trim(l)
+        if line == "" { continue }
+        if !str.starts_with(line, op + "=")
+        {
+            out = out.push(line)
+            continue
+        }
+
+        let cur = str.to_i64(str.replace(line, op + "=", ""))
+        if cur > 0
+        {
+            hit = true
+            out = out.push(op + "=" + str.from_i64(cur - 1))
+        }
+        else
+        {
+            out = out.push(op + "=0")
+        }
+    }
+
+    fs.write_file(file_failures_v1(), str.join(out, "\n") + "\n")
+    give hit
+}
+
+proc chaos_should_fail() -> bool
+{
+    if process.env("DOTS_FAKE_REGISTRY_CHAOS") != "1" { give false }
+    give (time.now_ms() % 2) == 0
+}
+
+proc installed_count() -> i32
+{
+    let raw = read_with_checksum(file_installed())
+    if raw == "" { give 0 }
+    let lines = str.split(raw, "\n")
+    let c: i32 = 0
+    loop l in lines
+    {
+        if str.trim(l) != "" { c = c + 1 }
+    }
+    give c
+}
+
+proc add_installed(pkg: string) -> void
+{
+    let raw = read_with_checksum(file_installed())
+    let lines: [string] = []
+    if raw != "" { lines = str.split(raw, "\n") }
+    loop l in lines
+    {
+        if json_field(l, "name") == pkg { give }
+    }
+    append_jsonl(file_installed(), "{\"v\":\"2\",\"name\":\"" + pkg + "\",\"installed_at_ms\":\"" + str.from_i64(time.now_ms()) + "\"}")
+}
+
+proc manifest_publish_info() -> [string]
+{
+    give [manifest_name(), manifest_version(), manifest_license()]
+}
+
+proc published_contains(name: string, version: string) -> bool
+{
+    let raw = read_with_checksum(file_published())
+    if raw != ""
+    {
+        let lines = str.split(raw, "\n")
+        loop l in lines
+        {
+            let line = str.trim(l)
+            if line == "" { continue }
+            if json_field(line, "name") == name && json_field(line, "version") == version
+            {
+                give true
+            }
+        }
+    }
+
+    let old = list_lines(file_published_v1())
+    loop l in old
+    {
+        if str.contains(l, name + "@" + version) { give true }
+    }
+    give false
+}
+
+proc semver_to_ints(v: string) -> [i64]
+{
+    let p = str.split(v, ".")
+    let out: [i64] = []
+    loop x in p
+    {
+        out = out.push(str.to_i64(str.trim(x)))
+    }
+    loop while out.len < 3
+    {
+        out = out.push(0)
+    }
+    give out
+}
+
+proc semver_cmp(a: string, b: string) -> i32
+{
+    let av = semver_to_ints(a)
+    let bv = semver_to_ints(b)
+    let i: i32 = 0
+    loop while i < 3
+    {
+        if av[i] < bv[i] { give -1 }
+        if av[i] > bv[i] { give 1 }
+        i = i + 1
+    }
+    give 0
+}
+
+proc latest_published_version(name: string) -> string
+{
+    let best = ""
+    let raw = read_with_checksum(file_published())
+    if raw == "" { give best }
+
+    let lines = str.split(raw, "\n")
+    loop l in lines
+    {
+        let line = str.trim(l)
+        if line == "" { continue }
+        if json_field(line, "name") != name { continue }
+        let v = json_field(line, "version")
+        if best == "" || semver_cmp(v, best) > 0
+        {
+            best = v
+        }
+    }
+    give best
+}
+
+proc transport_install(pkg: string, ep: string) -> BackendResult
+{
+    let started = time.now_ms()
+    if chaos_should_fail()
+    {
+        give backend_err("NETWORK_TEMPORARY", "network", "chaos simulated failure", true, 503, 100, ep)
+    }
+    if consume_failure("install")
+    {
+        give backend_err("NETWORK_TEMPORARY", "network", "simulated install failure", true, 503, 100, ep)
+    }
+
+    let line = registry_find_package(pkg)
+    if line == ""
+    {
+        give backend_err(E_PACKAGE_NOT_FOUND, "application", "package not found in registry: " + pkg, false, 404, 0, ep)
+    }
+    if !package_signature_valid(line)
+    {
+        give backend_err(E_SIGNATURE_INVALID, "security", "package signature/checksum invalid for " + pkg, false, 422, 0, ep)
+    }
+
+    add_installed(pkg)
+    give backend_ok("installed", 1, ep, time.now_ms() - started)
+}
+
+proc transport_update(ep: string) -> BackendResult
+{
+    let started = time.now_ms()
+    if chaos_should_fail()
+    {
+        give backend_err("NETWORK_TEMPORARY", "network", "chaos simulated failure", true, 503, 100, ep)
+    }
+    if consume_failure("update")
+    {
+        give backend_err("NETWORK_TEMPORARY", "network", "simulated update failure", true, 503, 100, ep)
+    }
+    give backend_ok("updated", installed_count(), ep, time.now_ms() - started)
+}
+
+proc transport_publish(tag: string, ep: string) -> BackendResult
+{
+    let started = time.now_ms()
+    if chaos_should_fail()
+    {
+        give backend_err("NETWORK_TEMPORARY", "network", "chaos simulated failure", true, 503, 100, ep)
+    }
+    if consume_failure("publish")
+    {
+        give backend_err("NETWORK_TEMPORARY", "network", "simulated publish failure", true, 503, 100, ep)
+    }
+    if tag != "latest" && tag != "next"
+    {
+        give backend_err(E_INVALID_TAG, "validation", "tag must be latest|next", false, 400, 0, ep)
+    }
+
+    let info = manifest_publish_info()
+    let name = info[0]
+    let version = info[1]
+    let license = info[2]
+    if name == "" || version == "" || license == ""
+    {
+        give backend_err(E_MANIFEST_INVALID, "validation", "manifest schema invalid", false, 422, 0, ep)
+    }
+
+    if published_contains(name, version)
+    {
+        give backend_err(E_VERSION_EXISTS, "validation", "version already published: " + name + "@" + version, false, 409, 0, ep)
+    }
+
+    let latest = latest_published_version(name)
+    if latest != "" && semver_cmp(version, latest) <= 0
+    {
+        give backend_err(E_VERSION_EXISTS, "validation", "version must be > latest published " + latest, false, 409, 0, ep)
+    }
+
+    add_registry_package(name, version)
+    append_jsonl(file_published(), "{\"v\":\"2\",\"ts\":\"" + str.from_i64(time.now_ms()) + "\",\"name\":\"" + name + "\",\"version\":\"" + version + "\",\"tag\":\"" + tag + "\",\"checksum\":\"" + checksum_for(name, version) + "\",\"sig\":\"" + signature_for(name, version) + "\"}")
+    fs.append_file(file_published_v1(), str.from_i64(time.now_ms()) + " " + name + "@" + version + " tag=" + tag + "\n")
+
+    give backend_ok("published", 1, ep, time.now_ms() - started)
+}
+

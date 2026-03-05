@@ -1,0 +1,69 @@
+space modules/package/backend/types
+
+pull core/str
+pull core/security/redact
+
+form BackendError
+{
+    code: string
+    category: string
+    message: string
+    retryable: bool
+    http_status: i32
+    retry_after_ms: i64
+    endpoint: string
+}
+
+form BackendResult
+{
+    ok: bool
+    error: BackendError
+    value: string
+    count: i32
+    endpoint: string
+    latency_ms: i64
+}
+
+const E_OFFLINE: string = "OFFLINE"
+const E_TIMEOUT: string = "TIMEOUT"
+const E_CB_OPEN: string = "CIRCUIT_OPEN"
+const E_LOCK_BUSY: string = "LOCK_BUSY"
+const E_ENDPOINT_UNREACHABLE: string = "ENDPOINT_UNREACHABLE"
+const E_PACKAGE_NOT_FOUND: string = "PACKAGE_NOT_FOUND"
+const E_SIGNATURE_INVALID: string = "SIGNATURE_INVALID"
+const E_INVALID_TAG: string = "INVALID_TAG"
+const E_MANIFEST_INVALID: string = "MANIFEST_INVALID"
+const E_VERSION_EXISTS: string = "VERSION_EXISTS"
+const E_REAL_BACKEND_ERROR: string = "REAL_BACKEND_ERROR"
+const E_REAL_BACKEND_PROTOCOL: string = "REAL_BACKEND_PROTOCOL"
+const E_UNKNOWN_OP: string = "UNKNOWN_OP"
+const E_INVALID_MODE: string = "INVALID_MODE"
+const E_POLICY_INVALID: string = "POLICY_INVALID"
+
+proc clamp_error_message(raw: string) -> string
+{
+    let msg = redact_secrets(raw)
+    give msg
+}
+
+proc backend_ok(value: string, count: i32, endpoint: string, latency_ms: i64) -> BackendResult
+{
+    give BackendResult(true, BackendError("", "", "", false, 0, 0, endpoint), value, count, endpoint, latency_ms)
+}
+
+proc backend_err(code: string, category: string, message: string, retryable: bool, http_status: i32, retry_after_ms: i64, endpoint: string) -> BackendResult
+{
+    give BackendResult(false, BackendError(code, category, clamp_error_message(message), retryable, http_status, retry_after_ms, endpoint), "", 0, endpoint, 0)
+}
+
+proc error_next_steps(code: string) -> string
+{
+    if code == E_OFFLINE { give "Retry without --offline or use local mirror." }
+    if code == E_CB_OPEN { give "Wait cooldown or run dots registry reset." }
+    if code == E_LOCK_BUSY { give "Retry later; another mutation is running." }
+    if code == E_PACKAGE_NOT_FOUND { give "Check package name/version in registry." }
+    if code == E_SIGNATURE_INVALID { give "Re-sync registry package metadata/signatures." }
+    if code == E_MANIFEST_INVALID { give "Fix dots.json schema fields name/version/license." }
+    if code == E_REAL_BACKEND_ERROR { give "Verify DOTS_REGISTRY_REAL_BIN and backend availability." }
+    give "Inspect dots registry status --json for details."
+}

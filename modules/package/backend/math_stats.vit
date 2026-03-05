@@ -1,0 +1,35 @@
+space modules/package/backend/math_stats
+
+proc sort_i64(values: [i64]) -> [i64]
+{
+    let out = values
+    let i: i32 = 0
+    loop while i < out.len
+    {
+        let j: i32 = i + 1
+        loop while j < out.len
+        {
+            if out[j] < out[i]
+            {
+                let tmp = out[i]
+                out[i] = out[j]
+                out[j] = tmp
+            }
+            j = j + 1
+        }
+        i = i + 1
+    }
+    give out
+}
+
+proc percentile_i64(values: [i64], p: i32) -> i64
+{
+    if values.len == 0 { give 0 }
+    let s = sort_i64(values)
+    let n = s.len
+    let idx = ((n - 1) * p) / 100
+    if idx < 0 { idx = 0 }
+    if idx >= n { idx = n - 1 }
+    give s[idx]
+}
+
