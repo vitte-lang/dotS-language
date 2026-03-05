@@ -1,0 +1,6 @@
+space core/parser/ast/module
+
+form ModuleDecl
+{
+    name: string
+}

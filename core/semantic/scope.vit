@@ -1,0 +1,18 @@
+space core/semantic/scope
+
+form Scope
+{
+    id: i64
+    parent_id: i64
+    name: string
+}
+
+proc root() -> Scope
+{
+    give Scope(1, 0, "root")
+}
+
+proc child(parent: Scope, id: i64, name: string) -> Scope
+{
+    give Scope(id, parent.id, name)
+}

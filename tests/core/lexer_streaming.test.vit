@@ -1,0 +1,22 @@
+.test.core.lexer.tokens.strict.with_span_trivia.
+.begin.
+.assert.lex.ok."space x".
+.assert.token.kind."keyword".
+.assert.token.span.present.
+.assert.token.trivia.present.
+.ret.
+.end.
+
+.test.core.lexer.invalid_escape.recovery.
+.begin.
+.assert.lex.diag."DOTS0001".
+.assert.lex.recovery.continues.
+.ret.
+.end.
+
+.test.core.lexer.incremental.relex.window.
+.begin.
+.assert.relex.window.ok.
+.assert.relex.tokens_total.gt0.
+.ret.
+.end.

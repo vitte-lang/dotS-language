@@ -1,0 +1,27 @@
+space core/semantic/resolver
+
+pull core/parser
+pull core/semantic/symbol_table
+
+proc collect_declarations(root: parser.AstNode, file: string, scope_id: i64) -> symbol_table.SymbolTable
+{
+    let table = symbol_table.empty()
+
+    loop n in root.children
+    {
+        if n.kind == "decl_proc" || n.kind == "decl_form" || n.kind == "decl_const" || n.kind == "decl_space"
+        {
+            let name = n.value
+            if name == "" { name = "<anon>" }
+            let kind = n.kind
+            if kind == "decl_proc" { kind = "fn" }
+            if kind == "decl_form" { kind = "type" }
+            if kind == "decl_const" { kind = "const" }
+            if kind == "decl_space" { kind = "module" }
+
+            table = symbol_table.add(table, symbol_table.Symbol(name, kind, "unknown", file, n.line, n.col, scope_id))
+        }
+    }
+
+    give table
+}

@@ -1,0 +1,16 @@
+.test.core.config.precedence.defaults_file_env_cli.
+.begin.
+.assert.config.value."defaults<file<env<cli".
+.assert.config.value."workers=cli".
+.assert.config.value."mode=cli".
+.assert.config.provenance."workers source=cli".
+.assert.config.provenance."mode source=cli".
+.ret.
+.end.
+
+.test.core.config.list.normalize.dedupe.trim.
+.begin.
+.assert.config.value."include=a,b,c".
+.assert.config.value."include has no duplicates".
+.ret.
+.end.

@@ -1,0 +1,6 @@
+space core/parser/ast/block
+
+form Block
+{
+    item_count: i32
+}

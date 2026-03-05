@@ -1,0 +1,139 @@
+space core/profile
+
+pull core/str
+pull core/process
+pull core/config
+
+form ProfileDef
+{
+    name: string
+    extends: string
+    overrides: [config.ConfigKV]
+}
+
+form ProfileResult
+{
+    ok: bool
+    items: [config.ConfigKV]
+    errors: [config.ConfigError]
+}
+
+proc standard_profiles() -> [ProfileDef]
+{
+    let dev = ProfileDef(
+        "dev",
+        "",
+        [
+            config.ConfigKV("mode", "dev", "profile", "profile:dev"),
+            config.ConfigKV("workers", "4", "profile", "profile:dev"),
+            config.ConfigKV("retries", "1", "profile", "profile:dev")
+        ]
+    )
+
+    let ci = ProfileDef(
+        "ci",
+        "",
+        [
+            config.ConfigKV("mode", "ci", "profile", "profile:ci"),
+            config.ConfigKV("strict", "true", "profile", "profile:ci"),
+            config.ConfigKV("workers", "2", "profile", "profile:ci")
+        ]
+    )
+
+    let perf = ProfileDef(
+        "perf",
+        "ci",
+        [
+            config.ConfigKV("mode", "perf", "profile", "profile:perf"),
+            config.ConfigKV("workers", "8", "profile", "profile:perf"),
+            config.ConfigKV("timeout_overall_ms", "300000", "profile", "profile:perf")
+        ]
+    )
+
+    let release = ProfileDef(
+        "release",
+        "ci",
+        [
+            config.ConfigKV("mode", "release", "profile", "profile:release"),
+            config.ConfigKV("retries", "3", "profile", "profile:release")
+        ]
+    )
+
+    give [dev, ci, perf, release]
+}
+
+proc find_profile(name: string) -> ProfileDef?
+{
+    loop p in standard_profiles()
+    {
+        if p.name == name { give p }
+    }
+    give null
+}
+
+proc merge_overrides(base: [config.ConfigKV], extra: [config.ConfigKV]) -> [config.ConfigKV]
+{
+    let out = base
+    loop kv in extra
+    {
+        out = config.kv_upsert(out, kv)
+    }
+    give out
+}
+
+proc resolve_profile(name: string, stack: [string]) -> ProfileResult
+{
+    let p = find_profile(name)
+    if p == null
+    {
+        let e = [config.ConfigError(config.ERR_MISSING, "profile", "unknown profile: " + name, "profile", "<profile>")]
+        give ProfileResult(false, [], e)
+    }
+
+    loop s in stack
+    {
+        if s == name
+        {
+            let e2 = [config.ConfigError(config.ERR_CONFLICT, "profile", "profile inheritance cycle: " + name, "profile", "<profile>")]
+            give ProfileResult(false, [], e2)
+        }
+    }
+
+    if p.extends == ""
+    {
+        give ProfileResult(true, p.overrides, [])
+    }
+
+    let next_stack = stack.push(name)
+    let parent = resolve_profile(p.extends, next_stack)
+    if !parent.ok { give parent }
+
+    let merged = merge_overrides(parent.items, p.overrides)
+    give ProfileResult(true, merged, [])
+}
+
+proc selected_profile(cli_profile: string) -> string
+{
+    if cli_profile != "" { give cli_profile }
+    let env = process.env("DOTS_PROFILE")
+    if env != "" { give env }
+    give "dev"
+}
+
+proc apply_profile(base: [config.ConfigKV], cli_profile: string) -> ProfileResult
+{
+    let prof = selected_profile(cli_profile)
+    let resolved = resolve_profile(prof, [])
+    if !resolved.ok { give resolved }
+
+    let out = merge_overrides(base, resolved.items)
+    out = config.kv_upsert(out, config.ConfigKV("profile", prof, "profile", "profile:" + prof))
+
+    let force_strict = process.env("DOTS_CONFIG_STRICT")
+    if force_strict == "1"
+    {
+        out = config.kv_upsert(out, config.ConfigKV("strict", "true", "env", "DOTS_CONFIG_STRICT"))
+    }
+
+    give ProfileResult(true, out, [])
+}

@@ -1,0 +1,54 @@
+space core/source/file
+
+pull core/str
+pull core/time
+pull core/source/location
+
+form SourceFile
+{
+    uri: string
+    path: string
+    text: string
+    version: i32
+    line_starts: [i64]
+    hash: string
+    virtual_file: bool
+    loaded_at_ms: i64
+}
+
+proc simple_hash(text: string) -> string
+{
+    let acc: i64 = 2166136261
+    let i: i64 = 0
+    loop while i < text.len
+    {
+        acc = acc ^ text[i]
+        acc = (acc * 16777619) % 2147483647
+        i = i + 1
+    }
+    give "h" + str.from_i64(acc)
+}
+
+proc make(uri: string, path: string, text: string, version: i32, virtual_file: bool) -> SourceFile
+{
+    let norm_uri = location.normalize_uri(uri)
+    give SourceFile(norm_uri, path, text, version, location.build_line_index(text), simple_hash(text), virtual_file, time.now_ms())
+}
+
+proc snippet(sf: SourceFile, line: i32, ctx: i32) -> string
+{
+    let lines = str.split(sf.text, "\n")
+    let start = line - ctx
+    let end = line + ctx
+    if start < 1 { start = 1 }
+    if end > lines.len { end = lines.len }
+
+    let out = ""
+    let i = start
+    loop while i <= end
+    {
+        out = out + str.from_i64(i) + ": " + lines[i - 1] + "\n"
+        i = i + 1
+    }
+    give out
+}

@@ -1,0 +1,48 @@
+space core/ir/node
+
+form SourceSpan
+{
+    file: string
+    line: i32
+    col: i32
+}
+
+form IRValue
+{
+    id: i64
+    typ: string
+    name: string
+}
+
+form IRInstr
+{
+    id: i64
+    op: string
+    dst: IRValue?
+    args: [IRValue]
+    literal: string
+    source: SourceSpan
+    cost: i32
+}
+
+form IRTerminator
+{
+    kind: string
+    cond: IRValue?
+    then_block: string
+    else_block: string
+}
+
+form IRBlock
+{
+    name: string
+    instrs: [IRInstr]
+    term: IRTerminator
+}
+
+form IRModule
+{
+    schema_version: string
+    name: string
+    blocks: [IRBlock]
+}

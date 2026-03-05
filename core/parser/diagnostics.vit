@@ -1,0 +1,16 @@
+space core/parser/diagnostics
+
+pull core/diagnostics
+pull core/lexer/token
+
+proc unexpected_token(t: token.Token, expected: string) -> diagnostics.Diagnostic
+{
+    let d = diagnostics.make("DOTS0002", "unexpected token, expected " + expected, "<memory>", t.sp.start_pos.line, t.sp.start_pos.col, t.sp.end_pos.line, t.sp.end_pos.col, "parser")
+    give diagnostics.with_quick_fix(d, "replace", "Replace token", expected)
+}
+
+proc missing_token(line: i32, col: i32, expected: string) -> diagnostics.Diagnostic
+{
+    let d = diagnostics.make("DOTS0002", "missing token " + expected, "<memory>", line, col, line, col + 1, "parser")
+    give diagnostics.with_quick_fix(d, "insert", "Insert token", expected)
+}

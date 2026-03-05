@@ -1,0 +1,14 @@
+.test.core.semantic.symbol_table.hierarchy.
+.begin.
+.assert.semantic.ok."proc f".
+.assert.symbol.exists."f".
+.ret.
+.end.
+
+.test.core.semantic.duplicate_and_undeclared.
+.begin.
+.assert.semantic.diag."DOTS0003 duplicate".
+.assert.semantic.diag."DOTS0003 undeclared".
+.assert.semantic.quickfix.present.
+.ret.
+.end.

@@ -1,0 +1,13 @@
+space core/lexer/trivia
+
+form Trivia
+{
+    spaces: i32
+    tabs: i32
+    comments: [string]
+}
+
+proc empty() -> Trivia
+{
+    give Trivia(0, 0, [])
+}

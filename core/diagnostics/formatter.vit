@@ -1,0 +1,123 @@
+space core/diagnostics/formatter
+
+pull core/str
+pull core/diagnostics
+
+proc escape_json(s: string) -> string
+{
+    let out = s
+    out = str.replace(out, "\\", "\\\\")
+    out = str.replace(out, "\"", "\\\"")
+    out = str.replace(out, "\n", "\\n")
+    out = str.replace(out, "\r", "\\r")
+    give out
+}
+
+proc quick_fixes_json(d: diagnostics.Diagnostic) -> string
+{
+    let out = ""
+    let i: i32 = 0
+    loop while i < d.quick_fixes.len
+    {
+        if i > 0 { out = out + "," }
+        let f = d.quick_fixes[i]
+        out = out + "{\"kind\":\"" + escape_json(f.kind) + "\",\"title\":\"" + escape_json(f.title) + "\",\"replacement\":\"" + escape_json(f.replacement) + "\"}"
+        i = i + 1
+    }
+    give "[" + out + "]"
+}
+
+proc related_json(d: diagnostics.Diagnostic) -> string
+{
+    let out = ""
+    let i: i32 = 0
+    loop while i < d.related.len
+    {
+        if i > 0 { out = out + "," }
+        let r = d.related[i]
+        out = out + "{\"file\":\"" + escape_json(r.file) + "\",\"line\":" + str.from_i64(r.line) + ",\"col\":" + str.from_i64(r.col) + ",\"message\":\"" + escape_json(r.message) + "\"}"
+        i = i + 1
+    }
+    give "[" + out + "]"
+}
+
+proc format_human(items: [diagnostics.Diagnostic]) -> string
+{
+    let out = ""
+    loop d in items
+    {
+        out = out + d.file + ":" + str.from_i64(d.line) + ":" + str.from_i64(d.col) + " " + d.severity + " " + d.code + " " + d.message + " [" + d.category + "]\n"
+    }
+    give out
+}
+
+proc format_json(items: [diagnostics.Diagnostic], run_id: string, request_id: string) -> string
+{
+    let out = ""
+    let i: i32 = 0
+    loop while i < items.len
+    {
+        let d = items[i]
+        if i > 0 { out = out + "," }
+        out = out + "{" +
+            "\"code\":\"" + escape_json(d.code) + "\"," +
+            "\"severity\":\"" + escape_json(d.severity) + "\"," +
+            "\"category\":\"" + escape_json(d.category) + "\"," +
+            "\"message\":\"" + escape_json(d.message) + "\"," +
+            "\"file\":\"" + escape_json(d.file) + "\"," +
+            "\"line\":" + str.from_i64(d.line) + "," +
+            "\"col\":" + str.from_i64(d.col) + "," +
+            "\"end_line\":" + str.from_i64(d.end_line) + "," +
+            "\"end_col\":" + str.from_i64(d.end_col) + "," +
+            "\"fixable\":" + str.from_bool(d.fixable) + "," +
+            "\"docs_url\":\"" + escape_json(d.docs_url) + "\"," +
+            "\"source\":\"" + escape_json(d.source) + "\"," +
+            "\"quick_fixes\":" + quick_fixes_json(d) + "," +
+            "\"related\":" + related_json(d) +
+        "}"
+        i = i + 1
+    }
+
+    give "{" +
+        "\"schema_version\":\"" + diagnostics.SCHEMA_VERSION + "\"," +
+        "\"run_id\":\"" + escape_json(run_id) + "\"," +
+        "\"request_id\":\"" + escape_json(request_id) + "\"," +
+        "\"diagnostics\":[" + out + "]" +
+    "}"
+}
+
+proc to_sarif_level(severity: string) -> string
+{
+    if severity == "error" { give "error" }
+    if severity == "warning" { give "warning" }
+    give "note"
+}
+
+proc format_sarif(items: [diagnostics.Diagnostic]) -> string
+{
+    let runs = ""
+    let i: i32 = 0
+    loop while i < items.len
+    {
+        if i > 0 { runs = runs + "," }
+        let d = items[i]
+        runs = runs + "{" +
+            "\"ruleId\":\"" + escape_json(d.code) + "\"," +
+            "\"level\":\"" + to_sarif_level(d.severity) + "\"," +
+            "\"message\":{\"text\":\"" + escape_json(d.message) + "\"}," +
+            "\"locations\":[{" +
+                "\"physicalLocation\":{\"artifactLocation\":{\"uri\":\"" + escape_json(d.file) + "\"},\"region\":{\"startLine\":" + str.from_i64(d.line) + ",\"startColumn\":" + str.from_i64(d.col) + "}}" +
+            "}]" +
+        "}"
+        i = i + 1
+    }
+
+    give "{" +
+        "\"$schema\":\"https://json.schemastore.org/sarif-2.1.0.json\"," +
+        "\"version\":\"2.1.0\"," +
+        "\"runs\":[{" +
+            "\"tool\":{\"driver\":{\"name\":\"dots\",\"informationUri\":\"https://github.com/vitte-lang/dotS-language\"}}," +
+            "\"results\":[" + runs + "]" +
+        "}]" +
+    "}"
+}

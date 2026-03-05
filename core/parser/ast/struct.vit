@@ -1,0 +1,6 @@
+space core/parser/ast/struct
+
+form StructDecl
+{
+    name: string
+}

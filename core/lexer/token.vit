@@ -1,0 +1,17 @@
+space core/lexer/token
+
+pull core/source/span
+pull core/lexer/trivia
+
+form Token
+{
+    kind: string
+    lexeme: string
+    sp: span.Span
+    tr: trivia.Trivia
+}
+
+proc make(kind: string, lexeme: string, sp: span.Span, tr: trivia.Trivia) -> Token
+{
+    give Token(kind, lexeme, sp, tr)
+}

@@ -1,0 +1,62 @@
+space core/lexer
+
+pull core/time
+pull core/str
+pull core/lexer/cursor
+pull core/lexer/scanner
+pull core/lexer/token
+pull core/lexer/token_kind
+pull core/diagnostics
+
+form LexResult
+{
+    tokens: [token.Token]
+    diagnostics: [diagnostics.Diagnostic]
+    tokens_total: i64
+    lex_ms: i64
+}
+
+proc lex(text: string) -> LexResult
+{
+    let start = time.now_ms()
+    let tokens: [token.Token] = []
+    let diags: [diagnostics.Diagnostic] = []
+
+    let c = cursor.make(text)
+    let cur = c
+
+    loop while true
+    {
+        let r = scanner.next(cur)
+        tokens = tokens.push(r.tk)
+        if r.diag != null { diags = diags.push(r.diag) }
+        cur = r.next
+        if r.tk.kind == token_kind.TK_EOF { break }
+
+        if tokens.len > 200000
+        {
+            diags = diags.push(diagnostics.make("DOTS0001", "token budget exceeded", "<memory>", 1, 1, 1, 1, "lexer"))
+            break
+        }
+    }
+
+    let ms = time.now_ms() - start
+    give LexResult(tokens, diags, tokens.len, ms)
+}
+
+proc relex_window(text: string, start_off: i64, end_off: i64) -> LexResult
+{
+    if start_off < 0 { start_off = 0 }
+    if end_off > text.len { end_off = text.len }
+    if end_off < start_off { end_off = start_off }
+
+    let window = ""
+    let i = start_off
+    loop while i < end_off
+    {
+        window = window + str.from_i64(text[i])
+        i = i + 1
+    }
+
+    give lex(window)
+}

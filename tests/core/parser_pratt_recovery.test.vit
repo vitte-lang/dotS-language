@@ -1,0 +1,21 @@
+.test.core.parser.pratt.precedence.
+.begin.
+.assert.parse.ok."1 + 2 * 3".
+.assert.ast.shape."binary(+,[number,binary(*)])".
+.ret.
+.end.
+
+.test.core.parser.decl_stmt_expr.separation.
+.begin.
+.assert.parse.ok."proc f(){}\n1+2".
+.assert.ast.has."decl_proc".
+.assert.ast.has."stmt_expr".
+.ret.
+.end.
+
+.test.core.parser.recovery.sync.
+.begin.
+.assert.parse.diag."DOTS0002".
+.assert.parse.recovers.next_line.
+.ret.
+.end.

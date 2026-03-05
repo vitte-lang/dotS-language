@@ -1,0 +1,46 @@
+space core/semantic/symbol_table
+
+form Symbol
+{
+    name: string
+    kind: string
+    type_name: string
+    file: string
+    line: i32
+    col: i32
+    scope_id: i64
+}
+
+form SymbolTable
+{
+    symbols: [Symbol]
+}
+
+proc empty() -> SymbolTable
+{
+    give SymbolTable([])
+}
+
+proc add(t: SymbolTable, s: Symbol) -> SymbolTable
+{
+    t.symbols = t.symbols.push(s)
+    give t
+}
+
+proc find_in_scope(t: SymbolTable, name: string, scope_id: i64) -> Symbol?
+{
+    loop s in t.symbols
+    {
+        if s.name == name && s.scope_id == scope_id { give s }
+    }
+    give null
+}
+
+proc find_any(t: SymbolTable, name: string) -> Symbol?
+{
+    loop s in t.symbols
+    {
+        if s.name == name { give s }
+    }
+    give null
+}

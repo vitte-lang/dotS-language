@@ -1,6 +1,16 @@
 space core/security/redact
 
 pull core/str
+pull core/process
+
+form AuditEvent
+{
+    action: string
+    actor: string
+    run_id: string
+    request_id: string
+    details: string
+}
 
 proc redact_secrets(raw: string) -> string
 {
@@ -14,8 +24,75 @@ proc redact_secrets(raw: string) -> string
     out = str.replace(out, "apikey=", "apikey=[REDACTED]")
     out = str.replace(out, "api_key=", "api_key=[REDACTED]")
     out = str.replace(out, "jwt=", "jwt=[REDACTED]")
+    out = str.replace(out, "Authorization:", "Authorization:[REDACTED]")
+    out = str.replace(out, "PRIVATE KEY", "[REDACTED-PRIVATE-KEY]")
+    out = str.replace(out, "-----BEGIN", "[REDACTED-KEY-BEGIN]")
+    out = str.replace(out, "-----END", "[REDACTED-KEY-END]")
     out = str.replace(out, "Authorization: Bearer ", "Authorization: Bearer [REDACTED]")
     out = str.replace(out, "authorization: bearer ", "authorization: bearer [REDACTED]")
 
     give out
+}
+
+proc sanitize_path(path: string) -> string?
+{
+    let p = str.trim(path)
+    if p == "" { give null }
+    if str.contains(p, "../") || str.contains(p, "..\\") { give null }
+    if str.contains(p, "\n") || str.contains(p, "\r") { give null }
+    give p
+}
+
+proc shell_sensitive(raw: string) -> bool
+{
+    let s = str.trim(raw)
+    if str.contains(s, "$(") { give true }
+    if str.contains(s, "`") { give true }
+    if str.contains(s, ";") { give true }
+    if str.contains(s, "&&") { give true }
+    if str.contains(s, "||") { give true }
+    if str.contains(s, "|") { give true }
+    give false
+}
+
+proc strict_mode() -> bool
+{
+    let v = process.env("DOTS_SECURITY_STRICT")
+    give v == "1" || v == "true"
+}
+
+proc clamp_error_message(raw: string, max_len: i32) -> string
+{
+    if max_len <= 0 { max_len = 512 }
+    let t = redact_secrets(raw)
+    if t.len <= max_len { give t }
+
+    let out = ""
+    let i: i32 = 0
+    loop while i < max_len
+    {
+        out = out + str.from_i64(t[i])
+        i = i + 1
+    }
+    give out + "...(truncated)"
+}
+
+proc command_allowed(bin: string, allow: [string]) -> bool
+{
+    loop a in allow
+    {
+        if a == bin { give true }
+    }
+    give false
+}
+
+proc audit_event(action: string, actor: string, details: string) -> AuditEvent
+{
+    give AuditEvent(
+        action,
+        actor,
+        process.env("DOTS_RUN_ID"),
+        process.env("DOTS_REQUEST_ID"),
+        clamp_error_message(details, 2048)
+    )
 }

@@ -1,0 +1,6 @@
+space core/parser/ast/pipeline
+
+form PipelineExpr
+{
+    stages_csv: string
+}

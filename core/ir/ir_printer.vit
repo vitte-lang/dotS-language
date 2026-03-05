@@ -1,0 +1,72 @@
+space core/ir/printer
+
+pull core/str
+pull core/ir/node
+
+proc value_json(v: node.IRValue?) -> string
+{
+    if v == null { give "null" }
+    give "{\"id\":" + str.from_i64(v.id) + ",\"typ\":\"" + v.typ + "\",\"name\":\"" + v.name + "\"}"
+}
+
+proc args_json(args: [node.IRValue]) -> string
+{
+    let out = ""
+    let i: i32 = 0
+    loop while i < args.len
+    {
+        if i > 0 { out = out + "," }
+        out = out + value_json(args[i])
+        i = i + 1
+    }
+    give "[" + out + "]"
+}
+
+proc instr_json(i: node.IRInstr) -> string
+{
+    give "{" +
+        "\"id\":" + str.from_i64(i.id) + "," +
+        "\"op\":\"" + i.op + "\"," +
+        "\"dst\":" + value_json(i.dst) + "," +
+        "\"args\":" + args_json(i.args) + "," +
+        "\"literal\":\"" + str.replace(i.literal, "\"", "'") + "\"," +
+        "\"source\":{\"file\":\"" + str.replace(i.source.file, "\"", "'") + "\",\"line\":" + str.from_i64(i.source.line) + ",\"col\":" + str.from_i64(i.source.col) + "}," +
+        "\"cost\":" + str.from_i64(i.cost) +
+    "}"
+}
+
+proc block_json(b: node.IRBlock) -> string
+{
+    let out = ""
+    let i: i32 = 0
+    loop while i < b.instrs.len
+    {
+        if i > 0 { out = out + "," }
+        out = out + instr_json(b.instrs[i])
+        i = i + 1
+    }
+
+    give "{" +
+        "\"name\":\"" + b.name + "\"," +
+        "\"instrs\":[" + out + "]," +
+        "\"term\":{\"kind\":\"" + b.term.kind + "\",\"then\":\"" + b.term.then_block + "\",\"else\":\"" + b.term.else_block + "\"}" +
+    "}"
+}
+
+proc emit_json_stable(m: node.IRModule) -> string
+{
+    let out = ""
+    let i: i32 = 0
+    loop while i < m.blocks.len
+    {
+        if i > 0 { out = out + "," }
+        out = out + block_json(m.blocks[i])
+        i = i + 1
+    }
+
+    give "{" +
+        "\"schema_version\":\"" + m.schema_version + "\"," +
+        "\"name\":\"" + m.name + "\"," +
+        "\"blocks\":[" + out + "]" +
+    "}"
+}

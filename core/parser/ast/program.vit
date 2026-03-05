@@ -1,0 +1,6 @@
+space core/parser/ast/program
+
+form Program
+{
+    nodes_json: string
+}

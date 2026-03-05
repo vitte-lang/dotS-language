@@ -1,0 +1,15 @@
+.test.core.config.migration.v1_to_v2.
+.begin.
+.assert.config.migration.ok."threads -> workers".
+.assert.config.migration.ok."schema_version injected".
+.assert.config.migration.idempotent."run twice same output".
+.ret.
+.end.
+
+.test.core.config.schema.compatibility.
+.begin.
+.assert.config.schema.ok."1.1.0".
+.assert.config.schema.fail."0.9.0".
+.assert.config.schema.fail."2.0.0".
+.ret.
+.end.

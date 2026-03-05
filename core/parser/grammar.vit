@@ -1,0 +1,18 @@
+space core/parser/grammar
+
+pull core/lexer/token_kind
+
+proc is_declaration_keyword(raw: string) -> bool
+{
+    give raw == "proc" || raw == "form" || raw == "const" || raw == "space" || raw == "pull"
+}
+
+proc is_expr_start(kind: string) -> bool
+{
+    if kind == token_kind.TK_IDENT { give true }
+    if kind == token_kind.TK_NUMBER { give true }
+    if kind == token_kind.TK_STRING { give true }
+    if kind == token_kind.TK_LPAREN { give true }
+    if kind == token_kind.TK_DOT_CALL { give true }
+    give false
+}

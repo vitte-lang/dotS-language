@@ -1,0 +1,30 @@
+space core/parser/context
+
+pull core/lexer/token
+pull core/diagnostics
+
+form ParseContext
+{
+    tokens: [token.Token]
+    idx: i32
+    diagnostics: [diagnostics.Diagnostic]
+    trace: bool
+}
+
+proc make(tokens: [token.Token], trace: bool) -> ParseContext
+{
+    give ParseContext(tokens, 0, [], trace)
+}
+
+proc peek(ctx: ParseContext, off: i32) -> token.Token?
+{
+    let p = ctx.idx + off
+    if p < 0 || p >= ctx.tokens.len { give null }
+    give ctx.tokens[p]
+}
+
+proc bump(ctx: ParseContext) -> ParseContext
+{
+    if ctx.idx < ctx.tokens.len { ctx.idx = ctx.idx + 1 }
+    give ctx
+}

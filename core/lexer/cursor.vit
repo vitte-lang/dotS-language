@@ -1,0 +1,35 @@
+space core/lexer/cursor
+
+pull core/source/location
+
+form Cursor
+{
+    text: string
+    idx: i64
+    line_starts: [i64]
+}
+
+proc make(text: string) -> Cursor
+{
+    give Cursor(text, 0, location.build_line_index(text))
+}
+
+proc eof(c: Cursor) -> bool
+{
+    give c.idx >= c.text.len
+}
+
+proc peek(c: Cursor, off: i64) -> i64
+{
+    let p = c.idx + off
+    if p < 0 || p >= c.text.len { give -1 }
+    give c.text[p]
+}
+
+proc bump(c: Cursor, n: i64) -> Cursor
+{
+    c.idx = c.idx + n
+    if c.idx < 0 { c.idx = 0 }
+    if c.idx > c.text.len { c.idx = c.text.len }
+    give c
+}

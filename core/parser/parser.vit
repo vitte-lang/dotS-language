@@ -1,0 +1,218 @@
+space core/parser
+
+pull core/str
+pull core/process
+pull core/lexer
+pull core/lexer/token
+pull core/lexer/token_kind
+pull core/parser/context
+pull core/parser/grammar
+pull core/parser/precedence
+pull core/parser/diagnostics
+pull core/parser/recovery
+pull core/diagnostics
+
+form AstNode
+{
+    id: i64
+    kind: string
+    value: string
+    children: [AstNode]
+    line: i32
+    col: i32
+}
+
+form ParseResult
+{
+    ok: bool
+    root: AstNode
+    diagnostics: [diagnostics.Diagnostic]
+}
+
+proc make_node(id: i64, kind: string, value: string, children: [AstNode], line: i32, col: i32) -> AstNode
+{
+    give AstNode(id, kind, value, children, line, col)
+}
+
+proc trace_enabled() -> bool
+{
+    let v = process.env("DOTS_PARSE_TRACE")
+    give v == "1" || v == "true"
+}
+
+proc parse_primary(ctx: context.ParseContext, next_id: i64) -> (AstNode, context.ParseContext, i64)
+{
+    let t = context.peek(ctx, 0)
+    if t == null
+    {
+        let n = make_node(next_id, "missing", "<eof>", [], 1, 1)
+        give (n, ctx, next_id + 1)
+    }
+
+    if t.kind == token_kind.TK_NUMBER || t.kind == token_kind.TK_STRING || t.kind == token_kind.TK_IDENT || t.kind == token_kind.TK_DOT_CALL
+    {
+        let n = make_node(next_id, t.kind, t.lexeme, [], t.sp.start_pos.line, t.sp.start_pos.col)
+        give (n, context.bump(ctx), next_id + 1)
+    }
+
+    if t.kind == token_kind.TK_LPAREN
+    {
+        let c1 = context.bump(ctx)
+        let expr, c2, n2 = parse_expr(c1, 0, next_id + 1)
+        let rp = context.peek(c2, 0)
+        if rp != null && rp.kind == token_kind.TK_RPAREN
+        {
+            let n = make_node(next_id, "group", "", [expr], t.sp.start_pos.line, t.sp.start_pos.col)
+            give (n, context.bump(c2), n2)
+        }
+        c2.diagnostics = c2.diagnostics.push(diagnostics.missing_token(t.sp.start_pos.line, t.sp.start_pos.col, ")"))
+        let n3 = make_node(next_id, "group", "", [expr], t.sp.start_pos.line, t.sp.start_pos.col)
+        give (n3, c2, n2)
+    }
+
+    ctx.diagnostics = ctx.diagnostics.push(diagnostics.unexpected_token(t, "expression"))
+    let rec = recovery.sync(ctx)
+    let n4 = make_node(next_id, "error", t.lexeme, [], t.sp.start_pos.line, t.sp.start_pos.col)
+    give (n4, rec, next_id + 1)
+}
+
+proc token_to_op(t: token.Token?) -> string
+{
+    if t == null { give "" }
+    if t.kind == token_kind.TK_EQUAL { give "=" }
+    if t.kind == token_kind.TK_IDENT
+    {
+        if t.lexeme == "and" || t.lexeme == "or" { give t.lexeme }
+    }
+    if t.kind == token_kind.TK_UNKNOWN
+    {
+        if t.lexeme == "+" || t.lexeme == "-" || t.lexeme == "*" || t.lexeme == "/" || t.lexeme == "<" || t.lexeme == ">" { give t.lexeme }
+    }
+    give ""
+}
+
+proc parse_expr(ctx: context.ParseContext, min_bp: i32, next_id: i64) -> (AstNode, context.ParseContext, i64)
+{
+    let lhs, c1, id1 = parse_primary(ctx, next_id)
+    let left = lhs
+    let cur = c1
+    let nid = id1
+
+    loop while true
+    {
+        let op_t = context.peek(cur, 0)
+        let op = token_to_op(op_t)
+        if op == "" { break }
+
+        let bp = precedence.value(op)
+        if bp < min_bp { break }
+
+        cur = context.bump(cur)
+        let rhs, c2, id2 = parse_expr(cur, bp + 1, nid)
+        left = make_node(nid, "binary", op, [left, rhs], left.line, left.col)
+        cur = c2
+        nid = id2 + 1
+    }
+
+    give (left, cur, nid)
+}
+
+proc parse_decl(ctx: context.ParseContext, next_id: i64) -> (AstNode, context.ParseContext, i64)
+{
+    let t = context.peek(ctx, 0)
+    if t == null
+    {
+        let n = make_node(next_id, "eof", "", [], 1, 1)
+        give (n, ctx, next_id + 1)
+    }
+
+    if t.kind == token_kind.TK_KEYWORD && grammar.is_declaration_keyword(t.lexeme)
+    {
+        let c1 = context.bump(ctx)
+        let name_t = context.peek(c1, 0)
+        let name = ""
+        let c2 = c1
+        if name_t != null && name_t.kind == token_kind.TK_IDENT
+        {
+            name = name_t.lexeme
+            c2 = context.bump(c1)
+        }
+        let n = make_node(next_id, "decl_" + t.lexeme, name, [], t.sp.start_pos.line, t.sp.start_pos.col)
+        give (n, c2, next_id + 1)
+    }
+
+    let ex, c3, id3 = parse_expr(ctx, 0, next_id)
+    give (make_node(id3, "stmt_expr", "", [ex], ex.line, ex.col), c3, id3 + 1)
+}
+
+proc parse(text: string) -> ParseResult
+{
+    let lexed = lexer.lex(text)
+    let ctx = context.make(lexed.tokens, trace_enabled())
+    let cur = ctx
+
+    let items: [AstNode] = []
+    let nid: i64 = 1
+
+    loop while true
+    {
+        let t = context.peek(cur, 0)
+        if t == null { break }
+        if t.kind == token_kind.TK_EOF { break }
+
+        let n, c2, id2 = parse_decl(cur, nid)
+        items = items.push(n)
+        cur = c2
+        nid = id2
+
+        let nt = context.peek(cur, 0)
+        if nt != null && nt.kind == token_kind.TK_NEWLINE
+        {
+            cur = context.bump(cur)
+        }
+        else if nt != null && nt.kind != token_kind.TK_EOF && nt.kind != token_kind.TK_RBRACE
+        {
+            cur = recovery.sync(cur)
+            let nt2 = context.peek(cur, 0)
+            if nt2 != null && nt2.kind == token_kind.TK_NEWLINE
+            {
+                cur = context.bump(cur)
+            }
+        }
+    }
+
+    let root = make_node(0, "program", "", items, 1, 1)
+    let diags = lexed.diagnostics
+    loop d in cur.diagnostics
+    {
+        diags = diags.push(d)
+    }
+
+    give ParseResult(diags.len == 0, root, diags)
+}
+
+proc ast_json(n: AstNode) -> string
+{
+    let kids = ""
+    let i: i32 = 0
+    loop while i < n.children.len
+    {
+        if i > 0 { kids = kids + "," }
+        kids = kids + ast_json(n.children[i])
+        i = i + 1
+    }
+
+    give "{" +
+        "\"id\":" + str.from_i64(n.id) + "," +
+        "\"kind\":\"" + str.replace(n.kind, "\"", "'") + "\"," +
+        "\"value\":\"" + str.replace(n.value, "\"", "'") + "\"," +
+        "\"line\":" + str.from_i64(n.line) + "," +
+        "\"col\":" + str.from_i64(n.col) + "," +
+        "\"children\":[" + kids + "]" +
+    "}"
+}
+
+proc ast_json_stable(root: AstNode) -> string
+{
+    give "{\"schema_version\":\"1.1.0\",\"ast\":" + ast_json(root) + "}"
+}

@@ -1,0 +1,15 @@
+space core/lexer/keyword
+
+proc table() -> [string]
+{
+    give ["space", "pull", "form", "proc", "const", "let", "give", "loop", "if", "else", "entry", "at"]
+}
+
+proc is_keyword(raw: string) -> bool
+{
+    loop k in table()
+    {
+        if raw == k { give true }
+    }
+    give false
+}

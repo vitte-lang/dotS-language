@@ -1,0 +1,122 @@
+space core/diagnostics
+
+pull core/str
+
+const SCHEMA_VERSION: string = "1.1.0"
+
+form RelatedInfo
+{
+    file: string
+    line: i32
+    col: i32
+    message: string
+}
+
+form QuickFix
+{
+    kind: string
+    title: string
+    replacement: string
+}
+
+form DiagnosticMeta
+{
+    code: string
+    severity: string
+    category: string
+    fixable: bool
+    docs_url: string
+}
+
+form Diagnostic
+{
+    code: string
+    severity: string
+    category: string
+    message: string
+    file: string
+    line: i32
+    col: i32
+    end_line: i32
+    end_col: i32
+    fixable: bool
+    docs_url: string
+    source: string
+    quick_fixes: [QuickFix]
+    related: [RelatedInfo]
+}
+
+proc meta_catalog() -> [DiagnosticMeta]
+{
+    give [
+        DiagnosticMeta("DOTS0001", "error", "lexer", true, "docs/grammar.md#DOTS0001"),
+        DiagnosticMeta("DOTS0002", "error", "parser", true, "docs/grammar.md#DOTS0002"),
+        DiagnosticMeta("DOTS0003", "error", "semantic", false, "docs/grammar.md#DOTS0003"),
+        DiagnosticMeta("DOTS0004", "warning", "style", true, "docs/grammar.md#DOTS0004"),
+        DiagnosticMeta("DOTS0005", "error", "runtime", false, "docs/runtime.md#DOTS0005"),
+        DiagnosticMeta("DOTS0006", "warning", "security", true, "docs/runtime.md#DOTS0006"),
+        DiagnosticMeta("DOTS0007", "info", "performance", false, "docs/runtime.md#DOTS0007")
+    ]
+}
+
+proc lookup_meta(code: string) -> DiagnosticMeta?
+{
+    loop m in meta_catalog()
+    {
+        if m.code == code { give m }
+    }
+    give null
+}
+
+proc default_meta() -> DiagnosticMeta
+{
+    give DiagnosticMeta("DOTS0000", "error", "generic", false, "docs/grammar.md")
+}
+
+proc make(code: string, message: string, file: string, line: i32, col: i32, end_line: i32, end_col: i32, source: string) -> Diagnostic
+{
+    let m = lookup_meta(code)
+    if m == null { m = default_meta() }
+
+    give Diagnostic(
+        m.code,
+        m.severity,
+        m.category,
+        message,
+        file,
+        line,
+        col,
+        end_line,
+        end_col,
+        m.fixable,
+        m.docs_url,
+        source,
+        [],
+        []
+    )
+}
+
+proc with_quick_fix(d: Diagnostic, kind: string, title: string, replacement: string) -> Diagnostic
+{
+    d.quick_fixes = d.quick_fixes.push(QuickFix(kind, title, replacement))
+    give d
+}
+
+proc with_related(d: Diagnostic, file: string, line: i32, col: i32, message: string) -> Diagnostic
+{
+    d.related = d.related.push(RelatedInfo(file, line, col, message))
+    give d
+}
+
+proc identity(d: Diagnostic) -> string
+{
+    give d.code + "|" + d.file + "|" + str.from_i64(d.line) + "|" + str.from_i64(d.col) + "|" + d.message
+}
+
+proc by_severity_rank(sev: string) -> i32
+{
+    if sev == "error" { give 0 }
+    if sev == "warning" { give 1 }
+    if sev == "info" { give 2 }
+    give 3
+}

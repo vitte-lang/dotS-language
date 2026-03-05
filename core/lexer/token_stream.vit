@@ -1,0 +1,27 @@
+space core/lexer/stream
+
+pull core/lexer/token
+
+form TokenStream
+{
+    tokens: [token.Token]
+    idx: i32
+}
+
+proc make(tokens: [token.Token]) -> TokenStream
+{
+    give TokenStream(tokens, 0)
+}
+
+proc peek(s: TokenStream, off: i32) -> token.Token?
+{
+    let p = s.idx + off
+    if p < 0 || p >= s.tokens.len { give null }
+    give s.tokens[p]
+}
+
+proc bump(s: TokenStream) -> TokenStream
+{
+    if s.idx < s.tokens.len { s.idx = s.idx + 1 }
+    give s
+}

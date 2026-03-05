@@ -1,0 +1,8 @@
+space core/parser/ast/function
+
+form FunctionDecl
+{
+    name: string
+    params_csv: string
+    return_type: string
+}

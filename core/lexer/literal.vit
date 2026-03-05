@@ -1,0 +1,34 @@
+space core/lexer/literal
+
+pull core/str
+
+proc is_digit(c: i64) -> bool
+{
+    give c >= 48 && c <= 57
+}
+
+proc is_alpha(c: i64) -> bool
+{
+    give (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c == 95
+}
+
+proc is_alnum(c: i64) -> bool
+{
+    give is_alpha(c) || is_digit(c)
+}
+
+proc valid_escape(c: i64) -> bool
+{
+    give c == 110 || c == 116 || c == 114 || c == 34 || c == 92
+}
+
+proc unescape(raw: string) -> string
+{
+    let out = raw
+    out = str.replace(out, "\\n", "\n")
+    out = str.replace(out, "\\t", "\t")
+    out = str.replace(out, "\\r", "\r")
+    out = str.replace(out, "\\\"", "\"")
+    out = str.replace(out, "\\\\", "\\")
+    give out
+}

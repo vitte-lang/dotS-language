@@ -1,0 +1,195 @@
+space core/diagnostics/reporter
+
+pull core/str
+pull core/diagnostics
+
+form Budget
+{
+    max_per_file: i32
+    max_total: i32
+}
+
+form Diff
+{
+    added: [diagnostics.Diagnostic]
+    removed: [diagnostics.Diagnostic]
+    unchanged: [diagnostics.Diagnostic]
+}
+
+proc default_budget() -> Budget
+{
+    give Budget(100, 1000)
+}
+
+proc identity_in(list: [diagnostics.Diagnostic], id: string) -> bool
+{
+    loop d in list
+    {
+        if diagnostics.identity(d) == id { give true }
+    }
+    give false
+}
+
+proc dedupe(items: [diagnostics.Diagnostic]) -> [diagnostics.Diagnostic]
+{
+    let out: [diagnostics.Diagnostic] = []
+    loop d in items
+    {
+        let id = diagnostics.identity(d)
+        if !identity_in(out, id)
+        {
+            out = out.push(d)
+        }
+    }
+    give out
+}
+
+proc should_swap(a: diagnostics.Diagnostic, b: diagnostics.Diagnostic) -> bool
+{
+    let ra = diagnostics.by_severity_rank(a.severity)
+    let rb = diagnostics.by_severity_rank(b.severity)
+    if ra > rb { give true }
+    if ra < rb { give false }
+
+    if a.file > b.file { give true }
+    if a.file < b.file { give false }
+
+    if a.line > b.line { give true }
+    if a.line < b.line { give false }
+
+    if a.col > b.col { give true }
+    if a.col < b.col { give false }
+
+    give a.code > b.code
+}
+
+proc sort_stable(items: [diagnostics.Diagnostic]) -> [diagnostics.Diagnostic]
+{
+    let out = items
+    let i: i32 = 0
+    loop while i < out.len
+    {
+        let j: i32 = i + 1
+        loop while j < out.len
+        {
+            if should_swap(out[i], out[j])
+            {
+                let tmp = out[i]
+                out[i] = out[j]
+                out[j] = tmp
+            }
+            j = j + 1
+        }
+        i = i + 1
+    }
+    give out
+}
+
+proc apply_budget(items: [diagnostics.Diagnostic], budget: Budget) -> [diagnostics.Diagnostic]
+{
+    let out: [diagnostics.Diagnostic] = []
+    let counts: [string] = []
+
+    loop d in items
+    {
+        if out.len >= budget.max_total { break }
+
+        let key = d.file
+        let found = false
+        let idx: i32 = 0
+
+        loop while idx < counts.len
+        {
+            let p = str.split(counts[idx], "=")
+            if p.len >= 2 && p[0] == key
+            {
+                let c = str.to_i64(p[1])
+                if c >= budget.max_per_file
+                {
+                    found = true
+                }
+                else
+                {
+                    counts[idx] = key + "=" + str.from_i64(c + 1)
+                }
+                break
+            }
+            idx = idx + 1
+        }
+
+        if idx == counts.len
+        {
+            counts = counts.push(key + "=1")
+        }
+
+        if found { continue }
+        out = out.push(d)
+    }
+
+    give out
+}
+
+proc normalize(items: [diagnostics.Diagnostic], budget: Budget) -> [diagnostics.Diagnostic]
+{
+    give apply_budget(sort_stable(dedupe(items)), budget)
+}
+
+proc diff(prev: [diagnostics.Diagnostic], next: [diagnostics.Diagnostic]) -> Diff
+{
+    let p = dedupe(prev)
+    let n = dedupe(next)
+
+    let added: [diagnostics.Diagnostic] = []
+    let removed: [diagnostics.Diagnostic] = []
+    let unchanged: [diagnostics.Diagnostic] = []
+
+    loop d in n
+    {
+        let id = diagnostics.identity(d)
+        if identity_in(p, id)
+        {
+            unchanged = unchanged.push(d)
+        }
+        else
+        {
+            added = added.push(d)
+        }
+    }
+
+    loop d2 in p
+    {
+        let id2 = diagnostics.identity(d2)
+        if !identity_in(n, id2)
+        {
+            removed = removed.push(d2)
+        }
+    }
+
+    give Diff(added, removed, unchanged)
+}
+
+proc map_error(layer: string, message: string) -> diagnostics.Diagnostic
+{
+    if layer == "lexer"
+    {
+        let d = diagnostics.make("DOTS0001", message, "<memory>", 1, 1, 1, 1, "lexer")
+        d = diagnostics.with_quick_fix(d, "replace", "Fix invalid token", "<token>")
+        give d
+    }
+
+    if layer == "parser"
+    {
+        let d2 = diagnostics.make("DOTS0002", message, "<memory>", 1, 1, 1, 1, "parser")
+        d2 = diagnostics.with_quick_fix(d2, "insert", "Insert missing token", ";")
+        give d2
+    }
+
+    if layer == "semantic"
+    {
+        let d3 = diagnostics.make("DOTS0003", message, "<memory>", 1, 1, 1, 1, "semantic")
+        d3 = diagnostics.with_quick_fix(d3, "rename", "Rename symbol", "new_name")
+        give d3
+    }
+
+    give diagnostics.make("DOTS0005", message, "<memory>", 1, 1, 1, 1, "runtime")
+}

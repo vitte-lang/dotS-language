@@ -1,0 +1,6 @@
+space core/parser/ast/enum
+
+form EnumDecl
+{
+    name: string
+}

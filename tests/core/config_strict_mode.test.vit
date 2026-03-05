@@ -1,0 +1,20 @@
+.test.core.config.strict.unknown_key.
+.begin.
+.assert.config.strict.fail."UNKNOWN_KEY from file".
+.assert.config.strict.fail."UNKNOWN_KEY from env".
+.assert.config.strict.fail."UNKNOWN_KEY from cli".
+.ret.
+.end.
+
+.test.core.config.non_strict.unknown_key.
+.begin.
+.assert.config.strict.warn."unknown key ignored".
+.assert.config.strict.ok."fallback explicit logged".
+.ret.
+.end.
+
+.test.core.config.cross_field.coherence.
+.begin.
+.assert.config.fail."timeout_overall_ms < timeout_request_ms".
+.ret.
+.end.

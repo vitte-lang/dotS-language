@@ -1,0 +1,67 @@
+space core/ir/builder
+
+pull core/parser
+pull core/ir/node
+
+form BuildResult
+{
+    module: node.IRModule
+}
+
+proc val(id: i64, typ: string, name: string) -> node.IRValue
+{
+    give node.IRValue(id, typ, name)
+}
+
+proc span(file: string, line: i32, col: i32) -> node.SourceSpan
+{
+    give node.SourceSpan(file, line, col)
+}
+
+proc estimate_cost(op: string) -> i32
+{
+    if op == "const" { give 1 }
+    if op == "add" || op == "sub" || op == "mul" || op == "div" { give 2 }
+    if op == "call" { give 8 }
+    if op == "branch" { give 1 }
+    give 1
+}
+
+proc build_from_ast(ast: parser.AstNode, name: string, file: string) -> BuildResult
+{
+    let instrs: [node.IRInstr] = []
+    let vid: i64 = 1
+    let iid: i64 = 1
+
+    loop n in ast.children
+    {
+        if n.kind == "stmt_expr" && n.children.len > 0
+        {
+            let e = n.children[0]
+            if e.kind == "number"
+            {
+                let dst = val(vid, "i64", "%" + str.from_i64(vid))
+                instrs = instrs.push(node.IRInstr(iid, "const", dst, [], e.value, span(file, e.line, e.col), estimate_cost("const")))
+                vid = vid + 1
+                iid = iid + 1
+            }
+            else if e.kind == "binary" && e.children.len >= 2
+            {
+                let dst2 = val(vid, "i64", "%" + str.from_i64(vid))
+                let a = val(vid - 1, "i64", "%" + str.from_i64(vid - 1))
+                let b = val(vid - 2, "i64", "%" + str.from_i64(vid - 2))
+                let op = "add"
+                if e.value == "-" { op = "sub" }
+                if e.value == "*" { op = "mul" }
+                if e.value == "/" { op = "div" }
+                instrs = instrs.push(node.IRInstr(iid, op, dst2, [a, b], "", span(file, e.line, e.col), estimate_cost(op)))
+                vid = vid + 1
+                iid = iid + 1
+            }
+        }
+    }
+
+    let term = node.IRTerminator("ret", null, "", "")
+    let blk = node.IRBlock("entry", instrs, term)
+    give BuildResult(node.IRModule("1.1.0", name, [blk]))
+}

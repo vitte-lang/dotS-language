@@ -1,0 +1,37 @@
+space core/source/cache
+
+pull core/str
+pull core/fs
+pull core/source/file
+
+proc index_file() -> string
+{
+    give ".dots/source_cache.v1.jsonl"
+}
+
+proc put(sf: file.SourceFile) -> void
+{
+    fs.mkdir_p(".dots")
+    let line = "{" +
+        "\"uri\":\"" + str.replace(sf.uri, "\"", "'") + "\"," +
+        "\"path\":\"" + str.replace(sf.path, "\"", "'") + "\"," +
+        "\"version\":" + str.from_i64(sf.version) + "," +
+        "\"hash\":\"" + sf.hash + "\"" +
+    "}"
+    fs.append_file(index_file(), line + "\n")
+}
+
+proc get_last_by_uri(uri: string) -> string
+{
+    if !fs.exists(index_file()) { give "" }
+    let lines = str.split(fs.read_file(index_file()), "\n")
+    let last = ""
+    loop l in lines
+    {
+        if str.contains(l, "\"uri\":\"" + str.replace(uri, "\"", "'") + "\"")
+        {
+            last = l
+        }
+    }
+    give last
+}

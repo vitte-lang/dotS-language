@@ -1,0 +1,14 @@
+.test.core.source.offset_position.roundtrip.
+.begin.
+.assert.source.roundtrip.ok.
+.assert.source.crlf_lf.ok.
+.ret.
+.end.
+
+.test.core.source.uri.normalize.
+.begin.
+.assert.uri.ok."file:///tmp/a.dotS".
+.assert.uri.ok."/tmp/a.dotS".
+.assert.uri.decode.percent.
+.ret.
+.end.

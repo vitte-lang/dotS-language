@@ -1,0 +1,61 @@
+space core/ir
+
+pull core/ir/node
+
+form VerifyResult
+{
+    ok: bool
+    errors: [string]
+}
+
+proc verify(m: node.IRModule) -> VerifyResult
+{
+    let errs: [string] = []
+
+    if m.blocks.len == 0
+    {
+        errs = errs.push("IR module has no blocks")
+        give VerifyResult(false, errs)
+    }
+
+    loop b in m.blocks
+    {
+        let seen_defs: [i64] = []
+
+        loop ins in b.instrs
+        {
+            if ins.dst != null
+            {
+                let id = ins.dst.id
+                let dup = false
+                loop d in seen_defs
+                {
+                    if d == id { dup = true }
+                }
+                if dup
+                {
+                    errs = errs.push("duplicate SSA def in block " + b.name + " for id=" + str.from_i64(id))
+                }
+                else
+                {
+                    seen_defs = seen_defs.push(id)
+                }
+            }
+
+            loop a in ins.args
+            {
+                let exists = false
+                loop d2 in seen_defs
+                {
+                    if d2 == a.id { exists = true }
+                }
+                if !exists
+                {
+                    errs = errs.push("use-before-def in block " + b.name + " for id=" + str.from_i64(a.id))
+                }
+            }
+        }
+    }
+
+    give VerifyResult(errs.len == 0, errs)
+}

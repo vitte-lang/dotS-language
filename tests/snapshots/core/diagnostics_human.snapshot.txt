@@ -1,0 +1,1 @@
+main.dotS:1:1 error DOTS0002 unexpected token [parser]

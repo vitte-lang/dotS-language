@@ -1,0 +1,306 @@
+space core/environment
+
+pull core/str
+pull core/fs
+pull core/time
+pull core/process
+pull core/config
+
+form EnvSpec
+{
+    env_key: string
+    aliases_csv: string
+    config_key: string
+    kind: string
+    default_value: string
+    min_v: i64
+    max_v: i64
+    enum_csv: string
+    secret: bool
+}
+
+form EnvPair
+{
+    key: string
+    value: string
+    source: string
+    warning: string
+}
+
+proc spec_table() -> [EnvSpec]
+{
+    give [
+        EnvSpec("DOTS_CONFIG_SCHEMA_VERSION", "", "schema_version", "string", config.CONFIG_SCHEMA_VERSION, 0, 0, "", false),
+        EnvSpec("DOTS_MODE", "DOTS_ENV", "mode", "enum", "dev", 0, 0, "dev,ci,perf,release", false),
+        EnvSpec("DOTS_COLOR", "", "color", "enum", "auto", 0, 0, "auto,always,never", false),
+        EnvSpec("DOTS_PROFILE", "", "profile", "string", "dev", 0, 0, "", false),
+        EnvSpec("DOTS_WORKSPACE_ROOT", "", "workspace_root", "path", process.cwd(), 0, 0, "", false),
+        EnvSpec("DOTS_CACHE_DIR", "", "cache_dir", "path", ".dots-cache", 0, 0, "", false),
+        EnvSpec("DOTS_REGISTRY_URL", "DOTS_ENDPOINT", "registry_url", "url", "https://registry.example.invalid:443", 0, 0, "", false),
+        EnvSpec("DOTS_INCLUDE", "DOTS_INCLUDE_LIST", "include", "list", "", 0, 0, "", false),
+        EnvSpec("DOTS_RETRIES", "", "retries", "int", "2", 0, 100, "", false),
+        EnvSpec("DOTS_WORKERS", "DOTS_THREADS", "workers", "int", "4", 1, 4096, "", false),
+        EnvSpec("DOTS_TIMEOUT_REQUEST", "DOTS_REQUEST_TIMEOUT", "timeout_request_ms", "duration", "30000", 1, 3600000, "", false),
+        EnvSpec("DOTS_TIMEOUT_OVERALL", "DOTS_OVERALL_TIMEOUT", "timeout_overall_ms", "duration", "120000", 1, 7200000, "", false),
+        EnvSpec("DOTS_CONFIG_STRICT", "", "strict", "bool", "false", 0, 0, "", false),
+        EnvSpec("DOTS_DRY_RUN_CONFIG", "", "dry_run_config", "bool", "false", 0, 0, "", false),
+        EnvSpec("DOTS_API_TOKEN", "DOTS_TOKEN", "api_token", "string", "", 0, 0, "", true)
+    ]
+}
+
+proc get_env_with_alias(spec: EnvSpec) -> EnvPair
+{
+    let v = process.env(spec.env_key)
+    if v != "" { give EnvPair(spec.env_key, v, "env", "") }
+
+    let aliases = str.split(spec.aliases_csv, ",")
+    loop a in aliases
+    {
+        let alias = str.trim(a)
+        if alias == "" { continue }
+        let vv = process.env(alias)
+        if vv != ""
+        {
+            give EnvPair(spec.env_key, vv, "env", "legacy alias used: " + alias + " -> " + spec.env_key)
+        }
+    }
+
+    give EnvPair(spec.env_key, "", "default", "")
+}
+
+proc parse_bool(raw: string) -> bool?
+{
+    if config.is_true(raw) { give true }
+    if config.is_false(raw) { give false }
+    give null
+}
+
+proc parse_duration_ms(raw: string) -> i64?
+{
+    let v = str.trim(raw)
+    if v == "" { give null }
+
+    if str.ends_with(v, "ms")
+    {
+        give config.parse_i64_strict(str.replace(v, "ms", ""))
+    }
+
+    if str.ends_with(v, "s")
+    {
+        let sec = config.parse_i64_strict(str.replace(v, "s", ""))
+        if sec == null { give null }
+        give sec * 1000
+    }
+
+    if str.ends_with(v, "m")
+    {
+        let min = config.parse_i64_strict(str.replace(v, "m", ""))
+        if min == null { give null }
+        give min * 60000
+    }
+
+    give config.parse_i64_strict(v)
+}
+
+proc parse_bytes(raw: string) -> i64?
+{
+    let v = str.trim(raw)
+    if v == "" { give null }
+
+    if str.ends_with(v, "KB") || str.ends_with(v, "kb")
+    {
+        let n = config.parse_i64_strict(str.replace(str.replace(v, "KB", ""), "kb", ""))
+        if n == null { give null }
+        give n * 1024
+    }
+
+    if str.ends_with(v, "MB") || str.ends_with(v, "mb")
+    {
+        let n2 = config.parse_i64_strict(str.replace(str.replace(v, "MB", ""), "mb", ""))
+        if n2 == null { give null }
+        give n2 * 1024 * 1024
+    }
+
+    if str.ends_with(v, "GB") || str.ends_with(v, "gb")
+    {
+        let n3 = config.parse_i64_strict(str.replace(str.replace(v, "GB", ""), "gb", ""))
+        if n3 == null { give null }
+        give n3 * 1024 * 1024 * 1024
+    }
+
+    give config.parse_i64_strict(v)
+}
+
+proc normalize_value(spec: EnvSpec, raw: string) -> string?
+{
+    let v = str.trim(raw)
+
+    if spec.kind == "bool"
+    {
+        let b = parse_bool(v)
+        if b == null { give null }
+        give str.from_bool(b)
+    }
+
+    if spec.kind == "int"
+    {
+        let n = config.parse_i64_bounded(v, spec.min_v, spec.max_v)
+        if n == null { give null }
+        give str.from_i64(n)
+    }
+
+    if spec.kind == "duration"
+    {
+        let d = parse_duration_ms(v)
+        if d == null { give null }
+        if d < spec.min_v || d > spec.max_v { give null }
+        give str.from_i64(d)
+    }
+
+    if spec.kind == "bytes"
+    {
+        let b2 = parse_bytes(v)
+        if b2 == null { give null }
+        if b2 < spec.min_v || b2 > spec.max_v { give null }
+        give str.from_i64(b2)
+    }
+
+    if spec.kind == "enum"
+    {
+        if !config.validate_enum(v, str.split(spec.enum_csv, ",")) { give null }
+        give v
+    }
+
+    if spec.kind == "list"
+    {
+        give config.join_csv(config.normalize_csv_list(v))
+    }
+
+    if spec.kind == "path"
+    {
+        let x = config.validate_path(v, false, process.cwd())
+        if x != null { give null }
+        give v
+    }
+
+    if spec.kind == "url"
+    {
+        let u = config.validate_url(v)
+        if u != null { give null }
+        give v
+    }
+
+    give v
+}
+
+proc cache_file() -> string
+{
+    give ".dots/config_env_snapshot.v1.cache"
+}
+
+proc cache_ttl_ms() -> i64
+{
+    let n = config.parse_i64_strict(process.env("DOTS_CONFIG_ENV_CACHE_MS"))
+    if n == null || n < 0 { give 3000 }
+    give n
+}
+
+proc env_snapshot(refresh: bool) -> [config.ConfigKV]
+{
+    fs.mkdir_p(".dots")
+
+    if !refresh && fs.exists(cache_file())
+    {
+        let age = time.now_ms() - fs.mtime_ms(cache_file())
+        if age <= cache_ttl_ms()
+        {
+            give parse_cache(fs.read_file(cache_file()))
+        }
+    }
+
+    let out: [config.ConfigKV] = []
+    let warn_once: [string] = []
+
+    loop spec in spec_table()
+    {
+        let p = get_env_with_alias(spec)
+
+        if p.warning != ""
+        {
+            let seen = false
+            loop w in warn_once
+            {
+                if w == p.warning { seen = true }
+            }
+            if !seen { warn_once = warn_once.push(p.warning) }
+        }
+
+        if p.value == ""
+        {
+            continue
+        }
+
+        let norm = normalize_value(spec, p.value)
+        if norm == null
+        {
+            # fallback explicite: garder default hors mode strict, ignorer sinon.
+            out = out.push(config.ConfigKV(spec.config_key, spec.default_value, "default", "<env-fallback:" + spec.env_key + ">"))
+            continue
+        }
+
+        out = out.push(config.ConfigKV(spec.config_key, norm, "env", spec.env_key))
+    }
+
+    fs.write_file(cache_file(), encode_cache(out, warn_once))
+    give out
+}
+
+proc encode_cache(items: [config.ConfigKV], warnings: [string]) -> string
+{
+    let out = ""
+    out = out + "schema_version=1\n"
+    out = out + "cached_at_ms=" + str.from_i64(time.now_ms()) + "\n"
+    loop w in warnings
+    {
+        out = out + "warn=" + str.replace(w, "\n", " ") + "\n"
+    }
+    loop kv in items
+    {
+        out = out + kv.key + "|" + kv.value + "|" + kv.source + "|" + kv.source_path + "\n"
+    }
+    give out
+}
+
+proc parse_cache(raw: string) -> [config.ConfigKV]
+{
+    let out: [config.ConfigKV] = []
+    let lines = str.split(raw, "\n")
+    loop l in lines
+    {
+        let line = str.trim(l)
+        if line == "" { continue }
+        if str.starts_with(line, "schema_version=") { continue }
+        if str.starts_with(line, "cached_at_ms=") { continue }
+        if str.starts_with(line, "warn=") { continue }
+
+        let p = str.split(line, "|")
+        if p.len < 4 { continue }
+        out = out.push(config.ConfigKV(p[0], p[1], p[2], p[3]))
+    }
+    give out
+}
+
+proc env_to_pairs_redacted(items: [config.ConfigKV]) -> [string]
+{
+    let out: [string] = []
+    loop kv in items
+    {
+        let v = kv.value
+        if str.contains(kv.key, "token") || str.contains(kv.key, "secret") || str.contains(kv.source_path, "TOKEN")
+        {
+            v = "***REDACTED***"
+        }
+        out = out.push(kv.key + "=" + v + " (source=" + kv.source + ")")
+    }
+    give out
+}
