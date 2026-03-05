@@ -33,8 +33,8 @@ bash scripts/uninstall_geany_runtime.sh
 
 ## Runtime profiles
 
-- `editor/geany/dotS-language.runtime.geany`
-- `editor/geany/dotS-language.strict-runtime.geany`
+- `editor/geany/profiles/dotS-language.runtime.geany`
+- `editor/geany/profiles/dotS-language.strict-runtime.geany`
 
 Strict env profile uses:
 - `DOTS_RUNTIME_STRICT=1`

@@ -24,8 +24,8 @@ check "$ROOT/editor/geany/filedefs/snippets.VIT.conf"
 check "$ROOT/editor/geany/tools/geany.conf"
 check "$ROOT/editor/geany/tools/keybindings.conf"
 check "$ROOT/editor/geany/tools/plugins/geanylsp.conf"
-check "$ROOT/editor/geany/dotS-language.runtime.geany"
-check "$ROOT/editor/geany/dotS-language.strict-runtime.geany"
+check "$ROOT/editor/geany/profiles/dotS-language.runtime.geany"
+check "$ROOT/editor/geany/profiles/dotS-language.strict-runtime.geany"
 
 
 echo "== scripts =="

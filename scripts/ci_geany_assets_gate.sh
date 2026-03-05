@@ -19,8 +19,8 @@ required_source=(
   editor/geany/tools/geany.conf
   editor/geany/tools/keybindings.conf
   editor/geany/tools/plugins/geanylsp.conf
-  editor/geany/dotS-language.runtime.geany
-  editor/geany/dotS-language.strict-runtime.geany
+  editor/geany/profiles/dotS-language.runtime.geany
+  editor/geany/profiles/dotS-language.strict-runtime.geany
 )
 
 required_scripts=(
@@ -48,15 +48,15 @@ for sec in "[styling=C]" "[keywords]" "[settings]" "[indentation]" "[build-menu]
 done
 
 rg -n "save_all_before_build=true" editor/geany/tools/geany.conf >/dev/null || { echo "save_all_before_build missing"; fail=1; }
-rg -n "DOTS_RUNTIME_STRICT=1" editor/geany/tools/geany.conf editor/geany/dotS-language.strict-runtime.geany >/dev/null || { echo "strict env missing"; fail=1; }
-rg -n "DOTS_RUNTIME_SEED=" editor/geany/tools/geany.conf editor/geany/dotS-language.strict-runtime.geany >/dev/null || { echo "runtime seed missing"; fail=1; }
+rg -n "DOTS_RUNTIME_STRICT=1" editor/geany/tools/geany.conf editor/geany/profiles/dotS-language.strict-runtime.geany >/dev/null || { echo "strict env missing"; fail=1; }
+rg -n "DOTS_RUNTIME_SEED=" editor/geany/tools/geany.conf editor/geany/profiles/dotS-language.strict-runtime.geany >/dev/null || { echo "runtime seed missing"; fail=1; }
 
 # Ensure commands referenced by Geany assets point to scripts that exist.
 for asset in \
   editor/geany/filedefs/filetypes.DOTS.conf \
   editor/geany/filedefs/filetypes.VIT.conf \
-  editor/geany/dotS-language.runtime.geany \
-  editor/geany/dotS-language.strict-runtime.geany \
+  editor/geany/profiles/dotS-language.runtime.geany \
+  editor/geany/profiles/dotS-language.strict-runtime.geany \
   editor/geany/tools/plugins/geanylsp.conf; do
   while IFS= read -r ref; do
     path="${ref%\"}"
@@ -69,8 +69,8 @@ done
 if rg -n "curl|wget|http://|https://" \
   editor/geany/filedefs \
   editor/geany/tools \
-  editor/geany/dotS-language.runtime.geany \
-  editor/geany/dotS-language.strict-runtime.geany >/dev/null 2>&1; then
+  editor/geany/profiles/dotS-language.runtime.geany \
+  editor/geany/profiles/dotS-language.strict-runtime.geany >/dev/null 2>&1; then
   echo "network calls forbidden in geany assets"
   fail=1
 fi

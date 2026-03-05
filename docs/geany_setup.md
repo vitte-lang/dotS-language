@@ -5,7 +5,7 @@
 bash scripts/install_geany_dots.sh
 bash scripts/geany_sync_project.sh
 bash scripts/geany_doctor.sh
-geany dotS-language.geany
+geany editor/geany/profiles/dotS-language.geany
 ```
 
 ## Installed files
@@ -27,10 +27,12 @@ geany dotS-language.geany
 - CLI healthcheck
 
 ## Profiles
-- `dotS-language.geany`
-- `dotS-language.strict-dev.geany`
-- `dotS-language.perf.geany`
-- `dotS-language.docs.geany`
+- `editor/geany/profiles/dotS-language.geany`
+- `editor/geany/profiles/dotS-language.strict-dev.geany`
+- `editor/geany/profiles/dotS-language.perf.geany`
+- `editor/geany/profiles/dotS-language.docs.geany`
+- `editor/geany/profiles/dotS-language.runtime.geany`
+- `editor/geany/profiles/dotS-language.strict-runtime.geany`
 
 ## Uninstall / rollback
 ```bash
