@@ -1,0 +1,5 @@
+.test.parser.${suite:name}.${case_name:case}.
+.begin.
+.assert.parse.ok."${input:.io.print.\"ok\".}".
+.ret.
+.end.

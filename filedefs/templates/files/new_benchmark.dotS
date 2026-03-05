@@ -1,0 +1,12 @@
+# Benchmark template aligned with bench/_template.dotS
+.bench.name."${name}".
+.bench.schema_version."1.1.0".
+.bench.mode.quick.
+.bench.runs.7.
+.bench.warmup.2.
+.bench.seed.424242.
+
+.summary.begin.
+.summary.metric."avg_ms".0.
+.summary.metric."p95_ms".0.
+.summary.end.

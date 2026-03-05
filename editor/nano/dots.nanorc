@@ -1,0 +1,8 @@
+syntax "dots" "\.(dotS|vit)$"
+comment "# "
+color brightblue "\<(space|pull|form|proc|const|let|give|loop|if|else|entry|at)\>"
+color brightgreen "\"(\\.|[^\"])*\""
+color brightyellow "\<[0-9]+\>"
+color brightblack "#.*$"
+color cyan "\.[A-Za-z0-9_\.\"/:-]+\."
+

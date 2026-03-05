@@ -1,0 +1,64 @@
+space dots/cmd/${command}
+
+pull core/io
+pull core/process
+
+form Parsed
+{
+    help: bool
+}
+
+proc usage() -> void
+{
+    io.print("usage: dots ${command} [--help]")
+}
+
+proc parse(argv: [string]) -> Parsed
+{
+    let out = Parsed(false)
+    let i: i32 = 1
+    loop while i < argv.len
+    {
+        let a = argv[i]
+        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        i = i + 1
+    }
+    give out
+}
+
+proc validate(p: Parsed) -> string?
+{
+    if p.help { give null }
+    give null
+}
+
+proc execute(p: Parsed) -> i32
+{
+    if p.help
+    {
+        usage()
+        give 0
+    }
+
+    io.print("${command}: TODO implement")
+    give 0
+}
+
+proc main() -> i32
+{
+    let p = parse(process.args())
+    let err = validate(p)
+    if err != null
+    {
+        io.print("dots: " + err)
+        usage()
+        give 2
+    }
+    give execute(p)
+}
+
+entry at dots/cmd/${command}
+{
+    give main()
+}
+
