@@ -1,0 +1,3 @@
+Command: profile
+Usage: dots profile
+Command options: see registry

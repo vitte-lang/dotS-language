@@ -1,0 +1,3 @@
+Command: doc
+Usage: dots doc
+Command options: see registry

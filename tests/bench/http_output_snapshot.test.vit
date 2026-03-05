@@ -1,0 +1,8 @@
+.test.bench.http.output.snapshot.
+.begin.
+.sys.exec.capture."DOTS_BENCH_MODE=smoke dots run bench/http_bench.dotS".$out.
+.assert.contains.$out."\"bench\":\"http\"".
+.assert.contains.$out."\"req_per_s\"".
+.assert.contains.$out."\"timeouts\"".
+.ret.
+.end.

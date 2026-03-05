@@ -1,0 +1,8 @@
+.test.bench.interpreter.output.snapshot.
+.begin.
+.sys.exec.capture."DOTS_BENCH_MODE=smoke dots run bench/interpreter_bench.dotS".$out.
+.assert.contains.$out."\"bench\":\"interpreter\"".
+.assert.contains.$out."\"ops_per_s\"".
+.assert.contains.$out."\"stddev_ms\"".
+.ret.
+.end.

@@ -1,0 +1,3 @@
+Command: login
+Usage: dots login
+Command options: see registry

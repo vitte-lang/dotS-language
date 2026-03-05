@@ -1,0 +1,3 @@
+Command: help
+Usage: dots help
+Command options: see registry

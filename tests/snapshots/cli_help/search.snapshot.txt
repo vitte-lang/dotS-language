@@ -1,0 +1,3 @@
+Command: search
+Usage: dots search
+Command options: see registry

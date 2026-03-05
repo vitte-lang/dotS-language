@@ -1,0 +1,58 @@
+.test.ffi.cli.subcommands.available.
+.begin.
+.assert.parse.ok."dots ffi doctor --json".
+.assert.parse.ok."dots ffi status --json".
+.assert.parse.ok."dots ffi status --prom".
+.assert.parse.ok."dots ffi reset --json".
+.assert.parse.ok."dots ffi events --lines 10 --follow".
+.ret.
+.end.
+
+.test.ffi.mode.fake.real.contract.
+.begin.
+.sys.exec.capture."bash -lc 'DOTS_FFI_MODE=fake rg -n \"proc ffi_mode|fake|real\" ffi/c/ffi.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.ffi.protocol.strict.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"protocol_version|parse_payload|REAL_BACKEND_PROTOCOL|error_type|error_message|error_category|retry_after_ms\" ffi/protocol.vit ffi/c/ffi.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.ffi.wasm.timeout.memory.import_export.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"DOTS_WASM_FUEL|DOTS_WASM_MEMORY_PAGES|wasm_validate_exports|cooperative timeout\" ffi/wasm/wasm_runtime.vit ffi/wasm/wasm_loader.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.ffi.cpp.abi.mismatch.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"cdecl|stdcall|system|ABI_MISMATCH\" ffi/c/ffi.vit ffi/cpp/binding.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.ffi.python.gil.policy.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"DOTS_FFI_PY_GIL|required|single-thread|none\" ffi/python/py_bridge.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.ffi.lock.cb.race.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"stale|lock|half_open|circuit breaker|probe\" ffi/c/ffi.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.ffi.metrics.prom.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"call_total|error_total|latency_p95|ffi_status_print_prom|dots_ffi_\" ffi/c/ffi.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

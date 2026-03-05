@@ -1,0 +1,3 @@
+Command: graph
+Usage: dots graph
+Command options: see registry

@@ -1,0 +1,95 @@
+# completion_schema_version=1.1.0
+
+function __dots_bench_names
+  if test -d bench
+    for f in bench/*.dotS
+      if test -f $f
+        basename $f .dotS
+      end
+    end
+  end
+end
+
+function __dots_symbol_names
+  if type -q rg
+    rg -n '^(proc|form|space)\s+[A-Za-z0-9_/]+' . -g '*.dotS' -g '*.vit' 2>/dev/null | sed -E 's/.*(proc|form|space)\s+([A-Za-z0-9_\/]+).*/\2/' | sort -u | head -n 200
+  end
+end
+
+function __dots_profiles
+  if test -f .dots/config.v2.conf
+    sed -n 's/^profile\.\([^=]*\)=.*/\1/p' .dots/config.v2.conf
+  end
+end
+
+complete -c dots -f -a 'help'
+complete -c dots -f -a 'version'
+complete -c dots -f -a 'completion'
+complete -c dots -f -a 'cache'
+complete -c dots -f -a 'doctor'
+complete -c dots -f -a 'fmt'
+complete -c dots -f -a 'lint'
+complete -c dots -f -a 'check'
+complete -c dots -f -a 'run'
+complete -c dots -f -a 'eval'
+complete -c dots -f -a 'build'
+complete -c dots -f -a 'test'
+complete -c dots -f -a 'benchmark'
+complete -c dots -f -a 'profile'
+complete -c dots -f -a 'graph'
+complete -c dots -f -a 'doc'
+complete -c dots -f -a 'search'
+complete -c dots -f -a 'init'
+complete -c dots -f -a 'install'
+complete -c dots -f -a 'uninstall'
+complete -c dots -f -a 'update'
+complete -c dots -f -a 'publish'
+complete -c dots -f -a 'package'
+complete -c dots -f -a 'lock'
+complete -c dots -f -a 'clean'
+complete -c dots -f -a 'config'
+complete -c dots -f -a 'repl'
+complete -c dots -f -a 'debug'
+complete -c dots -f -a 'plugins'
+complete -c dots -f -a 'registry'
+complete -c dots -f -a 'verify'
+complete -c dots -f -a 'status'
+complete -c dots -f -a 'whoami'
+complete -c dots -f -a 'login'
+complete -c dots -f -a 'logout'
+complete -c dots -f -a 'self'
+complete -c dots -f -a 'b'
+complete -c dots -f -a 'h'
+complete -c dots -f -a 'r'
+complete -c dots -f -a 't'
+complete -c dots -f -a 'v'
+complete -c dots -l config
+complete -c dots -l cwd
+complete -c dots -l json
+complete -c dots -l quiet
+complete -c dots -l verbose
+complete -c dots -l trace
+complete -c dots -l timeout-ms
+complete -c dots -l profile
+complete -c dots -l color
+complete -c dots -l no-color
+complete -c dots -l yes
+complete -c dots -l force
+complete -c dots -l dry-run
+complete -c dots -l include
+complete -c dots -n '__fish_seen_subcommand_from completion' -a 'bash zsh fish validate registry-json'
+complete -c dots -n '__fish_seen_subcommand_from registry' -a 'status reset'
+complete -c dots -n '__fish_seen_subcommand_from publish' -l tag -a 'latest next'
+complete -c dots -n '__fish_seen_subcommand_from benchmark' -l mode -a 'smoke quick stress nightly'
+complete -c dots -n '__fish_seen_subcommand_from benchmark' -l output -a 'jsonl csv prom'
+complete -c dots -n '__fish_seen_subcommand_from benchmark' -l bench -a '(__dots_bench_names)'
+complete -c dots -n '__fish_seen_subcommand_from run' -l entry -a '(__dots_symbol_names)'
+complete -c dots -n '__fish_seen_subcommand_from run' -l env-file -F
+complete -c dots -n '__fish_seen_subcommand_from search' -l kind -a 'fn module type'
+complete -c dots -n '__fish_seen_subcommand_from lint' -l format -a 'stylish json sarif'
+complete -c dots -n '__fish_seen_subcommand_from doc' -l format -a 'md html json'
+complete -c dots -n '__fish_seen_subcommand_from graph' -l format -a 'mermaid dot json'
+complete -c dots -l color -a 'auto always never'
+complete -c dots -l profile -a '(__dots_profiles)'
+complete -c dots -l config -F
+complete -c dots -l cwd -a '(__fish_complete_directories)'

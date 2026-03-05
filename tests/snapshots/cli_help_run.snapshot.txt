@@ -1,0 +1,7 @@
+Command: run
+Usage: dots run [--watch] [--env-file <f>] [--entry <e>] [--args -- ...] <file>
+Command options:
+  --watch
+  --env-file
+  --entry
+  --args

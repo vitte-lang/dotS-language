@@ -1,0 +1,3 @@
+Command: debug
+Usage: dots debug
+Command options: see registry

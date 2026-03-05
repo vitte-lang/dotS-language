@@ -1,0 +1,19 @@
+# Install snippets in: ~/.config/geany/snippets.conf
+# Copy this section under snippets.conf.
+
+[DOTS]
+proc=proc ${name:main}(${args}) -> ${ret:i32}\n{\n    ${cursor}\n}\n
+form=form ${name:Type}\n{\n    ${cursor}\n}\n
+entry=entry at ${path:dots/cmd/${name}}\n{\n    give main()\n}\n
+parse_validate_execute=proc parse(argv: [string]) -> Parsed\n{\n    ${cursor}\n}\n\nproc validate(p: Parsed) -> string?\n{\n    give null\n}\n\nproc execute(p: Parsed) -> i32\n{\n    give 0\n}\n
+command_handler_full=form ${name:Args}\n{\n    help: bool\n    json: bool\n}\n\nproc usage() -> void\n{\n    io.print(\"usage: dots ${name} [--help] [--json]\")\n}\n\nproc parse(argv: [string]) -> ${name:Args}\n{\n    let out = ${name:Args}(false, false)\n    ${cursor}\n    give out\n}\n\nproc validate(a: ${name:Args}) -> string?\n{\n    if a.help { give null }\n    give null\n}\n\nproc execute(a: ${name:Args}) -> i32\n{\n    if a.help { usage(); give 0 }\n    if a.json\n    {\n        print_json_response_ex(\"1.1.0\", \"${name}\", \"ok\", \"\", \"\", [], [])\n        give 0\n    }\n    give 0\n}\n
+json_response_110=print_json_response_ex(\"1.1.0\", \"${command}\", \"${status:ok}\", \"${error_type}\", \"${error_message}\", [${keys}], [${values}])\n
+typed_error=if !${cond:ok}\n{\n    print_json_response_ex(\"1.1.0\", \"${command}\", \"error\", \"${error_type:E_RUNTIME}\", \"${error_message}\", [], [])\n    give 1\n}\n
+bench_quick=.bench.mode.quick.\n.bench.runs.3.\n.bench.warmup.1.\n
+bench_stress=.bench.mode.stress.\n.bench.runs.15.\n.bench.warmup.5.\n
+bench_nightly=.bench.mode.nightly.\n.bench.runs.25.\n.bench.warmup.8.\n
+msg_ok_en=print_json_response_ex(\"1.1.0\", \"${command}\", \"ok\", \"\", \"\", [\"message\"], [\"ok\"])\n
+msg_err_en=print_json_response_ex(\"1.1.0\", \"${command}\", \"error\", \"${error_type}\", \"${error_message}\", [], [])\n
+msg_ok_fr=print_json_response_ex(\"1.1.0\", \"${command}\", \"ok\", \"\", \"\", [\"message\"], [\"succes\"])\n
+msg_err_fr=print_json_response_ex(\"1.1.0\", \"${command}\", \"error\", \"${error_type}\", \"${error_message}\", [], [])\n
+vit_test_skeleton=.test.${suite:name}.${case_name:case}.\n.begin.\n.sys.exec.capture.\"${cmd:dots --help}\".$out.\n.assert.contains.$out.\"${expected}\".\n.ret.\n.end.\n

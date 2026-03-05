@@ -1,0 +1,20 @@
+.test.lsp.snapshots.files.present.
+.begin.
+.sys.exec.capture."bash -lc 'test -f tests/snapshots/lsp/completion.snapshot.json && test -f tests/snapshots/lsp/hover.snapshot.json && test -f tests/snapshots/lsp/definition.snapshot.json && test -f tests/snapshots/lsp/rename.snapshot.json && test -f tests/snapshots/lsp/diagnostics.snapshot.json && test -f tests/snapshots/lsp/semantic_tokens.snapshot.json && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.lsp.snapshots.strict.jsonrpc_shape.
+.begin.
+.sys.exec.capture."bash -lc 'for f in tests/snapshots/lsp/*.json; do grep -q \"\\\"jsonrpc\\\":\\\"2.0\\\"\" \"$f\" || exit 1; done; echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.lsp.snapshots.strict.methods.fields.
+.begin.
+.sys.exec.capture."bash -lc 'grep -q \"\\\"insertTextFormat\\\"\" tests/snapshots/lsp/completion.snapshot.json && grep -q \"\\\"kind\\\":\\\"markdown\\\"\\|\\\"kind\\\":\\\"markdown\\\"\" tests/snapshots/lsp/hover.snapshot.json && grep -q \"\\\"documentChanges\\\"\" tests/snapshots/lsp/rename.snapshot.json && grep -q \"\\\"publishDiagnostics\\\"\" tests/snapshots/lsp/diagnostics.snapshot.json && grep -q \"\\\"data\\\"\" tests/snapshots/lsp/semantic_tokens.snapshot.json && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

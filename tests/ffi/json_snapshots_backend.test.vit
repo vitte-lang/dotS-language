@@ -1,0 +1,15 @@
+.test.ffi.json.success.snapshot.
+.begin.
+.sys.exec.capture."bash -lc 'echo \"{\\\"schema_version\\\":\\\"1.1.0\\\",\\\"protocol_version\\\":\\\"1.1\\\",\\\"status\\\":\\\"ok\\\",\\\"value\\\":\\\"ok\\\",\\\"run_id\\\":\\\"r1\\\",\\\"request_id\\\":\\\"q1\\\"}\"'".$out.
+.assert.contains.$out."\"schema_version\":\"1.1.0\"".
+.assert.contains.$out."\"protocol_version\":\"1.1\"".
+.ret.
+.end.
+
+.test.ffi.json.error.snapshot.
+.begin.
+.sys.exec.capture."bash -lc 'echo \"{\\\"schema_version\\\":\\\"1.1.0\\\",\\\"status\\\":\\\"error\\\",\\\"error_type\\\":\\\"CALL_FAILED\\\",\\\"error_message\\\":\\\"x\\\",\\\"error_category\\\":\\\"call\\\",\\\"retryable\\\":\\\"true\\\",\\\"retry_after_ms\\\":\\\"10\\\"}\"'".$out.
+.assert.contains.$out."\"error_type\":\"CALL_FAILED\"".
+.assert.contains.$out."\"error_category\":\"call\"".
+.ret.
+.end.

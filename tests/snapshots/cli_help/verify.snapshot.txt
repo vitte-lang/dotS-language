@@ -1,0 +1,3 @@
+Command: verify
+Usage: dots verify
+Command options: see registry

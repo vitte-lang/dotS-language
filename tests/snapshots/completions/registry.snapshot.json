@@ -1,0 +1,329 @@
+{
+  "completion_schema_version": "1.1.0",
+  "source": "cmd/dots/registry.vit",
+  "commands": [
+    {
+      "name": "help",
+      "aliases": [
+        "h"
+      ],
+      "options": []
+    },
+    {
+      "name": "version",
+      "aliases": [
+        "v"
+      ],
+      "options": [
+        "--short",
+        "--json"
+      ]
+    },
+    {
+      "name": "completion",
+      "aliases": [],
+      "options": []
+    },
+    {
+      "name": "cache",
+      "aliases": [],
+      "options": [
+        "--max-size",
+        "--max-age-ms",
+        "--json"
+      ]
+    },
+    {
+      "name": "doctor",
+      "aliases": [],
+      "options": [
+        "--fix",
+        "--registry",
+        "--network-timeout-ms",
+        "--json"
+      ]
+    },
+    {
+      "name": "fmt",
+      "aliases": [],
+      "options": [
+        "--check",
+        "--write",
+        "--stdin",
+        "--diff",
+        "--json"
+      ]
+    },
+    {
+      "name": "lint",
+      "aliases": [],
+      "options": [
+        "--fix",
+        "--rule",
+        "--exclude-rule",
+        "--format"
+      ]
+    },
+    {
+      "name": "check",
+      "aliases": [],
+      "options": []
+    },
+    {
+      "name": "run",
+      "aliases": [
+        "r"
+      ],
+      "options": [
+        "--watch",
+        "--env-file",
+        "--entry",
+        "--args"
+      ]
+    },
+    {
+      "name": "eval",
+      "aliases": [],
+      "options": [
+        "--expr",
+        "--json"
+      ]
+    },
+    {
+      "name": "build",
+      "aliases": [
+        "b"
+      ],
+      "options": [
+        "--target",
+        "--release",
+        "--debug",
+        "--out-dir",
+        "--emit",
+        "--strip",
+        "--dry-run",
+        "--no-cache",
+        "--json"
+      ]
+    },
+    {
+      "name": "test",
+      "aliases": [
+        "t"
+      ],
+      "options": [
+        "--filter",
+        "--shuffle",
+        "--seed",
+        "--update-snapshots",
+        "--junit"
+      ]
+    },
+    {
+      "name": "benchmark",
+      "aliases": [],
+      "options": [
+        "--mode",
+        "--bench",
+        "--output",
+        "--compare",
+        "--fail-on-regression"
+      ]
+    },
+    {
+      "name": "profile",
+      "aliases": [],
+      "options": [
+        "--cpu",
+        "--mem",
+        "--flamegraph",
+        "--output"
+      ]
+    },
+    {
+      "name": "graph",
+      "aliases": [],
+      "options": [
+        "--format",
+        "--focus",
+        "--reverse",
+        "--cycles",
+        "--depth"
+      ]
+    },
+    {
+      "name": "doc",
+      "aliases": [],
+      "options": [
+        "--format",
+        "--private",
+        "--open",
+        "--json"
+      ]
+    },
+    {
+      "name": "search",
+      "aliases": [],
+      "options": [
+        "--kind",
+        "--fuzzy",
+        "--rebuild",
+        "--json"
+      ]
+    },
+    {
+      "name": "init",
+      "aliases": [],
+      "options": [
+        "--template",
+        "--name",
+        "--org",
+        "--license"
+      ]
+    },
+    {
+      "name": "install",
+      "aliases": [],
+      "options": [
+        "--global",
+        "--local",
+        "--locked",
+        "--offline",
+        "--mirror",
+        "--retries",
+        "--jitter-ms",
+        "--cb-threshold",
+        "--dry-run",
+        "--json"
+      ]
+    },
+    {
+      "name": "uninstall",
+      "aliases": [],
+      "options": [
+        "--global",
+        "--local"
+      ]
+    },
+    {
+      "name": "update",
+      "aliases": [],
+      "options": [
+        "--all",
+        "--interactive",
+        "--offline",
+        "--mirror",
+        "--retries",
+        "--jitter-ms",
+        "--cb-threshold",
+        "--dry-run",
+        "--json"
+      ]
+    },
+    {
+      "name": "publish",
+      "aliases": [],
+      "options": [
+        "--dry-run",
+        "--tag",
+        "--offline",
+        "--mirror",
+        "--retries",
+        "--jitter-ms",
+        "--cb-threshold",
+        "--json"
+      ]
+    },
+    {
+      "name": "package",
+      "aliases": [],
+      "options": []
+    },
+    {
+      "name": "lock",
+      "aliases": [],
+      "options": [
+        "--strict",
+        "--out",
+        "--json"
+      ]
+    },
+    {
+      "name": "clean",
+      "aliases": [],
+      "options": [
+        "--all",
+        "--target",
+        "--dry-run"
+      ]
+    },
+    {
+      "name": "config",
+      "aliases": [],
+      "options": [
+        "--global",
+        "--project",
+        "--json"
+      ]
+    },
+    {
+      "name": "repl",
+      "aliases": [],
+      "options": [
+        "--history-file",
+        "--load"
+      ]
+    },
+    {
+      "name": "debug",
+      "aliases": [],
+      "options": [
+        "--breakpoint",
+        "--attach"
+      ]
+    },
+    {
+      "name": "plugins",
+      "aliases": [],
+      "options": []
+    },
+    {
+      "name": "registry",
+      "aliases": [],
+      "options": [
+        "--json",
+        "--prom"
+      ]
+    },
+    {
+      "name": "verify",
+      "aliases": [],
+      "options": []
+    },
+    {
+      "name": "status",
+      "aliases": [],
+      "options": []
+    },
+    {
+      "name": "whoami",
+      "aliases": [],
+      "options": []
+    },
+    {
+      "name": "login",
+      "aliases": [],
+      "options": []
+    },
+    {
+      "name": "logout",
+      "aliases": [],
+      "options": []
+    },
+    {
+      "name": "self",
+      "aliases": [],
+      "options": []
+    }
+  ]
+}

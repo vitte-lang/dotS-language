@@ -1,0 +1,3 @@
+Command: test
+Usage: dots test
+Command options: see registry

@@ -1,0 +1,3 @@
+Command: cache
+Usage: dots cache
+Command options: see registry

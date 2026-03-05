@@ -1,0 +1,3 @@
+Command: config
+Usage: dots config
+Command options: see registry

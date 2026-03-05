@@ -1,0 +1,20 @@
+.test.lsp.e2e.chunked.concat.framing.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"jsonrpc_parse_frames|Content-Length|exact.len != n|__PARSE_ERROR__\" core/json.vit lsp/server.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.lsp.e2e.cancel.race.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"\\$/cancelRequest|mark_cancelled|in_cancelled|request_cancelled\" lsp/server.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.lsp.e2e.priority.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"textDocument/completion|textDocument/hover|textDocument/references|textDocument/rename\" lsp/server.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

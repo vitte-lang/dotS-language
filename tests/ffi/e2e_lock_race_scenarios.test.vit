@@ -1,0 +1,20 @@
+.test.ffi.e2e.lock.stale.recovery.scenario.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"ffi_lock_try_acquire|DOTS_FFI_LOCK_STALE_MS|lock_stale_recover\" ffi/c/ffi.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.ffi.e2e.refcount.race.scenario.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"refcount|ffi_load_library|ffi_unload|ffi_save_handles\" ffi/c/ffi.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.ffi.e2e.cb.half.open.probe.scenario.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"half_open|probe|cb_open_for_symbol|cb_mark_failure|cb_mark_success\" ffi/c/ffi.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

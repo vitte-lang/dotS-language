@@ -1,0 +1,3 @@
+Command: lsp
+Usage: dots lsp
+Command options: see registry

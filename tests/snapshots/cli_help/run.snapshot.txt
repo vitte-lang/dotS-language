@@ -1,0 +1,3 @@
+Command: run
+Usage: dots run
+Command options: see registry

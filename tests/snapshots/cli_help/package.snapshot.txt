@@ -1,0 +1,3 @@
+Command: package
+Usage: dots package
+Command options: see registry

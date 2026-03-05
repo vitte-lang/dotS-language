@@ -1,0 +1,3 @@
+Command: eval
+Usage: dots eval
+Command options: see registry

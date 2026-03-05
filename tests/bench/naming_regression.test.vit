@@ -1,0 +1,8 @@
+.test.bench.naming.ms_suffix.
+.begin.
+.sys.exec.capture."rg -n '\\$[a-zA-Z0-9_]*duration\\.' bench/*.dotS".$out.
+.assert.empty.$out.
+.sys.exec.capture."rg -n '\\$[a-zA-Z0-9_]*_ms\\.' bench/*.dotS".$ok.
+.assert.not_empty.$ok.
+.ret.
+.end.

@@ -1,0 +1,3 @@
+Command: doctor
+Usage: dots doctor
+Command options: see registry

@@ -1,0 +1,3 @@
+Command: logout
+Usage: dots logout
+Command options: see registry

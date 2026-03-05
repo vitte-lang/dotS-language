@@ -1,0 +1,3 @@
+Command: repl
+Usage: dots repl
+Command options: see registry

@@ -1,0 +1,3 @@
+Command: registry
+Usage: dots registry
+Command options: see registry

@@ -1,0 +1,3 @@
+Command: ffi
+Usage: dots ffi
+Command options: see registry

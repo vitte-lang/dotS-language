@@ -1,0 +1,3 @@
+Command: lock
+Usage: dots lock
+Command options: see registry

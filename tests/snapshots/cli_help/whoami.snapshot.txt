@@ -1,0 +1,3 @@
+Command: whoami
+Usage: dots whoami
+Command options: see registry

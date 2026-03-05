@@ -1,0 +1,3 @@
+Command: init
+Usage: dots init
+Command options: see registry

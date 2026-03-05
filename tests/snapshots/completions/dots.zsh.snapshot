@@ -1,0 +1,59 @@
+#compdef dots
+# completion_schema_version=1.1.0
+
+_dots_bench_names() {
+  local root="${DOTS_COMPLETION_ROOT:-.}"
+  if [[ -d "$root/bench" ]]; then
+    local -a out
+    out=(${root}/bench/*.dotS(N:t:r))
+    print -l -- $out
+  fi
+}
+
+_dots_profiles() {
+  local f=".dots/config.v2.conf"
+  [[ -f "$f" ]] || return 0
+  sed -n 's/^profile\.\([^=]*\)=.*/\1/p' "$f"
+}
+
+_dots_symbols() {
+  local root="${DOTS_COMPLETION_ROOT:-.}"
+  if (( $+commands[rg] )); then
+    rg -n '^(proc|form|space)\s+[A-Za-z0-9_/]+' "$root" -g '*.dotS' -g '*.vit' 2>/dev/null | sed -E 's/.*(proc|form|space)\s+([A-Za-z0-9_\/]+).*/\2/' | sort -u | head -n 200
+  fi
+}
+
+local -a cmds aliases
+cmds=(help version completion cache doctor fmt lint check run eval build test benchmark profile graph doc search init install uninstall update publish package lock clean config repl debug plugins registry verify status whoami login logout self)
+aliases=(b h r t v)
+
+_arguments -C \
+  '*--help[show help]' \
+  '*--json[machine output]' \
+  '*--color[output color]:mode:(auto always never)' \
+  '*--config[config file]:file:_files' \
+  '*--cwd[working directory]:dir:_files -/' \
+  '*--profile[profile name]:profile:->profiles' \
+  '1:command:->command' \
+  '*::args:->args'
+
+case $state in
+  command) _describe -t commands "dots commands" cmds aliases; return ;;
+  profiles) _describe -t profiles "profiles" "$(_dots_profiles)"; return ;;
+  args)
+    local cmd="${words[2]}"
+    case "$cmd" in
+      completion) _values 'completion mode' bash zsh fish validate registry-json ;;
+      registry) _values 'registry op' status reset ;;
+      benchmark) _arguments '*--bench[bench name]:bench:->bench' '*--mode[benchmark mode]:mode:(smoke quick stress nightly)' '*--output[output format]:fmt:(jsonl csv prom)' ;;
+      search) _arguments '*--kind[symbol kind]:kind:(fn module type)' ;;
+      run) _arguments '*--entry[entry symbol]:symbol:->symbols' '*--env-file[env file]:file:_files' ;;
+      publish) _arguments '*--tag[publish tag]:tag:(latest next)' ;;
+      lint) _arguments '*--format[lint format]:fmt:(stylish json sarif)' ;;
+      graph) _arguments '*--format[graph format]:fmt:(mermaid dot json)' ;;
+      doc) _arguments '*--format[doc format]:fmt:(md html json)' ;;
+    esac
+    ;;
+  bench) _describe -t bench "bench names" "$(_dots_bench_names)" ;;
+  symbols) _describe -t symbols "symbols" "$(_dots_symbols)" ;;
+esac

@@ -1,0 +1,3 @@
+Command: uninstall
+Usage: dots uninstall
+Command options: see registry

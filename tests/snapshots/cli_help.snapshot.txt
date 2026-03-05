@@ -1,0 +1,16 @@
+DotS CLI
+Usage: dots [global options] <command> [command options]
+
+Global options:
+  --config <file>
+  --cwd <path>
+  --json
+  --quiet
+  --verbose
+  --trace
+  --timeout-ms <n>
+  --profile <name>
+  --color <m>
+  --no-color
+  --yes
+  --dry-run

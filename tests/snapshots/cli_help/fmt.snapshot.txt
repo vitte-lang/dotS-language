@@ -1,0 +1,3 @@
+Command: fmt
+Usage: dots fmt
+Command options: see registry

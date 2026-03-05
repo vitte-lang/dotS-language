@@ -1,0 +1,3 @@
+Command: clean
+Usage: dots clean
+Command options: see registry

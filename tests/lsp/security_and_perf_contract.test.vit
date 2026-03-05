@@ -1,0 +1,13 @@
+.test.lsp.security.uri.validation.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"normalize_uri|uri_to_path|Invalid params: unknown document|DOTS_LSP_MAX_DIAGNOSTICS\" lsp/model.vit lsp/server.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.lsp.perf.metrics.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"requests_total|errors_total|latency_p95_ms|duration_ms|debounce\" lsp/server.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

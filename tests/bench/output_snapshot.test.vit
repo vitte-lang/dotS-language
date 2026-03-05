@@ -1,0 +1,13 @@
+# Snapshot test for benchmark output format
+# Expect both:
+# - compact human summary lines
+# - one JSON line summary object with stable keys
+
+.test.bench.output.snapshot.
+.begin.
+.sys.exec.capture."dots run bench/json_bench.dotS".$out.
+.assert.contains.$out."summary".
+.assert.contains.$out."\"bench\"".
+.assert.contains.$out."\"run_id\"".
+.ret.
+.end.

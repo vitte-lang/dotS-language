@@ -1,0 +1,13 @@
+.test.lsp.framing.content_length.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"Content-Length|\\\\r\\\\n\\\\r\\\\n|jsonrpc_parse_frames|jsonrpc_frame|write_jsonrpc\" lsp/server.vit core/json.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.lsp.jsonrpc.error.codes.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"-32700|-32600|-32601|-32602|-32603|error_response\" lsp/server.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

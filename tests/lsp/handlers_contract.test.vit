@@ -1,0 +1,13 @@
+.test.lsp.handlers.core.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"initialize|initialized|shutdown|exit|\\$/cancelRequest|didOpen|didChange|didClose|didSave|completion|definition|hover|references|rename|prepareRename|formatting|rangeFormatting|semanticTokens/full|documentSymbol|workspace/symbol|codeAction|codeLens|signatureHelp|workspace/applyEdit|didChangeWatchedFiles|workspace/configuration|workspace/workspaceFolders\" lsp/server.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.lsp.modules.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"completion_result_json|definition_result_json_workspace|hover_result_json|references_result_json_workspace|rename_workspace_edit_json|formatting_edits_json|publish_diagnostics_notification|semantic_tokens_full_json|doc_symbols_json|workspace_symbols_json|code_actions_json|code_lens_json|signature_help_json|apply_edit_preview_json\" lsp/*.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

@@ -1,0 +1,3 @@
+Command: completion
+Usage: dots completion
+Command options: see registry

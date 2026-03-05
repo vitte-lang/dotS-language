@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","id":"2","result":{"contents":{"kind":"markdown","value":"### symbol\\n\\n#### Signature\\n```vit\\nproc symbol() -> void\\n```\\n\\n#### Type\\n`unknown`\\n\\n#### Provenance\\n`persistent-index`\\n\\n#### Location\\n`/tmp/file.vit:1`\\n"}}}

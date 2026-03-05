@@ -1,0 +1,3 @@
+Command: version
+Usage: dots version
+Command options: see registry

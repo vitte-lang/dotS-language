@@ -1,0 +1,8 @@
+.test.bench.json.output.snapshot.
+.begin.
+.sys.exec.capture."DOTS_BENCH_MODE=smoke dots run bench/json_bench.dotS".$out.
+.assert.contains.$out."\"bench\":\"json\"".
+.assert.contains.$out."\"p95_ms\"".
+.assert.contains.$out."\"status\"".
+.ret.
+.end.

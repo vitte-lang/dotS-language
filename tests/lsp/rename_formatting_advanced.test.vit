@@ -1,0 +1,20 @@
+.test.lsp.rename.safety.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"is_valid_identifier|rename_line_safe|skip lines containing quotes|workspace_edit_json\" lsp/rename.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.lsp.references.include_declaration.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"include_declaration|includeDeclaration\" lsp/references.vit lsp/server.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.lsp.range_formatting.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"range_formatting_edits_json|textDocument/rangeFormatting\" lsp/formatting.vit lsp/server.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

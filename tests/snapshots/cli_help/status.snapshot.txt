@@ -1,0 +1,3 @@
+Command: status
+Usage: dots status
+Command options: see registry

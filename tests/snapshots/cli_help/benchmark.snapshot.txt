@@ -1,0 +1,3 @@
+Command: benchmark
+Usage: dots benchmark
+Command options: see registry

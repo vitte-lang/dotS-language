@@ -1,0 +1,3 @@
+Command: update
+Usage: dots update
+Command options: see registry

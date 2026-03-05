@@ -1,0 +1,3 @@
+Command: plugins
+Usage: dots plugins
+Command options: see registry

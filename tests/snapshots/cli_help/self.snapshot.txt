@@ -1,0 +1,3 @@
+Command: self
+Usage: dots self
+Command options: see registry

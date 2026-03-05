@@ -1,0 +1,3 @@
+Command: lint
+Usage: dots lint
+Command options: see registry

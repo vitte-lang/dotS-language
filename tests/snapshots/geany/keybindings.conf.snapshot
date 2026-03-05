@@ -1,0 +1,5 @@
+[keybindings]
+format_current_file=<Primary><Shift>i
+lint_current_file=<Primary><Shift>l
+run_current_file=<Primary><Shift>r
+check_current_file=<Primary><Shift>k

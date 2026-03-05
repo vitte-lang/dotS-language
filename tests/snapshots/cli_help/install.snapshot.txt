@@ -1,0 +1,3 @@
+Command: install
+Usage: dots install
+Command options: see registry

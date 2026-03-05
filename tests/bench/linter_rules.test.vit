@@ -1,0 +1,7 @@
+.test.bench.linter.rules.
+.begin.
+.sys.exec.capture."dots lint bench --rule BENCH001 --rule BENCH010".$out.
+.assert.contains.$out."BENCH001".
+.assert.contains.$out."BENCH010".
+.ret.
+.end.

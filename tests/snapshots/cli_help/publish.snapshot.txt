@@ -1,0 +1,3 @@
+Command: publish
+Usage: dots publish
+Command options: see registry

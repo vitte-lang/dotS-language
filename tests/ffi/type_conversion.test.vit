@@ -1,0 +1,13 @@
+.test.ffi.type.conversion.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"proc ffi_validate_value_for_type|proc ffi_supported_type|i32|i64|f64|bool|string|bytes|ptr\" ffi/c/ffi.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.ffi.signature.validation.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"proc ffi_validate_signature|arity mismatch|unsupported arg type|unsupported return type\" ffi/c/ffi.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
