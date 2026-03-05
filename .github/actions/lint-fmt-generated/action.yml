@@ -1,0 +1,9 @@
+name: lint-fmt-generated
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        bash scripts/lint_vit.sh
+        bash scripts/fmt_vit_check.sh
+        bash scripts/ci_generated_freshness_gate.sh

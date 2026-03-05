@@ -1,0 +1,39 @@
+name: Nightly Perf
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: nightly-perf-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark-nightly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup DotS runtime
+        run: echo "Install dots runtime here"
+      - name: Fetch baseline
+        run: |
+          mkdir -p bench/results
+          echo "baseline fetch placeholder"
+      - name: Run stress/nightly benches
+        run: |
+          DOTS_BENCH_MODE=nightly DOTS_BENCH_FAIL_ON_REGRESSION=true bash scripts/bench.sh run-all
+      - name: Compare against baseline
+        run: |
+          bash scripts/check_perf_budget.sh
+      - name: Snapshot gate
+        run: bash scripts/check_snapshots.sh
+      - name: Upload benchmark artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: bench-nightly-${{ github.run_id }}
+          path: |
+            bench/results
+          if-no-files-found: warn
+          retention-days: 30

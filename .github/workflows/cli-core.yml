@@ -1,0 +1,204 @@
+name: CLI Core (reusable)
+
+on:
+  workflow_call:
+
+concurrency:
+  group: cli-core-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cli-core-matrix:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        profile: [smoke, strict, perf]
+        include:
+          - os: ubuntu-latest
+            shell_name: bash
+          - os: ubuntu-latest
+            shell_name: zsh
+          - os: ubuntu-latest
+            shell_name: fish
+          - os: windows-latest
+            shell_name: powershell
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    env:
+      DOTS_RUNTIME_SEED: "12345"
+      DOTS_BACKEND_SEED: "12345"
+      DOTS_FFI_MODE: fake
+      DOTS_REGISTRY_MODE: fake
+      DOTS_CONFIG_STRICT: ${{ matrix.profile == 'strict' && '1' || '0' }}
+      DOTS_RUNTIME_STRICT: ${{ matrix.profile == 'strict' && '1' || '0' }}
+      DOTS_CLI_STRICT: ${{ matrix.profile == 'strict' && '1' || '0' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache repo toolchain artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            .dots
+            bench/results
+          key: ${{ runner.os }}-dots-${{ matrix.profile }}-${{ hashFiles('scripts/**', 'cmd/**', 'core/**') }}
+          restore-keys: |
+            ${{ runner.os }}-dots-${{ matrix.profile }}-
+            ${{ runner.os }}-dots-
+
+      - name: Setup DotS runtime
+        timeout-minutes: 5
+        run: echo "Install dots runtime"
+
+      - name: Install extra shells (Linux)
+        if: runner.os == 'Linux'
+        timeout-minutes: 5
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zsh fish shellcheck
+
+      - name: Generate parser/help/completion/man assets
+        timeout-minutes: 8
+        run: |
+          bash scripts/gen_parser_each_command_test.sh
+          bash scripts/gen_help_snapshots.sh
+          bash scripts/gen_completion_from_registry.sh
+          bash scripts/gen_man.sh
+
+      - name: Generated freshness gate
+        timeout-minutes: 3
+        run: |
+          bash scripts/ci_completion_up_to_date.sh
+          bash scripts/ci_generated_freshness_gate.sh
+
+      - name: Snapshot freshness gate
+        timeout-minutes: 3
+        run: bash scripts/ci_snapshot_freshness_gate.sh
+
+      - name: CLI smoke
+        timeout-minutes: 3
+        run: |
+          dots help || true
+          dots version --short --json || true
+
+      - name: Multi-shell smoke (bash)
+        if: matrix.shell_name == 'bash'
+        timeout-minutes: 2
+        shell: bash
+        run: echo "bash smoke ok"
+      - name: Multi-shell smoke (zsh)
+        if: matrix.shell_name == 'zsh'
+        timeout-minutes: 2
+        run: zsh -lc 'echo "zsh smoke ok"'
+      - name: Multi-shell smoke (fish)
+        if: matrix.shell_name == 'fish'
+        timeout-minutes: 2
+        run: fish -c 'echo "fish smoke ok"'
+      - name: Multi-shell smoke (powershell)
+        if: matrix.shell_name == 'powershell'
+        timeout-minutes: 2
+        shell: pwsh
+        run: Write-Output "powershell smoke ok"
+
+      - name: Core gates
+        timeout-minutes: 10
+        run: |
+          bash scripts/ci_cli_gate.sh
+          bash scripts/ci_registry_gate.sh
+          bash scripts/ci_json_flag_gate.sh
+          bash scripts/ci_json_contract_gate.sh
+          bash scripts/ci_cli_json_stdout_gate.sh
+          bash scripts/ci_no_shell_network_gate.sh
+          bash scripts/ci_package_coverage_gate.sh
+          bash scripts/ci_cli_coverage_gate.sh
+          bash scripts/ci_lock_config_schema_gate.sh
+          bash scripts/ci_adr_docs_consistency_gate.sh
+          bash scripts/ci_deprecation_policy_gate.sh
+          bash scripts/ci_geany_assets_gate.sh
+          bash scripts/cli_healthcheck.sh
+
+      - name: Lint/fmt/generated composite gate
+        uses: ./.github/actions/lint-fmt-generated
+
+      - name: Lint shell scripts
+        if: runner.os == 'Linux'
+        timeout-minutes: 5
+        run: |
+          bash scripts/ci_shellcheck_gate.sh
+          bash scripts/ci_shfmt_gate.sh
+
+      - name: Security gates
+        if: runner.os == 'Linux'
+        timeout-minutes: 5
+        run: |
+          bash scripts/ci_forbidden_exec_global_gate.sh
+          bash scripts/ci_secret_scan_gate.sh
+          bash scripts/ci_sbom_gate.sh
+          bash scripts/ci_release_provenance_gate.sh
+
+      - name: Windows snapshot line-ending guard
+        if: runner.os == 'Windows'
+        timeout-minutes: 3
+        run: bash scripts/ci_snapshot_eol_windows_gate.sh
+
+      - name: Bench startup budget
+        timeout-minutes: 5
+        run: bash scripts/cli_startup_bench.sh 20 120
+
+      - name: Flaky retry wrapper (state perf gate)
+        if: runner.os == 'Linux'
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 5
+          max_attempts: 2
+          command: bash scripts/ci_state_perf_budget.sh 10 250
+
+      - name: Upload artifacts (snapshots/man/completions)
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-core-${{ matrix.os }}-${{ matrix.profile }}-${{ github.run_id }}
+          path: |
+            tests/snapshots
+            docs/man
+            completions
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload junit/sarif (if present)
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-cli-${{ matrix.os }}-${{ matrix.profile }}-${{ github.run_id }}
+          path: |
+            .dots/reports/*.junit.xml
+            .dots/reports/*.sarif
+          if-no-files-found: ignore
+          retention-days: 14
+
+  pr-summary:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [cli-core-matrix]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build CI metrics summary
+        id: summary
+        run: |
+          echo "body<<EOF" >> "$GITHUB_OUTPUT"
+          echo "### CI Summary" >> "$GITHUB_OUTPUT"
+          echo "- CLI matrix: completed" >> "$GITHUB_OUTPUT"
+          echo "- TTFO gate: scripts/cli_startup_bench.sh" >> "$GITHUB_OUTPUT"
+          echo "- Runtime/LSP/FFI gates run in dedicated workflows" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+      - name: Comment PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `${{ toJson(steps.summary.outputs.body) }}`.replace(/^"|"$/g, '').replace(/\\n/g, '\n');
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            })

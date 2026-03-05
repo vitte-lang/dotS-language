@@ -1,0 +1,30 @@
+name: FFI Gates (reusable)
+
+on:
+  workflow_call:
+
+concurrency:
+  group: ffi-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ffi-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: FFI protocol gate
+        run: bash scripts/ci_real_protocol_gate.sh
+      - name: FFI snapshots present
+        run: |
+          test -d tests/ffi
+          test -d tests/snapshots/cli_json_contract
+      - name: Upload FFI artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffi-${{ github.run_id }}
+          path: |
+            tests/ffi
+            tests/snapshots/cli_json_contract
+          if-no-files-found: warn
+          retention-days: 14

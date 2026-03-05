@@ -1,0 +1,54 @@
+name: Runtime Gates (reusable)
+
+on:
+  workflow_call:
+
+concurrency:
+  group: runtime-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  runtime-gates:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        profile: [smoke, strict, perf]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    env:
+      DOTS_RUNTIME_SEED: "424242"
+      DOTS_BACKEND_SEED: "424242"
+      DOTS_RUNTIME_STRICT: ${{ matrix.profile == 'strict' && '1' || '0' }}
+      DOTS_CLI_STRICT: ${{ matrix.profile == 'strict' && '1' || '0' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Runtime no shell gate
+        timeout-minutes: 3
+        run: bash scripts/ci_runtime_no_shell_gate.sh
+      - name: Runtime perf budget
+        timeout-minutes: 3
+        run: bash scripts/ci_runtime_perf_budget.sh
+      - name: Runtime status contract (json/prom/table)
+        timeout-minutes: 3
+        run: bash scripts/ci_runtime_status_contract_gate.sh
+      - name: Runtime doctor contract
+        timeout-minutes: 3
+        run: bash scripts/ci_runtime_doctor_contract_gate.sh
+      - name: Runtime coverage gate
+        timeout-minutes: 3
+        run: bash scripts/ci_runtime_core_coverage_gate.sh
+      - name: Runtime tests/snapshots
+        timeout-minutes: 5
+        run: |
+          test -d tests/runtime
+          test -d tests/snapshots/runtime
+      - name: Upload runtime artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-${{ matrix.os }}-${{ matrix.profile }}-${{ github.run_id }}
+          path: |
+            tests/snapshots/runtime
+            .dots/runtime_metrics.v1.jsonl
+          if-no-files-found: warn
+          retention-days: 14
