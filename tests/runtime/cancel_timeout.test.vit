@@ -1,0 +1,7 @@
+.test.runtime.cancel.timeout.async_thread_channel.
+.begin.
+.assert.async.await.cancel."CANCELLED".
+.assert.thread.join.timeout."RUNTIME_TIMEOUT".
+.assert.channel.recv.timeout."RUNTIME_TIMEOUT".
+.ret.
+.end.

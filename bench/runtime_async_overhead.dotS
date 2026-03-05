@@ -1,0 +1,23 @@
+space bench.runtime
+
+const RUNS: i64 = 5
+const TASKS: i64 = 500
+
+proc main() -> i64
+{
+    let run: i64 = 0
+    let done: i64 = 0
+
+    loop while run < RUNS
+    {
+        let i: i64 = 0
+        loop while i < TASKS
+        {
+            done = done + 1
+            i = i + 1
+        }
+        run = run + 1
+    }
+
+    give done
+}

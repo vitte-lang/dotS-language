@@ -1,0 +1,7 @@
+.test.runtime.property.channel_mutex_thread.invariants.
+.begin.
+.assert.prop.channel.sent_recv_balance.
+.assert.prop.mutex.owner_consistency.
+.assert.prop.thread.lifecycle_transitions.
+.ret.
+.end.

@@ -1,0 +1,8 @@
+.test.runtime.thread.lifecycle.strict.
+.begin.
+.assert.thread.state."new->running->joined".
+.assert.thread.join.self.fail."DEADLOCK".
+.assert.thread.double_join.fail."INVALID_STATE".
+.assert.thread.detach_after_join.fail."INVALID_STATE".
+.ret.
+.end.

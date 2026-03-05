@@ -1,0 +1,23 @@
+space bench.runtime
+
+const RUNS: i64 = 5
+const MSGS: i64 = 1000
+
+proc main() -> i64
+{
+    let run: i64 = 0
+    let recv: i64 = 0
+
+    loop while run < RUNS
+    {
+        let i: i64 = 0
+        loop while i < MSGS
+        {
+            recv = recv + 1
+            i = i + 1
+        }
+        run = run + 1
+    }
+
+    give recv
+}

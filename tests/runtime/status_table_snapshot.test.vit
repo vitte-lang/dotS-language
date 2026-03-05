@@ -1,0 +1,5 @@
+.test.runtime.status.table.snapshot.
+.begin.
+.assert.snapshot."tests/snapshots/runtime/status.table.txt".
+.ret.
+.end.

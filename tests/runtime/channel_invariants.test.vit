@@ -1,0 +1,7 @@
+.test.runtime.channel.invariants.
+.begin.
+.assert.channel.invariant.ok."sent==recv+buffered+dropped".
+.assert.channel.bounded.block.timeout."RUNTIME_TIMEOUT".
+.assert.channel.bounded.drop.policy."dropped increments".
+.ret.
+.end.

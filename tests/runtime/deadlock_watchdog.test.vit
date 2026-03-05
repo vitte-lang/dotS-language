@@ -1,0 +1,7 @@
+.test.runtime.deadlock.watchdog.
+.begin.
+.assert.scheduler.starvation.detected.
+.assert.mutex.contention.backoff.
+.assert.deadlock.signal."DEADLOCK".
+.ret.
+.end.

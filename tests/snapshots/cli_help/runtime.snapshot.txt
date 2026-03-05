@@ -1,0 +1,3 @@
+Command: runtime
+Usage: dots runtime
+Command options: see registry

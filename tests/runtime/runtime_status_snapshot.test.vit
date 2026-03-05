@@ -1,0 +1,6 @@
+.test.runtime.status.json.prom.
+.begin.
+.assert.snapshot."tests/snapshots/runtime/status.json".
+.assert.snapshot."tests/snapshots/runtime/status.prom".
+.ret.
+.end.

@@ -1,0 +1,8 @@
+.test.runtime.exit.code.backward_compat.
+.begin.
+.assert.exit.code."RUNTIME_TIMEOUT=124".
+.assert.exit.code."DEADLOCK=132".
+.assert.exit.code."OOM=137".
+.assert.exit.code."CANCELLED=131".
+.ret.
+.end.

@@ -1,0 +1,6 @@
+.test.runtime.race.high_load.seeded.
+.begin.
+.assert.race.n32.seeded.reproducible.
+.assert.race.producer_consumer.no_deadlock.
+.ret.
+.end.

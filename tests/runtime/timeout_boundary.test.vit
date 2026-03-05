@@ -1,0 +1,6 @@
+.test.runtime.timeout.boundary.exact_deadline.
+.begin.
+.assert.timeout.boundary.exact.
+.assert.timeout.boundary.no_off_by_one.
+.ret.
+.end.

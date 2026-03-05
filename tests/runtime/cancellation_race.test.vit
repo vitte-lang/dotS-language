@@ -1,0 +1,6 @@
+.test.runtime.cancel.race.complete_vs_cancel.
+.begin.
+.assert.cancel.race.stable_outcome.
+.assert.cancel.race.no_panic.
+.ret.
+.end.

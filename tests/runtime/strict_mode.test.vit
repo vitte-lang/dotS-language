@@ -1,0 +1,6 @@
+.test.runtime.strict.mode.warnings_as_errors.
+.begin.
+.assert.strict.true.promotes_warning.
+.assert.strict.false.allows_warning.
+.ret.
+.end.
