@@ -1,0 +1,21 @@
+space core/security/redact
+
+pull core/str
+
+proc redact_secrets(raw: string) -> string
+{
+    let out = raw
+
+    out = str.replace(out, "token=", "token=[REDACTED]")
+    out = str.replace(out, "password=", "password=[REDACTED]")
+    out = str.replace(out, "secret=", "secret=[REDACTED]")
+    out = str.replace(out, "Bearer ", "Bearer [REDACTED]")
+    out = str.replace(out, "bearer ", "bearer [REDACTED]")
+    out = str.replace(out, "apikey=", "apikey=[REDACTED]")
+    out = str.replace(out, "api_key=", "api_key=[REDACTED]")
+    out = str.replace(out, "jwt=", "jwt=[REDACTED]")
+    out = str.replace(out, "Authorization: Bearer ", "Authorization: Bearer [REDACTED]")
+    out = str.replace(out, "authorization: bearer ", "authorization: bearer [REDACTED]")
+
+    give out
+}
