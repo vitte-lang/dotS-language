@@ -2,10 +2,7 @@
 
 `dotS-language` is an experimental language + runtime + CLI project.
 
-Goal: build a practical foundation to write, analyze, execute, and test `.dotS` code.
-
-Implementation note: the compiler/tooling is written in **Vitte**.  
-Vitte source: <https://github.com/vitte-lang/vitte>
+Goal: build a coherent technical foundation to write, analyze, execute, and test `.dotS` / `.vit` code.
 
 ## Current status
 
@@ -52,46 +49,19 @@ bash scripts/ci_runtime_status_contract_gate.sh
 bash scripts/ci_geany_assets_gate.sh
 ```
 
-## `.dotS` source examples
+## Mini `.dotS` example (theoretical)
 
 ```dotS
-.module.demo.quickstart.
-.use.thread.
-.set.$workers.4.
-.thread.pool.create.$pool.$workers.
-.call.thread.pool.start.
+proc main() -> i32
+{
+    const n: i32 = 3
+    if n > 0
+    {
+        give 0
+    }
+    give 1
+}
 ```
-
-```dotS
-.module.demo.json.
-.set.$enabled.true.
-.set.$name."dotS sample".
-.json.set.$obj."enabled".$enabled.
-.json.set.$obj."name".$name.
-.chan.create.$chan.int.64.
-```
-
-## Common invalid patterns
-
-```dotS
-.module..http.
-```
-Invalid: empty module segment.
-
-```dotS
-.set.iterations.1000.
-```
-Invalid: variable must start with `$`.
-
-```dotS
-.chan.create.$chan.integer.$n.
-```
-Invalid: `integer` is not a valid `type_identifier` (`int` is valid).
-
-```dotS
-.thread.pool.create..$workers.
-```
-Invalid: empty qualified callable segment.
 
 ## Useful commands
 
@@ -112,7 +82,6 @@ Invalid: empty qualified callable segment.
 - reproducibility (seeds, snapshots)
 - strict modes (`DOTS_*_STRICT=1`)
 - clear parse / validate / execute separation
-- readable `.dotS` examples first, internals second
 
 ## What works / what is in progress
 
