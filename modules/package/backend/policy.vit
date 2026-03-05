@@ -1,0 +1,206 @@
+space modules/package/backend/policy
+
+pull core/str
+pull core/time
+pull core/process
+pull modules/package/backend/types
+pull modules/package/backend/state
+pull modules/package/backend/stats
+
+form RetryPolicy
+{
+    retries_connect: i32
+    retries_application: i32
+    global_budget: i32
+    retry_budget_spent: i32
+    base_delay_ms: i64
+    jitter_ms: i64
+    jitter_policy: string
+    connect_timeout_ms: i64
+    request_timeout_ms: i64
+    overall_timeout_ms: i64
+    cancel_token: string
+}
+
+proc env_i32(name: string, fallback: i32) -> i32
+{
+    let v = process.env(name)
+    if v == "" { give fallback }
+    let n = str.to_i64(v)
+    if str.from_i64(n) != v && !(str.starts_with(v, "-") && str.from_i64(n) == str.replace(v, "-", ""))
+    {
+        stat_inc("policy_env_invalid_total")
+        append_event_component("POLICY_ENV", "invalid numeric env " + name + "=" + v, "warn", "policy")
+        if backend_strict() { give fallback }
+        give fallback
+    }
+    give n
+}
+
+proc env_i64(name: string, fallback: i64) -> i64
+{
+    let v = process.env(name)
+    if v == "" { give fallback }
+    let n = str.to_i64(v)
+    if str.from_i64(n) != v && !(str.starts_with(v, "-") && str.from_i64(n) == str.replace(v, "-", ""))
+    {
+        stat_inc("policy_env_invalid_total")
+        append_event_component("POLICY_ENV", "invalid numeric env " + name + "=" + v, "warn", "policy")
+        if backend_strict() { give fallback }
+        give fallback
+    }
+    give n
+}
+
+proc bounded_i32(name: string, fallback: i32, min_v: i32, max_v: i32) -> i32
+{
+    let v = env_i32(name, fallback)
+    if v < min_v || v > max_v
+    {
+        stat_inc("policy_env_invalid_total")
+        append_event_component("POLICY_ENV", "out-of-range env " + name + "=" + str.from_i64(v), "warn", "policy")
+        if backend_strict() { give fallback }
+        give fallback
+    }
+    give v
+}
+
+proc bounded_i64(name: string, fallback: i64, min_v: i64, max_v: i64) -> i64
+{
+    let v = env_i64(name, fallback)
+    if v < min_v || v > max_v
+    {
+        stat_inc("policy_env_invalid_total")
+        append_event_component("POLICY_ENV", "out-of-range env " + name + "=" + str.from_i64(v), "warn", "policy")
+        if backend_strict() { give fallback }
+        give fallback
+    }
+    give v
+}
+
+proc valid_jitter_policy(raw: string) -> string
+{
+    let p = str.trim(raw)
+    if p == "" { p = "equal" }
+    if p != "none" && p != "equal" && p != "full"
+    {
+        stat_inc("policy_env_invalid_total")
+        append_event_component("POLICY_ENV", "invalid DOTS_JITTER_POLICY=" + p + ", fallback=equal", "warn", "policy")
+        give "equal"
+    }
+    give p
+}
+
+proc default_retry_policy() -> RetryPolicy
+{
+    let jp = valid_jitter_policy(process.env("DOTS_JITTER_POLICY"))
+
+    give RetryPolicy(
+        bounded_i32("DOTS_RETRIES_CONNECT", 1, 0, 20),
+        bounded_i32("DOTS_RETRIES_APPLICATION", 2, 0, 50),
+        bounded_i32("DOTS_RETRY_BUDGET", 4, 1, 100),
+        0,
+        bounded_i64("DOTS_RETRY_BASE_DELAY_MS", 75, 1, 120000),
+        bounded_i64("DOTS_RETRY_JITTER_MS", 50, 0, 120000),
+        jp,
+        bounded_i64("DOTS_CONNECT_TIMEOUT_MS", 500, 1, 600000),
+        bounded_i64("DOTS_REQUEST_TIMEOUT_MS", 30000, 1, 600000),
+        bounded_i64("DOTS_OVERALL_TIMEOUT_MS", 120000, 1, 3600000),
+        process.env("DOTS_CANCEL_TOKEN")
+    )
+}
+
+proc retry_on_list() -> [string]
+{
+    let raw = process.env("DOTS_RETRY_ON")
+    if raw == ""
+    {
+        give ["connect:*", E_TIMEOUT, E_ENDPOINT_UNREACHABLE, E_REAL_BACKEND_ERROR, "application:E_TIMEOUT"]
+    }
+
+    let out: [string] = []
+    let p = str.split(raw, ",")
+    loop x in p
+    {
+        let v = str.trim(x)
+        if v != "" { out = out.push(v) }
+    }
+
+    give out
+}
+
+proc should_retry(code: string, retryable: bool, remaining_budget: i32) -> bool
+{
+    if !retryable { give false }
+    if remaining_budget <= 0 { give false }
+
+    let allow = retry_on_list()
+    loop c in allow
+    {
+        if c == "connect:*" || c == "application:*" { give true }
+        if c == code { give true }
+        if str.ends_with(c, ":" + code) { give true }
+    }
+
+    give false
+}
+
+proc category_retry_limit(p: RetryPolicy, category: string) -> i32
+{
+    if category == "connect" { give p.retries_connect }
+    give p.retries_application
+}
+
+proc stable_seed() -> i64
+{
+    let s = process.env("DOTS_BACKEND_SEED")
+    if s != "" { give str.to_i64(s) }
+    let rid = process.env("DOTS_RUN_ID")
+    if rid == "" { rid = str.from_i64(time.now_ms()) }
+    let sum: i64 = 0
+    let i: i32 = 0
+    loop while i < rid.len
+    {
+        sum = sum + str.to_i64(str.from_i64(rid[i]))
+        i = i + 1
+    }
+    give sum
+}
+
+proc pseudo_rand(mod: i64, salt: i64) -> i64
+{
+    if mod <= 0 { give 0 }
+    let v = (stable_seed() + salt * 1103515245 + 12345)
+    if v < 0 { v = -v }
+    give v % mod
+}
+
+proc jitter_delay(base_ms: i64, jitter_ms: i64, policy: string, salt: i64) -> i64
+{
+    if jitter_ms <= 0 || policy == "none"
+    {
+        give base_ms
+    }
+
+    let j = pseudo_rand(jitter_ms, salt)
+
+    if policy == "full"
+    {
+        give j
+    }
+
+    # equal jitter
+    give base_ms / 2 + j
+}
+
+proc with_spent(p: RetryPolicy, spent: i32) -> RetryPolicy
+{
+    p.retry_budget_spent = spent
+    give p
+}
+
+proc is_cancelled(token: string) -> bool
+{
+    if token == "" { give false }
+    give token == "1" || token == "cancelled" || token == "true"
+}

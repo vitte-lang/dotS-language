@@ -1,0 +1,256 @@
+space modules/package/backend/cb
+
+pull core/str
+pull core/time
+pull core/fs
+pull core/process
+
+pull modules/package/backend/state
+pull modules/package/backend/stats
+
+proc cb_probe_lock_dir() -> string
+{
+    give state_root() + "/cb_probe.lock.d"
+}
+
+proc cb_decay_ms() -> i64
+{
+    let v = str.to_i64(process.env("DOTS_CB_DECAY_MS"))
+    if v <= 0 { v = 60000 }
+    give v
+}
+
+proc cb_open_streak() -> i64
+{
+    give str.to_i64(jsonl_get(file_cb(), "open_streak"))
+}
+
+proc cb_last_failure_ms() -> i64
+{
+    give str.to_i64(jsonl_get(file_cb(), "last_failure_ms"))
+}
+
+proc cb_set_last_failure_ms(v: i64) -> void
+{
+    jsonl_set(file_cb(), "last_failure_ms", str.from_i64(v))
+}
+
+proc cb_set_open_streak(v: i64) -> void
+{
+    jsonl_set(file_cb(), "open_streak", str.from_i64(v))
+}
+
+proc cb_transition(from: string, to: string) -> void
+{
+    if from == to { give }
+    stat_inc("cb_state_transitions_total_" + from + "_" + to)
+}
+
+proc cb_cooldown_scaled(cooldown_ms: i64) -> i64
+{
+    let streak = cb_open_streak()
+    if streak <= 0 { give cooldown_ms }
+    let mul: i64 = 1
+    let i: i32 = 0
+    loop while i < streak && i < 3
+    {
+        mul = mul * 2
+        i = i + 1
+    }
+    let scaled = cooldown_ms * mul
+    let cap = str.to_i64(process.env("DOTS_CB_COOLDOWN_MAX_MS"))
+    if cap <= 0 { cap = cooldown_ms * 8 }
+    if scaled > cap { scaled = cap }
+    give scaled
+}
+
+proc try_probe_lock() -> bool
+{
+    if fs.exists(cb_probe_lock_dir()) { give false }
+    fs.mkdir_p(cb_probe_lock_dir())
+    give fs.exists(cb_probe_lock_dir())
+}
+
+proc release_probe_lock() -> void
+{
+    if fs.exists(cb_probe_lock_dir()) { fs.remove_all(cb_probe_lock_dir()) }
+}
+
+proc cb_state() -> string
+{
+    let s = jsonl_get(file_cb(), "state")
+    if s == "" { give "closed" }
+    give s
+}
+
+proc cb_failures() -> i64
+{
+    give str.to_i64(jsonl_get(file_cb(), "failures"))
+}
+
+proc cb_opened_at() -> i64
+{
+    give str.to_i64(jsonl_get(file_cb(), "opened_at_ms"))
+}
+
+proc cb_probe_inflight() -> bool
+{
+    give jsonl_get(file_cb(), "probe_inflight") == "1"
+}
+
+proc cb_set_state(state: string) -> void
+{
+    jsonl_set(file_cb(), "state", state)
+}
+
+proc cb_set_failures(v: i64) -> void
+{
+    jsonl_set(file_cb(), "failures", str.from_i64(v))
+}
+
+proc cb_set_opened(v: i64) -> void
+{
+    jsonl_set(file_cb(), "opened_at_ms", str.from_i64(v))
+}
+
+proc cb_set_probe_inflight(v: bool) -> void
+{
+    let raw = "0"
+    if v { raw = "1" }
+    jsonl_set(file_cb(), "probe_inflight", raw)
+}
+
+proc cb_is_open(threshold: i32, cooldown_ms: i64) -> bool
+{
+    state_bootstrap()
+
+    if threshold <= 0
+    {
+        give false
+    }
+
+    let state = cb_state()
+
+    if state == "half_open"
+    {
+        if cb_probe_inflight()
+        {
+            stat_inc("cb_half_open_reject_total")
+            give true
+        }
+
+        if !try_probe_lock()
+        {
+            stat_inc("cb_half_open_reject_total")
+            give true
+        }
+        stat_inc("cb_half_open_probe_total")
+        cb_set_probe_inflight(true)
+        give false
+    }
+
+    let failures = cb_failures()
+    if state == "closed" && failures < threshold
+    {
+        give false
+    }
+
+    if state != "open"
+    {
+        cb_transition(state, "open")
+        cb_set_state("open")
+        cb_set_opened(time.now_ms())
+        cb_set_probe_inflight(false)
+        cb_set_open_streak(cb_open_streak() + 1)
+        stat_inc("cb_open_total")
+        give true
+    }
+
+    let opened = cb_opened_at()
+    if opened == 0
+    {
+        cb_set_opened(time.now_ms())
+        cb_set_open_streak(cb_open_streak() + 1)
+        stat_inc("cb_open_total")
+        give true
+    }
+
+    if (time.now_ms() - opened) < cb_cooldown_scaled(cooldown_ms)
+    {
+        give true
+    }
+
+    if !try_probe_lock()
+    {
+        stat_inc("cb_half_open_reject_total")
+        give true
+    }
+    stat_inc("cb_half_open_probe_total")
+    cb_transition("open", "half_open")
+    cb_set_state("half_open")
+    cb_set_probe_inflight(true)
+    give false
+}
+
+proc cb_mark_failure(threshold: i32) -> void
+{
+    let now = time.now_ms()
+    let last_fail = cb_last_failure_ms()
+    let f0 = cb_failures()
+    if last_fail > 0 && (now - last_fail) > cb_decay_ms() && f0 > 0
+    {
+        f0 = f0 - 1
+    }
+    cb_set_failures(f0)
+    cb_set_last_failure_ms(now)
+
+    let state = cb_state()
+    if state == "half_open"
+    {
+        cb_transition("half_open", "open")
+        cb_set_state("open")
+        cb_set_opened(time.now_ms())
+        cb_set_probe_inflight(false)
+        cb_set_open_streak(cb_open_streak() + 1)
+        cb_set_failures(threshold)
+        release_probe_lock()
+        stat_inc("cb_probe_fail_total")
+        stat_inc("cb_open_total")
+        give
+    }
+
+    let f = cb_failures() + 1
+    cb_set_failures(f)
+
+    if f >= threshold
+    {
+        cb_transition(cb_state(), "open")
+        cb_set_state("open")
+        if cb_opened_at() == 0
+        {
+            cb_set_opened(time.now_ms())
+            cb_set_open_streak(cb_open_streak() + 1)
+            stat_inc("cb_open_total")
+        }
+    }
+}
+
+proc cb_mark_success() -> void
+{
+    let st = cb_state()
+    if st == "half_open"
+    {
+        cb_transition("half_open", "closed")
+    }
+    else if st == "open"
+    {
+        cb_transition("open", "closed")
+    }
+    cb_set_state("closed")
+    cb_set_failures(0)
+    cb_set_opened(0)
+    cb_set_open_streak(0)
+    cb_set_last_failure_ms(0)
+    cb_set_probe_inflight(false)
+    release_probe_lock()
+}

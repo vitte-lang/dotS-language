@@ -1,0 +1,356 @@
+space modules/package/backend/core
+
+pull core/str
+pull core/time
+pull core/process
+
+pull modules/package/backend/types
+pull modules/package/backend/state
+pull modules/package/backend/policy
+pull modules/package/backend/lock
+pull modules/package/backend/cb
+pull modules/package/backend/stats
+pull modules/package/backend/transport_fake
+pull modules/package/backend/transport_real
+
+proc registry_mode() -> string
+{
+    let m = process.env("DOTS_REGISTRY_MODE")
+    if m == "" { give "fake" }
+    give m
+}
+
+proc endpoint_strategy() -> string
+{
+    let s = process.env("DOTS_ENDPOINT_STRATEGY")
+    if s == "" { s = "priority" }
+    if s != "priority" && s != "round_robin" && s != "least_failures"
+    {
+        s = "priority"
+    }
+    give s
+}
+
+proc endpoints(mirror: string) -> [string]
+{
+    let out: [string] = []
+    if mirror != ""
+    {
+        let parts = str.split(mirror, ",")
+        loop p in parts
+        {
+            let ep = str.trim(p)
+            if ep != "" { out = out.push(ep) }
+        }
+    }
+
+    if out.len == 0
+    {
+        if registry_mode() == "real"
+        {
+            out = out.push("registry.dots.dev")
+        }
+        else
+        {
+            out = out.push("fake://registry")
+        }
+    }
+
+    give out
+}
+
+proc endpoint_valid(ep: string) -> bool
+{
+    if ep == "" { give false }
+    if str.contains(ep, " ") { give false }
+    if str.contains(ep, "..") { give false }
+    give true
+}
+
+proc endpoint_available(ep: string) -> bool
+{
+    let fail = process.env("DOTS_FAKE_ENDPOINT_FAIL")
+    if fail == "" { give true }
+    let parts = str.split(fail, ",")
+    loop p in parts
+    {
+        if str.trim(p) == ep
+        {
+            give false
+        }
+    }
+    give true
+}
+
+proc endpoint_failure_count(ep: string) -> i64
+{
+    let key = endpoint_key("endpoint_failure", ep)
+    give str.to_i64(jsonl_get(file_stats(), key))
+}
+
+proc ordered_endpoints(input: [string], attempt: i32) -> [string]
+{
+    let eps = input
+    if eps.len <= 1 { give eps }
+
+    let strategy = endpoint_strategy()
+    if strategy == "priority"
+    {
+        give eps
+    }
+
+    if strategy == "round_robin"
+    {
+        let shift = attempt % eps.len
+        let out: [string] = []
+        let i: i32 = 0
+        loop while i < eps.len
+        {
+            out = out.push(eps[(i + shift) % eps.len])
+            i = i + 1
+        }
+        give out
+    }
+
+    # least_failures
+    let out = eps
+    let i: i32 = 0
+    loop while i < out.len
+    {
+        let j: i32 = i + 1
+        loop while j < out.len
+        {
+            if endpoint_failure_count(out[j]) < endpoint_failure_count(out[i])
+            {
+                let t = out[i]
+                out[i] = out[j]
+                out[j] = t
+            }
+            j = j + 1
+        }
+        i = i + 1
+    }
+    give out
+}
+
+proc backend_status_pairs_core() -> [string]
+{
+    state_bootstrap()
+
+    let mode = registry_mode()
+    let cb_open = "false"
+    if cb_state() == "open" || cb_state() == "half_open" { cb_open = "true" }
+
+    let policy = default_retry_policy()
+
+    give [
+        "mode=" + mode,
+        "registry_dir=" + registry_dir(),
+        "state_schema_min=" + jsonl_get(file_state(), "state_schema_min"),
+        "state_schema_max=" + jsonl_get(file_state(), "state_schema_max"),
+        "strict_mode=" + str.from_bool(backend_strict()),
+        "installed_count=" + str.from_i64(installed_count()),
+        "cb_failures=" + str.from_i64(cb_failures()),
+        "cb_open=" + cb_open,
+        "cb_state=" + cb_state(),
+        "lock_status=" + str.from_bool(is_lock_held()),
+        "lock_owner=" + owner_summary(),
+        "lock_wait_ms=" + jsonl_get(file_stats(), "lock_wait_ms"),
+        "success_total=" + jsonl_get(file_stats(), "success_total"),
+        "failure_total=" + jsonl_get(file_stats(), "failure_total"),
+        "cb_open_total=" + jsonl_get(file_stats(), "cb_open_total"),
+        "cb_probe_fail_total=" + jsonl_get(file_stats(), "cb_probe_fail_total"),
+        "cb_half_open_probe_total=" + jsonl_get(file_stats(), "cb_half_open_probe_total"),
+        "cb_half_open_reject_total=" + jsonl_get(file_stats(), "cb_half_open_reject_total"),
+        "lock_contention_total=" + jsonl_get(file_stats(), "lock_contention_total"),
+        "stale_lock_recovered_total=" + jsonl_get(file_stats(), "stale_lock_recovered_total"),
+        "policy_env_invalid_total=" + jsonl_get(file_stats(), "policy_env_invalid_total"),
+        "retry_budget_spent=" + jsonl_get(file_stats(), "retry_budget_spent"),
+        "retry_category_connect_used=" + jsonl_get(file_stats(), "retry_category_connect_used"),
+        "retry_category_application_used=" + jsonl_get(file_stats(), "retry_category_application_used"),
+        "retry_dropped_budget_total=" + jsonl_get(file_stats(), "retry_dropped_budget_total"),
+        "latency_p50_ms=" + str.from_i64(latency_p50()),
+        "latency_p95_ms=" + str.from_i64(latency_p95()),
+        "latency_p99_ms=" + str.from_i64(latency_p99()),
+        "policy_jitter=" + policy.jitter_policy,
+        "policy_budget=" + str.from_i64(policy.global_budget)
+    ]
+}
+
+proc backend_reset_core() -> void
+{
+    state_reset()
+}
+
+proc backend_request_core(op: string, arg: string, mirror: string, offline: bool, retries: i32, base_delay_ms: i64, jitter_ms: i64, cb_threshold: i32, cb_cooldown_ms: i64, timeout_ms: i64) -> BackendResult
+{
+    state_bootstrap()
+
+    let mode = registry_mode()
+    if mode != "fake" && mode != "real"
+    {
+        give backend_err(E_INVALID_MODE, "config", "DOTS_REGISTRY_MODE must be real|fake", false, 400, 0, "")
+    }
+
+    if offline
+    {
+        give backend_err(E_OFFLINE, "policy", "offline mode blocks registry operation", false, 0, 0, "")
+    }
+
+    if cb_is_open(cb_threshold, cb_cooldown_ms)
+    {
+        stat_inc("failure_total")
+        give backend_err(E_CB_OPEN, "policy", "circuit breaker open", true, 503, cb_cooldown_ms, "")
+    }
+
+    let p = default_retry_policy()
+    if backend_strict()
+    {
+        if process.env("DOTS_RUN_ID") == "" || process.env("DOTS_REQUEST_ID") == ""
+        {
+            give backend_err(E_POLICY_INVALID, "policy", "strict mode requires DOTS_RUN_ID and DOTS_REQUEST_ID", false, 400, 0, "")
+        }
+    }
+    if p.retries_application < retries { p.retries_application = retries }
+    p.base_delay_ms = base_delay_ms
+    p.jitter_ms = jitter_ms
+    p = with_spent(p, 0)
+    let budget = p.global_budget
+    if budget <= retries { budget = retries + 1 }
+
+    let wait_budget = timeout_ms
+    if wait_budget <= 0 { wait_budget = 120000 }
+    if !acquire_mutation_lock(120000, wait_budget, 25, p.jitter_ms, p.jitter_policy)
+    {
+        give backend_err(E_LOCK_BUSY, "lock", "mutation lock busy", true, 409, 100, "")
+    }
+
+    let started = time.now_ms()
+    let all_eps = endpoints(mirror)
+    let attempt: i32 = 0
+    let used_budget: i32 = 0
+    let used_connect: i32 = 0
+    let used_application: i32 = 0
+    let last = backend_err(E_UNKNOWN_OP, "internal", "uninitialized", false, 500, 0, "")
+
+    let connect_timeout_ms = env_i64("DOTS_CONNECT_TIMEOUT_MS", 500)
+    let request_timeout_ms = env_i64("DOTS_REQUEST_TIMEOUT_MS", timeout_ms)
+    let overall_timeout_ms = timeout_ms
+    if p.connect_timeout_ms > 0 { connect_timeout_ms = p.connect_timeout_ms }
+    if p.request_timeout_ms > 0 { request_timeout_ms = p.request_timeout_ms }
+    if p.overall_timeout_ms > 0 && timeout_ms <= 0 { overall_timeout_ms = p.overall_timeout_ms }
+
+    loop while attempt <= retries
+    {
+        if is_cancelled(p.cancel_token)
+        {
+            release_mutation_lock()
+            stat_inc("failure_total")
+            give backend_err(E_TIMEOUT, "cancel", "operation cancelled by token", false, 499, 0, "")
+        }
+        if overall_timeout_ms > 0 && (time.now_ms() - started) > overall_timeout_ms
+        {
+            release_mutation_lock()
+            stat_inc("failure_total")
+            give backend_err(E_TIMEOUT, "timeout", "registry request timeout", true, 504, 0, "")
+        }
+
+        let eps = ordered_endpoints(all_eps, attempt)
+        loop ep in eps
+        {
+            if !endpoint_valid(ep)
+            {
+                last = backend_err(E_ENDPOINT_UNREACHABLE, "validation", "invalid mirror endpoint: " + ep, false, 400, 0, ep)
+                continue
+            }
+            if !endpoint_available(ep)
+            {
+                last = backend_err(E_ENDPOINT_UNREACHABLE, "network", "endpoint unavailable: " + ep, true, 503, 100, ep)
+                endpoint_failure_inc(ep)
+                continue
+            }
+
+            if mode == "real"
+            {
+                last = transport_real(op, arg, ep, connect_timeout_ms, request_timeout_ms, overall_timeout_ms)
+            }
+            else if op == "install"
+            {
+                last = transport_install(arg, ep)
+            }
+            else if op == "update"
+            {
+                last = transport_update(ep)
+            }
+            else if op == "publish"
+            {
+                last = transport_publish(arg, ep)
+            }
+            else
+            {
+                last = backend_err(E_UNKNOWN_OP, "validation", "unsupported backend op: " + op, false, 400, 0, ep)
+            }
+
+            if last.ok
+            {
+                cb_mark_success()
+                stat_inc("success_total")
+                endpoint_success_inc(last.endpoint)
+                record_latency(last.endpoint, last.latency_ms)
+                append_event("REQ_OK", "op=" + op + " endpoint=" + last.endpoint, "info")
+                release_mutation_lock()
+                give last
+            }
+
+            endpoint_failure_inc(ep)
+            cb_mark_failure(cb_threshold)
+            append_event("REQ_ERR", "op=" + op + " code=" + last.error.code + " endpoint=" + ep, "warn")
+        }
+
+        used_budget = used_budget + 1
+        p = with_spent(p, used_budget)
+        jsonl_set(file_stats(), "retry_budget_spent", str.from_i64(used_budget))
+        if last.error.category == "connect"
+        {
+            used_connect = used_connect + 1
+            jsonl_set(file_stats(), "retry_category_connect_used", str.from_i64(used_connect))
+        }
+        else
+        {
+            used_application = used_application + 1
+            jsonl_set(file_stats(), "retry_category_application_used", str.from_i64(used_application))
+        }
+
+        let cat_limit = category_retry_limit(p, last.error.category)
+        let cat_used = used_application
+        if last.error.category == "connect" { cat_used = used_connect }
+
+        if cat_used > cat_limit || !should_retry(last.error.code, last.error.retryable, budget - used_budget) || attempt == retries
+        {
+            if (budget - used_budget) <= 0
+            {
+                stat_inc("retry_dropped_budget_total")
+            }
+            stat_inc("failure_total")
+            release_mutation_lock()
+            give last
+        }
+
+        let sleep_ms = jitter_delay(p.base_delay_ms * (attempt + 1), p.jitter_ms, p.jitter_policy, attempt)
+        if sleep_ms < 5 { sleep_ms = 5 }
+        let sleep_cap = env_i64("DOTS_RETRY_MAX_SLEEP_MS", 10000)
+        if sleep_cap > 0 && sleep_ms > sleep_cap { sleep_ms = sleep_cap }
+        if is_cancelled(p.cancel_token)
+        {
+            release_mutation_lock()
+            stat_inc("failure_total")
+            give backend_err(E_TIMEOUT, "cancel", "operation cancelled by token", false, 499, 0, "")
+        }
+        time.sleep_ms(sleep_ms)
+        attempt = attempt + 1
+    }
+
+    stat_inc("failure_total")
+    release_mutation_lock()
+    give last
+}
