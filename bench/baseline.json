@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0.0",
+  "profiles": {
+    "default": {
+      "json": { "ops_per_s": 1500000, "threshold_pct": 12 },
+      "interpreter": { "ops_per_s": 3000000, "threshold_pct": 12 },
+      "http": { "req_per_s": 100000, "threshold_pct": 15 },
+      "concurrency": { "msg_per_s": 250000, "threshold_pct": 15 }
+    },
+    "quick": {
+      "json": { "ops_per_s": 1200000, "threshold_pct": 20 },
+      "interpreter": { "ops_per_s": 2400000, "threshold_pct": 20 },
+      "http": { "req_per_s": 80000, "threshold_pct": 22 },
+      "concurrency": { "msg_per_s": 200000, "threshold_pct": 22 }
+    },
+    "nightly": {
+      "json": { "ops_per_s": 1700000, "threshold_pct": 8 },
+      "interpreter": { "ops_per_s": 3300000, "threshold_pct": 8 },
+      "http": { "req_per_s": 120000, "threshold_pct": 10 },
+      "concurrency": { "msg_per_s": 300000, "threshold_pct": 10 }
+    }
+  }
+}

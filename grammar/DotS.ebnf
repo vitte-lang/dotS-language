@@ -1,0 +1,249 @@
+(* ===================================================== *)
+(* DotS Language Grammar                                  *)
+(* ===================================================== *)
+
+program
+    = { instruction } ;
+
+instruction
+    = "." sequence "." ;
+
+sequence
+    = token { "." token } ;
+
+token
+    = directive
+    | identifier
+    | qualified_identifier
+    | variable
+    | literal
+    | type_identifier
+    | operator ;
+
+(* ----------------------------------------------------- *)
+(* Lexical tokens *)
+(* ----------------------------------------------------- *)
+
+directive
+    = "module"
+    | "use"
+    | "import"
+    | "export"
+    | "set"
+    | "call"
+    | "fn"
+    | "ret"
+    | "loop"
+    | "if"
+    | "else"
+    | "begin"
+    | "end"
+    | "try"
+    | "catch"
+    | "throw"
+    | "await"
+    | "async"
+    | "spawn"
+    | "bench"
+    | "debug"
+    | "trace"
+    | "test" ;
+
+identifier
+    = letter { letter | digit | "_" } ;
+
+qualified_identifier
+    = identifier "." identifier { "." identifier } ;
+
+variable
+    = "$" identifier ;
+
+type_identifier
+    = "int"
+    | "float"
+    | "bool"
+    | "str"
+    | "bytes"
+    | "any"
+    | "map"
+    | "list"
+    | "chan"
+    | "null" ;
+
+literal
+    = integer
+    | float
+    | string
+    | boolean
+    | "null" ;
+
+integer
+    = ["-"] digit { digit } ;
+
+float
+    = ["-"] digit { digit } "." digit { digit } ;
+
+boolean
+    = "true" | "false" ;
+
+string
+    = '"' { string_char } '"' ;
+
+string_char
+    = unescaped_char | escape ;
+
+unescaped_char
+    = ? any unicode character except quote, backslash and newline ? ;
+
+escape
+    = "\\\\"
+    | "\\\""
+    | "\\n"
+    | "\\r"
+    | "\\t"
+    | "\\u" hex hex hex hex ;
+
+hex
+    = digit | "a"..."f" | "A"..."F" ;
+
+operator
+    = "+" | "-" | "*" | "/" | "%"
+    | "==" | "!=" | "<" | ">" | "<=" | ">="
+    | "and" | "or" | "not" ;
+
+letter
+    = "a"..."z" | "A"..."Z" ;
+
+digit
+    = "0"..."9" ;
+
+(* ----------------------------------------------------- *)
+(* Structured DotS patterns *)
+(* ----------------------------------------------------- *)
+
+module_decl
+    = "." "module" "." module_path "." ;
+
+module_path
+    = identifier { "." identifier } ;
+
+use_decl
+    = "." "use" "." module_path "." ;
+
+import_decl
+    = "." "import" "." module_path "." ;
+
+set_stmt
+    = "." "set" "." variable "." value "." ;
+
+call_stmt
+    = "." "call" "." callable "." ;
+
+callable
+    = identifier | qualified_identifier ;
+
+function_decl
+    = "." "fn" "." callable "."
+      "." "begin" "."
+      { instruction }
+      "." "end" "." ;
+
+loop_stmt
+    = "." "loop" "." value "."
+      { instruction }
+      "." "end" "." ;
+
+if_stmt
+    = "." "if" "." value "."
+      { instruction }
+      [ "." "else" "." { instruction } ]
+      "." "end" "." ;
+
+operation_stmt
+    = "." qualified_identifier
+      { "." value }
+      "." ;
+
+typed_operation_stmt
+    = "." qualified_identifier
+      "." type_identifier
+      { "." value }
+      "." ;
+
+value
+    = variable
+    | literal
+    | identifier
+    | qualified_identifier
+    | type_identifier ;
+
+(* ----------------------------------------------------- *)
+(* Examples: valid *)
+(* ----------------------------------------------------- *)
+
+(* .module.benchmark.http. *)
+(* .use.thread. *)
+(* .thread.pool.create.$pool.$workers. *)
+(* .chan.create.$chan.int.$channel_size. *)
+(* .json.set.$obj."bench".true. *)
+
+(* ----------------------------------------------------- *)
+(* Examples: invalid *)
+(* ----------------------------------------------------- *)
+
+(* .module..http.                ; empty segment *)
+(* .set.iterations.1000.         ; missing $ for variable *)
+(* .json.set.$obj."bench"."true". ; string instead of bool *)
+(* .thread.pool.create..$workers. ; empty callable segment *)
+(* .chan.create.$chan.integer.$n. ; unknown type_identifier *)
+
+(* ----------------------------------------------------- *)
+(* Benchmark env override patterns *)
+(* ----------------------------------------------------- *)
+
+bench_env_override_stmt
+    = "."
+      "sys" "." "env" "." "get"
+      "." string
+      "." variable
+      "." ;
+
+bench_env_key
+    = "DOTS_BENCH_MODE"
+    | "DOTS_BENCH_RUNS"
+    | "DOTS_BENCH_WARMUP"
+    | "DOTS_BENCH_SEED"
+    | "DOTS_BENCH_OUTPUT"
+    | "DOTS_BENCH_FAIL_ON_REGRESSION"
+    | "DOTS_BENCH_BASELINE_FILE"
+    | "DOTS_BENCH_TAG"
+    | "DOTS_BENCH_NOTES"
+    | "DOTS_BENCH_TIMEOUT_MS"
+    | "DOTS_BENCH_COOLDOWN_MS"
+    | "DOTS_BENCH_MACHINE_ID"
+    | "DOTS_BENCH_QUIET"
+    | "DOTS_BENCH_VERBOSE" ;
+
+(* ----------------------------------------------------- *)
+(* Benchmark summary JSON object (shape expectation) *)
+(* ----------------------------------------------------- *)
+
+bench_summary_required_key
+    = "schema_version"
+    | "run_id"
+    | "timestamp"
+    | "machine_id"
+    | "bench"
+    | "scenario"
+    | "mode"
+    | "runs"
+    | "avg_ms"
+    | "p50_ms"
+    | "p90_ms"
+    | "p95_ms"
+    | "p99_ms"
+    | "min_ms"
+    | "max_ms"
+    | "stddev_ms"
+    | "cv_pct"
+    | "status" ;

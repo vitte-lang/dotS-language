@@ -1,0 +1,8 @@
+.module.benchmark.baseline.
+
+.set.$json_ops_per_s_baseline.1500000.
+.set.$interpreter_ops_per_s_baseline.3000000.
+.set.$http_req_per_s_baseline.100000.
+.set.$concurrency_msg_per_s_baseline.250000.
+
+.set.$regression_fail_threshold_pct.10.
