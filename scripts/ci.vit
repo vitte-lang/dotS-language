@@ -1,0 +1,53 @@
+# DotS bench CI entrypoint
+# usage:
+#   dots run scripts/ci.vit -- list-bench
+#   dots run scripts/ci.vit -- list-scenarios <bench>
+#   dots run scripts/ci.vit -- all
+#   dots run scripts/ci.vit -- one <bench>
+
+.fn.list_bench.
+.begin.
+.sys.exec."bash scripts/bench.sh list-bench".
+.ret.
+.end.
+
+.fn.list_scenarios.
+.begin.
+.sys.arg.1.$bench.
+.sys.exec.format."bash scripts/bench.sh list-scenarios {0}".$bench.
+.ret.
+.end.
+
+.fn.run_all.
+.begin.
+.sys.exec."bash scripts/bench.sh run-all".
+.ret.
+.end.
+
+.fn.run_one.
+.begin.
+.sys.arg.1.$target.
+.sys.exec.format."bash scripts/bench.sh run {0}".$target.
+.ret.
+.end.
+
+.sys.arg.0.$mode.
+.if.$mode."list-bench".==.
+.call.list_bench.
+.else.
+.if.$mode."list-scenarios".==.
+.call.list_scenarios.
+.else.
+.if.$mode."all".==.
+.call.run_all.
+.else.
+.if.$mode."one".==.
+.call.run_one.
+.else.
+.io.print."usage: list-bench | list-scenarios <bench> | all | one <bench>".
+.sys.exit.2.
+.end.
+.end.
+.end.
+.end.
+.end.
