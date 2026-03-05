@@ -24,7 +24,7 @@ _dots_symbols() {
 }
 
 local -a cmds aliases
-cmds=(help version completion cache doctor fmt lint check run eval build test benchmark profile graph doc search init install uninstall update publish package lock clean config repl debug lsp plugins registry ffi verify status whoami login logout self)
+cmds=(help version completion cache doctor fmt lint check run eval build test benchmark profile graph doc search init install uninstall update publish package lock clean config repl debug lsp runtime plugins registry ffi verify status whoami login logout self)
 aliases=(b h r t v)
 
 _arguments -C \

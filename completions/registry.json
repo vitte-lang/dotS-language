@@ -293,6 +293,18 @@
       ]
     },
     {
+      "name": "runtime",
+      "aliases": [],
+      "options": [
+        "--json",
+        "--prom",
+        "--table",
+        "--fix",
+        "--strict",
+        "--lines"
+      ]
+    },
+    {
       "name": "plugins",
       "aliases": [],
       "options": []

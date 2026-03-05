@@ -86,7 +86,7 @@ _dots_complete(){
   done
 
   if [[ -z "$first_non_flag" ]]; then
-    COMPREPLY=( $(compgen -W "help version completion cache doctor fmt lint check run eval build test benchmark profile graph doc search init install uninstall update publish package lock clean config repl debug lsp plugins registry ffi verify status whoami login logout self b h r t v" -- "$cur") )
+    COMPREPLY=( $(compgen -W "help version completion cache doctor fmt lint check run eval build test benchmark profile graph doc search init install uninstall update publish package lock clean config repl debug lsp runtime plugins registry ffi verify status whoami login logout self b h r t v" -- "$cur") )
     return 0
   fi
 
@@ -138,6 +138,7 @@ _dots_complete(){
     repl) cmd_opts="--history-file --load" ;;
     debug) cmd_opts="--breakpoint --attach" ;;
     lsp) cmd_opts="--stdio --json --prom" ;;
+    runtime) cmd_opts="--json --prom --table --fix --strict --lines" ;;
     registry) cmd_opts="--json --prom --safe --fix --strict --follow --lines --component --severity --since-ms --until-ms" ;;
     ffi) cmd_opts="--json --prom --follow --lines" ;;
   esac
