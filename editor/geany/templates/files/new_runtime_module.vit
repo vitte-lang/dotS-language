@@ -1,0 +1,15 @@
+space runtime/${module:name}
+
+pull runtime/common/result
+pull runtime/common/cancel
+pull runtime/common/metrics
+
+proc run(tok: cancel.CancelToken) -> result.RuntimeResult
+{
+    metrics.inc_ops("runtime.${module:name}.run")
+    if cancel.is_cancelled(tok)
+    {
+        give result.err(result.E_CANCELLED, "cancelled", false)
+    }
+    give result.ok("ok")
+}

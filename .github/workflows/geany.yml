@@ -1,0 +1,51 @@
+name: Geany Assets
+
+on:
+  workflow_call:
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'editor/geany/**'
+      - 'scripts/ci_geany_assets_gate.sh'
+      - 'scripts/geany_*'
+      - 'scripts/install_geany_*'
+      - 'scripts/uninstall_geany_*'
+      - 'tests/cli/geany_assets.test.vit'
+      - 'tests/snapshots/geany/**'
+      - '.github/workflows/geany.yml'
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'editor/geany/**'
+      - 'scripts/ci_geany_assets_gate.sh'
+      - 'scripts/geany_*'
+      - 'scripts/install_geany_*'
+      - 'scripts/uninstall_geany_*'
+      - 'tests/cli/geany_assets.test.vit'
+      - 'tests/snapshots/geany/**'
+      - '.github/workflows/geany.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: geany-assets-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  geany-assets-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Geany assets gate
+        run: bash scripts/ci_geany_assets_gate.sh
+      - name: Geany snapshots check
+        run: dots test --filter geany.assets || true
+      - name: Upload geany artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: geany-assets-${{ github.run_id }}
+          path: |
+            editor/geany
+            tests/snapshots/geany
+          if-no-files-found: warn
+          retention-days: 14

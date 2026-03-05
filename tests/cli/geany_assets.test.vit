@@ -7,7 +7,7 @@
 
 .test.cli.geany.snapshots.match.
 .begin.
-.sys.exec.capture."bash -lc 'cmp -s filedefs/filetypes.DOTS.conf tests/snapshots/geany/filetypes.DOTS.conf.snapshot && cmp -s filedefs/filetypes.VIT.conf tests/snapshots/geany/filetypes.VIT.conf.snapshot && cmp -s filedefs/snippets.DOTS.conf tests/snapshots/geany/snippets.DOTS.conf.snapshot && cmp -s tools/geany/geany.conf tests/snapshots/geany/geany.conf.snapshot && cmp -s tools/geany/keybindings.conf tests/snapshots/geany/keybindings.conf.snapshot && cmp -s tools/geany/plugins/geanylsp.conf tests/snapshots/geany/geanylsp.conf.snapshot && echo ok'".$out.
+.sys.exec.capture."bash -lc 'cmp -s editor/geany/filedefs/filetypes.DOTS.conf tests/snapshots/geany/filetypes.DOTS.conf.snapshot && cmp -s editor/geany/filedefs/filetypes.VIT.conf tests/snapshots/geany/filetypes.VIT.conf.snapshot && cmp -s editor/geany/filedefs/snippets.DOTS.conf tests/snapshots/geany/snippets.DOTS.conf.snapshot && cmp -s editor/geany/filedefs/snippets.VIT.conf tests/snapshots/geany/snippets.VIT.conf.snapshot && cmp -s editor/geany/tools/geany.conf tests/snapshots/geany/geany.conf.snapshot && cmp -s editor/geany/tools/keybindings.conf tests/snapshots/geany/keybindings.conf.snapshot && cmp -s editor/geany/tools/plugins/geanylsp.conf tests/snapshots/geany/geanylsp.conf.snapshot && cmp -s editor/geany/dotS-language.runtime.geany tests/snapshots/geany/dotS-language.runtime.geany.snapshot && cmp -s editor/geany/dotS-language.strict-runtime.geany tests/snapshots/geany/dotS-language.strict-runtime.geany.snapshot && echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

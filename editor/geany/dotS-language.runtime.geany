@@ -1,0 +1,61 @@
+[project]
+name=dotS-language-runtime
+base_path=/home/vincent/Documents/GitHub/dotS-language
+description=DotS runtime profile
+file_patterns=*.vit;*.dotS;*.md;*.sh
+
+[indentation]
+width=4
+type=1
+hard_tabs=0
+detect_from_indent=true
+detect_from_content=true
+
+[build-menu]
+save_all_before_build=true
+FT_00_LB=Runtime status JSON
+FT_00_CM=dots runtime status --json
+FT_00_WD=%p
+FT_01_LB=Runtime status Prom
+FT_01_CM=dots runtime status --prom
+FT_01_WD=%p
+FT_02_LB=Runtime doctor strict
+FT_02_CM=dots runtime doctor --strict
+FT_02_WD=%p
+FT_03_LB=Runtime events
+FT_03_CM=dots runtime events --lines 100
+FT_03_WD=%p
+FT_04_LB=Runtime trace
+FT_04_CM=dots runtime trace
+FT_04_WD=%p
+
+EX_00_LB=Runtime contract gates
+EX_00_CM=bash -lc 'bash scripts/ci_runtime_status_contract_gate.sh && bash scripts/ci_runtime_doctor_contract_gate.sh'
+EX_00_WD=%p
+EX_01_LB=Runtime perf budget
+EX_01_CM=bash scripts/ci_runtime_perf_budget.sh
+EX_01_WD=%p
+EX_02_LB=Runtime dashboard
+EX_02_CM=bash scripts/runtime_dashboard.sh
+EX_02_WD=%p
+EX_03_LB=Generate runtime snapshots
+EX_03_CM=bash -lc 'dots runtime status --json > tests/snapshots/runtime/status.json && dots runtime status --prom > tests/snapshots/runtime/status.prom && dots runtime status --table > tests/snapshots/runtime/status.table.txt'
+EX_03_WD=%p
+EX_04_LB=Run no-shell gates
+EX_04_CM=bash -lc 'bash scripts/ci_no_shell_network_gate.sh && bash scripts/ci_runtime_no_shell_gate.sh'
+EX_04_WD=%p
+EX_05_LB=Run changed tests/runtime
+EX_05_CM=bash -lc 'git diff --name-only -- tests/runtime | sed -n "s#^tests/runtime/##p" | sed -n "s#\\.vit$##p" | head -n 1 | xargs -r -I{} dots test --filter {}'
+EX_05_WD=%p
+EX_06_LB=Bench runtime quick
+EX_06_CM=DOTS_BENCH_MODE=quick bash scripts/bench.sh run runtime_thread_spawn
+EX_06_WD=%p
+EX_07_LB=Bench runtime nightly (manual warning)
+EX_07_CM=DOTS_BENCH_MODE=nightly bash scripts/bench.sh run-all
+EX_07_WD=%p
+EX_08_LB=Regenerate parser/completion/help snapshots
+EX_08_CM=bash -lc 'bash scripts/gen_parser_each_command_test.sh && bash scripts/gen_completion_from_registry.sh && bash scripts/gen_help_snapshots.sh'
+EX_08_WD=%p
+EX_09_LB=CI dry-run local workflow subset
+EX_09_CM=bash -lc 'bash scripts/lint_vit.sh && bash scripts/fmt_vit_check.sh && bash scripts/ci_cli_gate.sh'
+EX_09_WD=%p

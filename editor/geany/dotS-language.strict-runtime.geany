@@ -1,0 +1,36 @@
+[project]
+name=dotS-language-strict-runtime
+base_path=/home/vincent/Documents/GitHub/dotS-language
+description=DotS strict runtime profile
+file_patterns=*.vit;*.dotS;*.md;*.sh
+
+[indentation]
+width=4
+type=1
+hard_tabs=0
+detect_from_indent=true
+detect_from_content=true
+
+[build-menu]
+save_all_before_build=true
+FT_00_LB=Runtime doctor strict
+FT_00_CM=DOTS_RUNTIME_STRICT=1 DOTS_CLI_STRICT=1 DOTS_RUNTIME_SEED=424242 dots runtime doctor --strict
+FT_00_WD=%p
+FT_01_LB=Runtime status JSON strict
+FT_01_CM=DOTS_RUNTIME_STRICT=1 DOTS_CLI_STRICT=1 DOTS_RUNTIME_SEED=424242 dots runtime status --json
+FT_01_WD=%p
+FT_02_LB=No-shell gates
+FT_02_CM=bash -lc 'bash scripts/ci_no_shell_network_gate.sh && bash scripts/ci_runtime_no_shell_gate.sh'
+FT_02_WD=%p
+EX_00_LB=Toggle strict ON
+EX_00_CM=bash -lc 'export DOTS_RUNTIME_STRICT=1 DOTS_CLI_STRICT=1 DOTS_RUNTIME_SEED=424242; echo strict=on'
+EX_00_WD=%p
+EX_01_LB=Toggle strict OFF
+EX_01_CM=bash -lc 'unset DOTS_RUNTIME_STRICT DOTS_CLI_STRICT; echo strict=off'
+EX_01_WD=%p
+EX_02_LB=Toggle registry fake
+EX_02_CM=bash -lc 'export DOTS_REGISTRY_MODE=fake; echo registry=fake'
+EX_02_WD=%p
+EX_03_LB=Toggle registry real
+EX_03_CM=bash -lc 'export DOTS_REGISTRY_MODE=real; echo registry=real'
+EX_03_WD=%p
