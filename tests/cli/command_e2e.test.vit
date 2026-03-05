@@ -1,0 +1,14 @@
+.test.cli.e2e.help.
+.begin.
+.sys.exec.capture."dots help".$out.
+.assert.contains.$out."Global options".
+.assert.contains.$out."Command options".
+.ret.
+.end.
+
+.test.cli.e2e.completion.
+.begin.
+.sys.exec.capture."dots completion bash".$out.
+.assert.contains.$out."complete -F".
+.ret.
+.end.

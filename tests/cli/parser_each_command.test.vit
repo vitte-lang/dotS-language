@@ -1,0 +1,131 @@
+.test.cli.parser.each.command.help.generated.
+.begin.
+.assert.parse.ok."dots benchmark --help".
+.assert.parse.ok."dots build --help".
+.assert.parse.ok."dots cache --help".
+.assert.parse.ok."dots check --help".
+.assert.parse.ok."dots clean --help".
+.assert.parse.ok."dots completion --help".
+.assert.parse.ok."dots config --help".
+.assert.parse.ok."dots debug --help".
+.assert.parse.ok."dots doc --help".
+.assert.parse.ok."dots doctor --help".
+.assert.parse.ok."dots eval --help".
+.assert.parse.ok."dots ffi --help".
+.assert.parse.ok."dots fmt --help".
+.assert.parse.ok."dots graph --help".
+.assert.parse.ok."dots help --help".
+.assert.parse.ok."dots init --help".
+.assert.parse.ok."dots install --help".
+.assert.parse.ok."dots lint --help".
+.assert.parse.ok."dots lock --help".
+.assert.parse.ok."dots login --help".
+.assert.parse.ok."dots logout --help".
+.assert.parse.ok."dots lsp --help".
+.assert.parse.ok."dots package --help".
+.assert.parse.ok."dots plugins --help".
+.assert.parse.ok."dots profile --help".
+.assert.parse.ok."dots publish --help".
+.assert.parse.ok."dots registry --help".
+.assert.parse.ok."dots repl --help".
+.assert.parse.ok."dots run --help".
+.assert.parse.ok."dots search --help".
+.assert.parse.ok."dots self --help".
+.assert.parse.ok."dots status --help".
+.assert.parse.ok."dots test --help".
+.assert.parse.ok."dots uninstall --help".
+.assert.parse.ok."dots update --help".
+.assert.parse.ok."dots verify --help".
+.assert.parse.ok."dots version --help".
+.assert.parse.ok."dots whoami --help".
+.ret.
+.end.
+
+.test.cli.parser.each.command.json.generated.
+.begin.
+.assert.parse.ok."dots --json benchmark --help".
+.assert.parse.ok."dots benchmark --json --help".
+.assert.parse.ok."dots --json build --help".
+.assert.parse.ok."dots build --json --help".
+.assert.parse.ok."dots --json cache --help".
+.assert.parse.ok."dots cache --json --help".
+.assert.parse.ok."dots --json check --help".
+.assert.parse.ok."dots check --json --help".
+.assert.parse.ok."dots --json clean --help".
+.assert.parse.ok."dots clean --json --help".
+.assert.parse.ok."dots --json completion --help".
+.assert.parse.ok."dots completion --json --help".
+.assert.parse.ok."dots --json config --help".
+.assert.parse.ok."dots config --json --help".
+.assert.parse.ok."dots --json debug --help".
+.assert.parse.ok."dots debug --json --help".
+.assert.parse.ok."dots --json doc --help".
+.assert.parse.ok."dots doc --json --help".
+.assert.parse.ok."dots --json doctor --help".
+.assert.parse.ok."dots doctor --json --help".
+.assert.parse.ok."dots --json eval --help".
+.assert.parse.ok."dots eval --json --help".
+.assert.parse.ok."dots --json ffi --help".
+.assert.parse.ok."dots ffi --json --help".
+.assert.parse.ok."dots --json fmt --help".
+.assert.parse.ok."dots fmt --json --help".
+.assert.parse.ok."dots --json graph --help".
+.assert.parse.ok."dots graph --json --help".
+.assert.parse.ok."dots --json help --help".
+.assert.parse.ok."dots help --json --help".
+.assert.parse.ok."dots --json init --help".
+.assert.parse.ok."dots init --json --help".
+.assert.parse.ok."dots --json install --help".
+.assert.parse.ok."dots install --json --help".
+.assert.parse.ok."dots --json lint --help".
+.assert.parse.ok."dots lint --json --help".
+.assert.parse.ok."dots --json lock --help".
+.assert.parse.ok."dots lock --json --help".
+.assert.parse.ok."dots --json login --help".
+.assert.parse.ok."dots login --json --help".
+.assert.parse.ok."dots --json logout --help".
+.assert.parse.ok."dots logout --json --help".
+.assert.parse.ok."dots --json lsp --help".
+.assert.parse.ok."dots lsp --json --help".
+.assert.parse.ok."dots --json package --help".
+.assert.parse.ok."dots package --json --help".
+.assert.parse.ok."dots --json plugins --help".
+.assert.parse.ok."dots plugins --json --help".
+.assert.parse.ok."dots --json profile --help".
+.assert.parse.ok."dots profile --json --help".
+.assert.parse.ok."dots --json publish --help".
+.assert.parse.ok."dots publish --json --help".
+.assert.parse.ok."dots --json registry --help".
+.assert.parse.ok."dots registry --json --help".
+.assert.parse.ok."dots --json repl --help".
+.assert.parse.ok."dots repl --json --help".
+.assert.parse.ok."dots --json run --help".
+.assert.parse.ok."dots run --json --help".
+.assert.parse.ok."dots --json search --help".
+.assert.parse.ok."dots search --json --help".
+.assert.parse.ok."dots --json self --help".
+.assert.parse.ok."dots self --json --help".
+.assert.parse.ok."dots --json status --help".
+.assert.parse.ok."dots status --json --help".
+.assert.parse.ok."dots --json test --help".
+.assert.parse.ok."dots test --json --help".
+.assert.parse.ok."dots --json uninstall --help".
+.assert.parse.ok."dots uninstall --json --help".
+.assert.parse.ok."dots --json update --help".
+.assert.parse.ok."dots update --json --help".
+.assert.parse.ok."dots --json verify --help".
+.assert.parse.ok."dots verify --json --help".
+.assert.parse.ok."dots --json version --help".
+.assert.parse.ok."dots version --json --help".
+.assert.parse.ok."dots --json whoami --help".
+.assert.parse.ok."dots whoami --json --help".
+.ret.
+.end.
+
+.test.cli.parser.global.bool_list.generated.
+.begin.
+.assert.parse.ok."dots --no-color help".
+.assert.parse.ok."dots --include=a,b,c check file.dotS".
+.assert.parse.ok."dots --include a,b,c check file.dotS".
+.ret.
+.end.

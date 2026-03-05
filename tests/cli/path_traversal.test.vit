@@ -1,0 +1,6 @@
+.test.cli.path.traversal.
+.begin.
+.sys.exec.capture."dots --config ../../etc/passwd help".$out.
+.assert.contains.$out."dots:".
+.ret.
+.end.

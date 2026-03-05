@@ -1,0 +1,10 @@
+.test.cli.help.snapshots.
+.begin.
+.sys.exec.capture."dots help".$main_help.
+.assert.contains.$main_help."Global options".
+.sys.exec.capture."dots help run".$run_help.
+.assert.contains.$run_help."Command options".
+.sys.exec.capture."dots help install".$install_help.
+.assert.contains.$install_help."usage".
+.ret.
+.end.

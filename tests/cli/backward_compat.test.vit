@@ -1,0 +1,7 @@
+.test.cli.backward_compat.
+.begin.
+.assert.parse.ok."dots b --target wasm".
+.assert.parse.ok."dots t --filter parser".
+.assert.parse.ok."dots r app.dotS".
+.ret.
+.end.

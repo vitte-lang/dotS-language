@@ -1,0 +1,6 @@
+.test.cli.fallback.file_to_run.
+.begin.
+.sys.exec.capture."dots src/main.dotS".$out.
+.assert.contains.$out."run".
+.ret.
+.end.

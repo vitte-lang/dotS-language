@@ -1,0 +1,59 @@
+.test.cli.e2e.fake_registry.update_retry.
+.begin.
+.sys.exec.capture."bash -lc 'scripts/fake_registry.sh init .dots/e2e-reg; scripts/fake_registry.sh set-fail .dots/e2e-reg update 1; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg dots update --json --retries 2'".$out.
+.assert.contains.$out."\"command\":\"update\"".
+.ret.
+.end.
+
+.test.cli.e2e.fake_registry.publish_retry.
+.begin.
+.sys.exec.capture."bash -lc 'scripts/fake_registry.sh init .dots/e2e-reg; reg="$(pwd)/.dots/e2e-reg"; rm -rf .dots/e2e-pub2; mkdir -p .dots/e2e-pub2; printf "{\"name\":\"demopub\",\"version\":\"1.1.0\",\"license\":\"MIT\"}\n" > .dots/e2e-pub2/dots.json; printf "# changelog\n" > .dots/e2e-pub2/CHANGELOG.md; scripts/fake_registry.sh set-fail .dots/e2e-reg publish 1; (cd .dots/e2e-pub2 && DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR="$reg" DOTS_PUBLISH_SKIP_GIT=1 dots publish --json --tag next --retries 2)'".$out.
+.assert.contains.$out."\"command\":\"publish\"".
+.ret.
+.end.
+
+.test.cli.e2e.fake_registry.offline_hard_fail_all.
+.begin.
+.sys.exec.capture."DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg dots install --json --offline core".$o1.
+.assert.contains.$o1."OFFLINE".
+.sys.exec.capture."DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg dots update --json --offline".$o2.
+.assert.contains.$o2."OFFLINE".
+.sys.exec.capture."bash -lc 'reg="$(pwd)/.dots/e2e-reg"; rm -rf .dots/e2e-pub3; mkdir -p .dots/e2e-pub3; printf "{\"name\":\"demooff\",\"version\":\"1.0.0\",\"license\":\"MIT\"}\n" > .dots/e2e-pub3/dots.json; printf "# changelog\n" > .dots/e2e-pub3/CHANGELOG.md; (cd .dots/e2e-pub3 && DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR="$reg" DOTS_PUBLISH_SKIP_GIT=1 dots publish --json --offline)'".$o3.
+.assert.contains.$o3."OFFLINE".
+.ret.
+.end.
+
+.test.cli.e2e.fake_registry.mirror_fallback_order.
+.begin.
+.sys.exec.capture."bash -lc 'scripts/fake_registry.sh init .dots/e2e-reg; scripts/fake_registry.sh add-pkg .dots/e2e-reg mirrorpkg 1.0.0; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg DOTS_FAKE_ENDPOINT_FAIL=mirror1 dots install --json --mirror mirror1,mirror2 mirrorpkg'".$out.
+.assert.contains.$out."mirror2".
+.ret.
+.end.
+
+.test.cli.e2e.fake_registry.package_not_found.
+.begin.
+.sys.exec.capture."bash -lc 'scripts/fake_registry.sh init .dots/e2e-reg; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg dots install --json unknown_pkg'".$out.
+.assert.contains.$out."PACKAGE_NOT_FOUND".
+.ret.
+.end.
+
+.test.cli.e2e.fake_registry.strategy_priority_order.
+.begin.
+.sys.exec.capture."bash -lc 'scripts/fake_registry.sh init .dots/e2e-reg-priority; scripts/fake_registry.sh add-pkg .dots/e2e-reg-priority p 1.0.0; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-priority DOTS_ENDPOINT_STRATEGY=priority dots install --json --mirror a,b p'".$out.
+.assert.contains.$out."\"endpoint\":\"a\"".
+.ret.
+.end.
+
+.test.cli.e2e.fake_registry.strategy_round_robin_rotation.
+.begin.
+.sys.exec.capture."bash -lc 'scripts/fake_registry.sh init .dots/e2e-reg-rr; scripts/fake_registry.sh set-fail .dots/e2e-reg-rr update 1; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-rr DOTS_ENDPOINT_STRATEGY=round_robin dots update --json --mirror a,b --retries 1'".$out.
+.assert.contains.$out."\"endpoint\":\"b\"".
+.ret.
+.end.
+
+.test.cli.e2e.fake_registry.strategy_least_failures_prefers_healthier.
+.begin.
+.sys.exec.capture."bash -lc 'scripts/fake_registry.sh init .dots/e2e-reg-lf; scripts/fake_registry.sh add-pkg .dots/e2e-reg-lf lf 1.0.0; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-lf DOTS_FAKE_ENDPOINT_FAIL=a dots install --json --mirror a,b lf >/dev/null; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-lf DOTS_ENDPOINT_STRATEGY=least_failures dots install --json --mirror a,b lf'".$out.
+.assert.contains.$out."\"endpoint\":\"b\"".
+.ret.
+.end.

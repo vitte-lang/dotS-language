@@ -1,0 +1,97 @@
+.test.cli.e2e.registry.lock_busy.
+.begin.
+.sys.exec.capture."bash -lc 'root=.dots/e2e-lock-state; ws=${#PWD}; lock=\"$root/$ws/mutation.lock.d\"; mkdir -p \"$lock\"; printf \"host=test\\npid=999\\nstarted_ms=%s\\n\" \"$(date +%s%3N)\" > \"$lock/owner.v2\"; scripts/fake_registry.sh init .dots/e2e-reg-lock >/dev/null; scripts/fake_registry.sh add-pkg .dots/e2e-reg-lock lockpkg 1.0.0 >/dev/null; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-lock DOTS_STATE_DIR=\"$root\" dots install --json --retries 0 lockpkg'".$out.
+.assert.contains.$out."LOCK_BUSY".
+.ret.
+.end.
+
+.test.cli.e2e.registry.cb_half_open_transition.
+.begin.
+.sys.exec.capture."bash -lc 'scripts/fake_registry.sh init .dots/e2e-reg-cb >/dev/null; scripts/fake_registry.sh add-pkg .dots/e2e-reg-cb cbpkg 1.0.0 >/dev/null; ws=${#PWD}; root=.dots/e2e-cb-state; mkdir -p \"$root/$ws\"; cat > \"$root/$ws/cb.v2.jsonl\" <<EOF\n{\"v\":\"2\",\"k\":\"state\",\"value\":\"open\"}\n{\"v\":\"2\",\"k\":\"failures\",\"value\":\"3\"}\n{\"v\":\"2\",\"k\":\"opened_at_ms\",\"value\":\"1\"}\n{\"v\":\"2\",\"k\":\"probe_inflight\",\"value\":\"0\"}\nEOF\nDOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-cb DOTS_STATE_DIR=\"$root\" dots install --json --cb-threshold 1 cbpkg >/tmp/dots_cb_install.json; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-cb DOTS_STATE_DIR=\"$root\" dots registry status --json; cat /tmp/dots_cb_install.json'".$out.
+.assert.contains.$out."\"command\":\"install\"".
+.assert.contains.$out."\"cb_state\":\"closed\"".
+.ret.
+.end.
+
+.test.cli.e2e.registry.migration_v1_to_jsonl_v2.
+.begin.
+.sys.exec.capture."bash -lc 'rm -rf .dots/e2e-reg-mig .dots/e2e-state-mig; mkdir -p .dots/e2e-reg-mig .dots/e2e-state-mig/${#PWD}; cat > .dots/e2e-reg-mig/packages.db <<EOF\nmigrated@1.2.3|checksum=migrated-1.2.3|sig=SIG_MIGRATED_1_2_3\nEOF\ncat > .dots/e2e-reg-mig/failures.db <<EOF\ninstall=0\nupdate=0\npublish=0\nEOF\nDOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-mig DOTS_STATE_DIR=.dots/e2e-state-mig dots install --json migrated; test -f .dots/e2e-reg-mig/packages.v2.jsonl && echo migrated_v2_ok; grep -q \"\\\"name\\\":\\\"migrated\\\"\" .dots/e2e-reg-mig/packages.v2.jsonl && echo migrated_line_ok'".$out.
+.assert.contains.$out."\"command\":\"install\"".
+.assert.contains.$out."migrated_v2_ok".
+.assert.contains.$out."migrated_line_ok".
+.ret.
+.end.
+
+.test.cli.e2e.registry.mirror_fallback_ordered_3_endpoints.
+.begin.
+.sys.exec.capture."bash -lc 'scripts/fake_registry.sh init .dots/e2e-reg-mirror >/dev/null; scripts/fake_registry.sh add-pkg .dots/e2e-reg-mirror mirror3 1.0.0 >/dev/null; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-mirror DOTS_FAKE_ENDPOINT_FAIL=mirror1 dots install --json --mirror mirror1,mirror2,mirror3 mirror3'".$out.
+.assert.contains.$out."\"endpoint\":\"mirror2\"".
+.ret.
+.end.
+
+.test.cli.e2e.registry.cb_closed_to_open_threshold.
+.begin.
+.sys.exec.capture."bash -lc 'scripts/fake_registry.sh init .dots/e2e-reg-cb2 >/dev/null; scripts/fake_registry.sh add-pkg .dots/e2e-reg-cb2 cbt 1.0.0 >/dev/null; scripts/fake_registry.sh set-fail .dots/e2e-reg-cb2 install 3 >/dev/null; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-cb2 dots install --json --cb-threshold 1 --retries 0 cbt; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-cb2 dots registry status --json'".$out.
+.assert.contains.$out."\"cb_state\":\"open\"".
+.ret.
+.end.
+
+.test.cli.e2e.registry.cb_open_blocks_before_transport.
+.begin.
+.sys.exec.capture."bash -lc 'scripts/fake_registry.sh init .dots/e2e-reg-cb3 >/dev/null; scripts/fake_registry.sh add-pkg .dots/e2e-reg-cb3 cbb 1.0.0 >/dev/null; ws=${#PWD}; root=.dots/e2e-cb3-state; mkdir -p \"$root/$ws\"; cat > \"$root/$ws/cb.v2.jsonl\" <<EOF\n{\"v\":\"2\",\"k\":\"state\",\"value\":\"open\"}\n{\"v\":\"2\",\"k\":\"failures\",\"value\":\"9\"}\n{\"v\":\"2\",\"k\":\"opened_at_ms\",\"value\":\"9999999999999\"}\n{\"v\":\"2\",\"k\":\"probe_inflight\",\"value\":\"1\"}\nEOF\nDOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-cb3 DOTS_STATE_DIR=\"$root\" dots install --json cbb'".$out.
+.assert.contains.$out."CIRCUIT_OPEN".
+.ret.
+.end.
+
+.test.cli.e2e.registry.cb_half_open_failure_reopens.
+.begin.
+.sys.exec.capture."bash -lc 'scripts/fake_registry.sh init .dots/e2e-reg-cb4 >/dev/null; scripts/fake_registry.sh add-pkg .dots/e2e-reg-cb4 cbf 1.0.0 >/dev/null; scripts/fake_registry.sh set-fail .dots/e2e-reg-cb4 install 1 >/dev/null; ws=${#PWD}; root=.dots/e2e-cb4-state; mkdir -p \"$root/$ws\"; cat > \"$root/$ws/cb.v2.jsonl\" <<EOF\n{\"v\":\"2\",\"k\":\"state\",\"value\":\"half_open\"}\n{\"v\":\"2\",\"k\":\"failures\",\"value\":\"1\"}\n{\"v\":\"2\",\"k\":\"opened_at_ms\",\"value\":\"1\"}\n{\"v\":\"2\",\"k\":\"probe_inflight\",\"value\":\"0\"}\nEOF\nDOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-cb4 DOTS_STATE_DIR=\"$root\" dots install --json --cb-threshold 1 --retries 0 cbf >/tmp/cb4_out.json; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-cb4 DOTS_STATE_DIR=\"$root\" dots registry status --json; cat /tmp/cb4_out.json'".$out.
+.assert.contains.$out."\"cb_state\":\"open\"".
+.ret.
+.end.
+
+.test.cli.e2e.registry.cb_open_total_increment.
+.begin.
+.sys.exec.capture."bash -lc 'scripts/fake_registry.sh init .dots/e2e-reg-cb5 >/dev/null; scripts/fake_registry.sh add-pkg .dots/e2e-reg-cb5 cbo 1.0.0 >/dev/null; scripts/fake_registry.sh set-fail .dots/e2e-reg-cb5 install 2 >/dev/null; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-cb5 dots install --json --cb-threshold 1 --retries 0 cbo >/dev/null; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-cb5 dots registry status --json'".$out.
+.assert.contains.$out."\"cb_open_total\":\"1\"".
+.ret.
+.end.
+
+.test.cli.e2e.registry.lock_stale_recovery.
+.begin.
+.sys.exec.capture."bash -lc 'root=.dots/e2e-lock-stale; ws=${#PWD}; lock=\"$root/$ws/mutation.lock.d\"; mkdir -p \"$lock\"; printf \"host=test\\npid=123\\nstarted_ms=1\\n\" > \"$lock/owner.v2\"; scripts/fake_registry.sh init .dots/e2e-reg-lock-stale >/dev/null; scripts/fake_registry.sh add-pkg .dots/e2e-reg-lock-stale st 1.0.0 >/dev/null; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-lock-stale DOTS_STATE_DIR=\"$root\" dots install --json st'".$out.
+.assert.contains.$out."\"failed\":\"0\"".
+.ret.
+.end.
+
+.test.cli.e2e.registry.lock_owner_host_pid_present.
+.begin.
+.sys.exec.capture."bash -lc 'root=.dots/e2e-lock-owner; scripts/fake_registry.sh init .dots/e2e-reg-lock-owner >/dev/null; scripts/fake_registry.sh add-pkg .dots/e2e-reg-lock-owner own 1.0.0 >/dev/null; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-lock-owner DOTS_STATE_DIR=\"$root\" dots install --json own >/dev/null; ws=${#PWD}; test -f \"$root/$ws/mutation.lock.d/owner.v2\" || echo owner_file_not_present_after_release; echo done'".$out.
+.assert.contains.$out."done".
+.ret.
+.end.
+
+.test.cli.e2e.registry.migration_v1_to_v2_extended_files.
+.begin.
+.sys.exec.capture."bash -lc 'rm -rf .dots/e2e-reg-mig2 .dots/e2e-state-mig2; mkdir -p .dots/e2e-reg-mig2 .dots/e2e-state-mig2/${#PWD}; cat > .dots/e2e-reg-mig2/packages.db <<EOF\nx@1.0.0|checksum=x-1.0.0|sig=SIG_X_1_0_0\nEOF\ncat > .dots/e2e-reg-mig2/failures.db <<EOF\ninstall=0\nupdate=0\npublish=0\nEOF\ncat > .dots/e2e-state-mig2/${#PWD}/circuit_breaker.db <<EOF\nfailures=2\nopened_at_ms=10\nEOF\nDOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-mig2 DOTS_STATE_DIR=.dots/e2e-state-mig2 dots update --json >/dev/null; ws=${#PWD}; test -f .dots/e2e-reg-mig2/packages.v2.jsonl && echo pkg_ok; test -f .dots/e2e-state-mig2/$ws/cb.v2.jsonl && echo cb_ok; test -f .dots/e2e-state-mig2/$ws/stats.v2.jsonl && echo stats_ok; test -f .dots/e2e-state-mig2/$ws/published.v2.jsonl && echo pub_ok; test -f .dots/e2e-state-mig2/$ws/installed.v2.jsonl && echo inst_ok'".$out.
+.assert.contains.$out."pkg_ok".
+.assert.contains.$out."cb_ok".
+.assert.contains.$out."stats_ok".
+.assert.contains.$out."pub_ok".
+.assert.contains.$out."inst_ok".
+.ret.
+.end.
+
+.test.cli.e2e.registry.migration_idempotent.
+.begin.
+.sys.exec.capture."bash -lc 'rm -rf .dots/e2e-reg-mig3 .dots/e2e-state-mig3; scripts/fake_registry.sh init .dots/e2e-reg-mig3 >/dev/null; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-mig3 DOTS_STATE_DIR=.dots/e2e-state-mig3 dots update --json >/dev/null; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-mig3 DOTS_STATE_DIR=.dots/e2e-state-mig3 dots update --json >/dev/null; echo OK'".$out.
+.assert.contains.$out."OK".
+.ret.
+.end.
+
+.test.cli.e2e.registry.checksum_mismatch_recovery.
+.begin.
+.sys.exec.capture."bash -lc 'rm -rf .dots/e2e-reg-sum .dots/e2e-state-sum; scripts/fake_registry.sh init .dots/e2e-reg-sum >/dev/null; scripts/fake_registry.sh add-pkg .dots/e2e-reg-sum sum 1.0.0 >/dev/null; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-sum DOTS_STATE_DIR=.dots/e2e-state-sum dots update --json >/dev/null; ws=${#PWD}; echo BAD > .dots/e2e-state-sum/$ws/cb.v2.jsonl.checksum; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-sum DOTS_STATE_DIR=.dots/e2e-state-sum dots update --json; echo done'".$out.
+.assert.contains.$out."\"command\":\"update\"".
+.ret.
+.end.

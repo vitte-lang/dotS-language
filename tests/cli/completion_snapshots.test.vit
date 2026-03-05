@@ -1,0 +1,6 @@
+.test.cli.completion.snapshots_match_generated.
+.begin.
+.sys.exec.capture."bash -lc 'cmp -s completions/dots.bash tests/snapshots/completions/dots.bash.snapshot && cmp -s completions/_dots tests/snapshots/completions/dots.zsh.snapshot && cmp -s completions/dots.fish tests/snapshots/completions/dots.fish.snapshot && cmp -s completions/registry.json tests/snapshots/completions/registry.snapshot.json && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

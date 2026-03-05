@@ -1,0 +1,19 @@
+.test.cli.snapshots.generated.files_exist.
+.begin.
+.sys.exec.capture."bash -lc 'test -f tests/snapshots/cli_help/main.snapshot.txt && echo ok'".$o1.
+.assert.contains.$o1."ok".
+.sys.exec.capture."bash -lc 'test -f tests/snapshots/cli_help/run.snapshot.txt && echo ok'".$o2.
+.assert.contains.$o2."ok".
+.sys.exec.capture."bash -lc 'test -f tests/snapshots/cli_json/run.snapshot.json && echo ok'".$o3.
+.assert.contains.$o3."ok".
+.ret.
+.end.
+
+.test.cli.snapshots.generated.content_shape.
+.begin.
+.sys.exec.capture."bash -lc 'grep -q "DotS CLI" tests/snapshots/cli_help/main.snapshot.txt && echo ok'".$o1.
+.assert.contains.$o1."ok".
+.sys.exec.capture."bash -lc 'grep -q "schema_version" tests/snapshots/cli_json/run.snapshot.json && echo ok'".$o2.
+.assert.contains.$o2."ok".
+.ret.
+.end.

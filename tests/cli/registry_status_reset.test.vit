@@ -1,0 +1,18 @@
+.test.cli.registry.status_and_reset.
+.begin.
+.sys.exec.capture."DOTS_REGISTRY_MODE=fake dots registry status --json".$s.
+.assert.contains.$s."\"mode\":\"fake\"".
+.assert.contains.$s."\"policy_jitter\"".
+.assert.contains.$s."\"cb_state\"".
+.sys.exec.capture."DOTS_REGISTRY_MODE=fake dots registry reset --json".$r.
+.assert.contains.$r."\"action\":\"reset\"".
+.ret.
+.end.
+
+.test.cli.status.enriched.registry_fields.
+.begin.
+.sys.exec.capture."DOTS_REGISTRY_MODE=fake dots status --json".$out.
+.assert.contains.$out."registry_mode".
+.assert.contains.$out."installed_count".
+.ret.
+.end.

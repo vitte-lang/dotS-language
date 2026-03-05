@@ -1,0 +1,15 @@
+.test.cli.registry.prometheus_export.
+.begin.
+.sys.exec.capture."DOTS_REGISTRY_MODE=fake dots registry status --prom".$out.
+.assert.contains.$out."dots_registry_success_total".
+.assert.contains.$out."dots_registry_failure_total".
+.assert.contains.$out."dots_registry_cb_open_total".
+.ret.
+.end.
+
+.test.cli.e2e.fake_registry.chaos_retry.
+.begin.
+.sys.exec.capture."bash -lc 'scripts/fake_registry.sh init .dots/e2e-chaos; scripts/fake_registry.sh add-pkg .dots/e2e-chaos chaospkg 1.0.0; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-chaos DOTS_FAKE_REGISTRY_CHAOS=1 dots install --json --retries 4 chaospkg'".$out.
+.assert.contains.$out."\"command\":\"install\"".
+.ret.
+.end.

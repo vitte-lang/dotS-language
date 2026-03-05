@@ -1,0 +1,177 @@
+.test.cli.e2e.real_mode.stub_install.
+.begin.
+.sys.exec.capture."bash -lc 'scripts/fake_registry.sh init .dots/e2e-real; scripts/fake_registry.sh add-pkg .dots/e2e-real realpkg 1.0.0; DOTS_REGISTRY_MODE=real DOTS_REGISTRY_REAL_STUB=1 DOTS_REGISTRY_DIR=.dots/e2e-real dots install --json --retries 2 realpkg'".$out.
+.assert.contains.$out."\"command\":\"install\"".
+.assert.contains.$out."real://stub".
+.ret.
+.end.
+
+.test.cli.e2e.real_mode.stub_update_publish.
+.begin.
+.sys.exec.capture."bash -lc 'scripts/fake_registry.sh init .dots/e2e-real; DOTS_REGISTRY_MODE=real DOTS_REGISTRY_REAL_STUB=1 DOTS_REGISTRY_DIR=.dots/e2e-real dots update --json --retries 2'".$u.
+.assert.contains.$u."\"command\":\"update\"".
+.sys.exec.capture."bash -lc 'scripts/fake_registry.sh init .dots/e2e-real; reg="$(pwd)/.dots/e2e-real"; rm -rf .dots/e2e-real-pub; mkdir -p .dots/e2e-real-pub; printf "{\"name\":\"realpub\",\"version\":\"1.0.1\",\"license\":\"MIT\"}\n" > .dots/e2e-real-pub/dots.json; printf "# changelog\n" > .dots/e2e-real-pub/CHANGELOG.md; (cd .dots/e2e-real-pub && DOTS_REGISTRY_MODE=real DOTS_REGISTRY_REAL_STUB=1 DOTS_REGISTRY_DIR="$reg" DOTS_PUBLISH_SKIP_GIT=1 dots publish --json --tag next --retries 2)'".$p.
+.assert.contains.$p."\"command\":\"publish\"".
+.ret.
+.end.
+
+.test.cli.e2e.real_mode.unavailable_binary_typed_error.
+.begin.
+.sys.exec.capture."DOTS_REGISTRY_MODE=real DOTS_REGISTRY_REAL_BIN=missing-registry-bin dots update --json --retries 1".$out.
+.assert.contains.$out."REAL_BACKEND_ERROR".
+.ret.
+.end.
+
+.test.cli.e2e.real_mode.strict_protocol_rejects_legacy_kv.
+.begin.
+.sys.exec.capture."bash -lc 'mkdir -p .dots; cat > .dots/fake_real_backend.sh <<EOF\n#!/usr/bin/env bash\necho \"value=ok\"\necho \"count=1\"\necho \"endpoint=legacy\"\nexit 0\nEOF\nchmod +x .dots/fake_real_backend.sh\nDOTS_REGISTRY_MODE=real DOTS_REGISTRY_REAL_BIN=.dots/fake_real_backend.sh dots update --json --retries 0'".$out.
+.assert.contains.$out."REAL_BACKEND_PROTOCOL".
+.ret.
+.end.
+
+.test.cli.e2e.real_mode.strict_json_success_minimal.
+.begin.
+.sys.exec.capture."bash -lc 'mkdir -p .dots; cat > .dots/fake_real_backend_ok.sh <<EOF\n#!/usr/bin/env bash\necho \"{\\\"protocol_version\\\":\\\"1.1\\\",\\\"value\\\":\\\"updated\\\",\\\"count\\\":1,\\\"endpoint\\\":\\\"real://ok\\\"}\"\nexit 0\nEOF\nchmod +x .dots/fake_real_backend_ok.sh\nDOTS_REGISTRY_MODE=real DOTS_REGISTRY_REAL_BIN=.dots/fake_real_backend_ok.sh dots update --json --retries 0'".$out.
+.assert.contains.$out."\"command\":\"update\"".
+.assert.contains.$out."\"endpoint\":\"real://ok\"".
+.ret.
+.end.
+
+.test.cli.e2e.real_mode.strict_json_error_mapping.
+.begin.
+.sys.exec.capture."bash -lc 'mkdir -p .dots; cat > .dots/fake_real_backend_err.sh <<EOF\n#!/usr/bin/env bash\necho \"{\\\"error_type\\\":\\\"E_TIMEOUT\\\",\\\"error_message\\\":\\\"deadline\\\",\\\"error_category\\\":\\\"connect\\\",\\\"http_status\\\":504,\\\"retryable\\\":\\\"true\\\",\\\"retry_after_ms\\\":25,\\\"endpoint\\\":\\\"real://err\\\"}\"\nexit 1\nEOF\nchmod +x .dots/fake_real_backend_err.sh\nDOTS_REGISTRY_MODE=real DOTS_REGISTRY_REAL_BIN=.dots/fake_real_backend_err.sh dots update --json --retries 0'".$out.
+.assert.contains.$out."\"error_type\":\"E_TIMEOUT\"".
+.assert.contains.$out."\"error_message\":\"deadline\"".
+.ret.
+.end.
+
+.test.cli.e2e.real_mode.missing_protocol_version.
+.begin.
+.sys.exec.capture."bash -lc 'mkdir -p .dots; cat > .dots/fake_real_backend_missing_proto.sh <<EOF\n#!/usr/bin/env bash\necho \"{\\\"value\\\":\\\"ok\\\",\\\"count\\\":1,\\\"endpoint\\\":\\\"real://x\\\"}\"\nexit 0\nEOF\nchmod +x .dots/fake_real_backend_missing_proto.sh\nDOTS_REGISTRY_MODE=real DOTS_REGISTRY_REAL_BIN=.dots/fake_real_backend_missing_proto.sh dots update --json --retries 0'".$out.
+.assert.contains.$out."REAL_BACKEND_PROTOCOL".
+.ret.
+.end.
+
+.test.cli.e2e.real_mode.protocol_1_0_rejected.
+.begin.
+.sys.exec.capture."bash -lc 'mkdir -p .dots; cat > .dots/fake_real_backend_proto10.sh <<EOF\n#!/usr/bin/env bash\necho \"{\\\"protocol_version\\\":\\\"1.0\\\",\\\"value\\\":\\\"ok\\\",\\\"count\\\":1,\\\"endpoint\\\":\\\"real://x\\\"}\"\nexit 0\nEOF\nchmod +x .dots/fake_real_backend_proto10.sh\nDOTS_REGISTRY_MODE=real DOTS_REGISTRY_REAL_BIN=.dots/fake_real_backend_proto10.sh dots update --json --retries 0'".$out.
+.assert.contains.$out."REAL_BACKEND_PROTOCOL".
+.ret.
+.end.
+
+.test.cli.e2e.real_mode.protocol_1_2_rejected.
+.begin.
+.sys.exec.capture."bash -lc 'mkdir -p .dots; cat > .dots/fake_real_backend_proto12.sh <<EOF\n#!/usr/bin/env bash\necho \"{\\\"protocol_version\\\":\\\"1.2\\\",\\\"value\\\":\\\"ok\\\",\\\"count\\\":1,\\\"endpoint\\\":\\\"real://x\\\"}\"\nexit 0\nEOF\nchmod +x .dots/fake_real_backend_proto12.sh\nDOTS_REGISTRY_MODE=real DOTS_REGISTRY_REAL_BIN=.dots/fake_real_backend_proto12.sh dots update --json --retries 0'".$out.
+.assert.contains.$out."REAL_BACKEND_PROTOCOL".
+.ret.
+.end.
+
+.test.cli.e2e.real_mode.malformed_json_parse_error.
+.begin.
+.sys.exec.capture."bash -lc 'mkdir -p .dots; cat > .dots/fake_real_backend_malformed.sh <<EOF\n#!/usr/bin/env bash\necho \"{not json\"\nexit 0\nEOF\nchmod +x .dots/fake_real_backend_malformed.sh\nDOTS_REGISTRY_MODE=real DOTS_REGISTRY_REAL_BIN=.dots/fake_real_backend_malformed.sh dots update --json --retries 0'".$out.
+.assert.contains.$out."REAL_BACKEND_ERROR".
+.assert.contains.$out."parse".
+.ret.
+.end.
+
+.test.cli.e2e.real_mode.partial_json_count_absent_fallback.
+.begin.
+.sys.exec.capture."bash -lc 'mkdir -p .dots; cat > .dots/fake_real_backend_partial.sh <<EOF\n#!/usr/bin/env bash\necho \"{\\\"protocol_version\\\":\\\"1.1\\\",\\\"value\\\":\\\"ok\\\",\\\"endpoint\\\":\\\"real://partial\\\"}\"\nexit 0\nEOF\nchmod +x .dots/fake_real_backend_partial.sh\nDOTS_REGISTRY_MODE=real DOTS_REGISTRY_REAL_BIN=.dots/fake_real_backend_partial.sh dots update --json --retries 0'".$out.
+.assert.contains.$out."\"command\":\"update\"".
+.assert.contains.$out."\"endpoint\":\"real://partial\"".
+.ret.
+.end.
+
+.test.cli.e2e.real_mode.stdout_strict_stderr_ignored.
+.begin.
+.sys.exec.capture."bash -lc 'mkdir -p .dots; cat > .dots/fake_real_backend_stderr.sh <<EOF\n#!/usr/bin/env bash\necho \"legacy=bad\" 1>&2\necho \"{\\\"protocol_version\\\":\\\"1.1\\\",\\\"value\\\":\\\"ok\\\",\\\"count\\\":1,\\\"endpoint\\\":\\\"real://stdout\\\"}\"\nexit 0\nEOF\nchmod +x .dots/fake_real_backend_stderr.sh\nDOTS_REGISTRY_MODE=real DOTS_REGISTRY_REAL_BIN=.dots/fake_real_backend_stderr.sh dots update --json --retries 0'".$out.
+.assert.contains.$out."\"endpoint\":\"real://stdout\"".
+.ret.
+.end.
+
+.test.cli.e2e.real_mode_exit_nonzero_json_error_valid.
+.begin.
+.sys.exec.capture."bash -lc 'mkdir -p .dots; cat > .dots/fake_real_backend_nz_json.sh <<EOF\n#!/usr/bin/env bash\necho \"{\\\"error_type\\\":\\\"PACKAGE_NOT_FOUND\\\",\\\"error_message\\\":\\\"missing\\\",\\\"error_category\\\":\\\"application\\\",\\\"http_status\\\":404,\\\"retryable\\\":\\\"false\\\"}\"\nexit 2\nEOF\nchmod +x .dots/fake_real_backend_nz_json.sh\nDOTS_REGISTRY_MODE=real DOTS_REGISTRY_REAL_BIN=.dots/fake_real_backend_nz_json.sh dots install --json missing_pkg'".$out.
+.assert.contains.$out."PACKAGE_NOT_FOUND".
+.assert.contains.$out."missing".
+.ret.
+.end.
+
+.test.cli.e2e.real_mode_exit_nonzero_empty_message_default.
+.begin.
+.sys.exec.capture."bash -lc 'mkdir -p .dots; cat > .dots/fake_real_backend_nz_empty.sh <<EOF\n#!/usr/bin/env bash\necho \"{\\\"error_type\\\":\\\"E_FAIL\\\",\\\"error_message\\\":\\\"\\\",\\\"error_category\\\":\\\"network\\\"}\"\nexit 2\nEOF\nchmod +x .dots/fake_real_backend_nz_empty.sh\nDOTS_REGISTRY_MODE=real DOTS_REGISTRY_REAL_BIN=.dots/fake_real_backend_nz_empty.sh dots update --json --retries 0'".$out.
+.assert.contains.$out."\"error_type\":\"E_FAIL\"".
+.assert.contains.$out."real backend command failed".
+.ret.
+.end.
+
+.test.cli.e2e.real_mode_retry_connect_distinct.
+.begin.
+.sys.exec.capture."bash -lc 'mkdir -p .dots; rm -f .dots/real_calls_connect; cat > .dots/fake_real_backend_connect_retry.sh <<EOF\n#!/usr/bin/env bash\nn=0\nif [ -f .dots/real_calls_connect ]; then n=$(cat .dots/real_calls_connect); fi\nn=$((n+1)); echo \"$n\" > .dots/real_calls_connect\nif [ \"$n\" -le 1 ]; then\n  echo \"{\\\"error_type\\\":\\\"E_TIMEOUT\\\",\\\"error_message\\\":\\\"connect fail\\\",\\\"error_category\\\":\\\"connect\\\",\\\"retryable\\\":\\\"true\\\"}\"\n  exit 1\nfi\necho \"{\\\"protocol_version\\\":\\\"1.1\\\",\\\"value\\\":\\\"ok\\\",\\\"count\\\":1,\\\"endpoint\\\":\\\"real://connect\\\"}\"\nexit 0\nEOF\nchmod +x .dots/fake_real_backend_connect_retry.sh\nDOTS_REGISTRY_MODE=real DOTS_RETRIES_CONNECT=1 DOTS_RETRIES_APPLICATION=0 DOTS_REGISTRY_REAL_BIN=.dots/fake_real_backend_connect_retry.sh dots update --json --retries 0 >/tmp/out_connect.json; echo calls=$(cat .dots/real_calls_connect); cat /tmp/out_connect.json'".$out.
+.assert.contains.$out."calls=2".
+.assert.contains.$out."real://connect".
+.ret.
+.end.
+
+.test.cli.e2e.real_mode_retry_budget_global.
+.begin.
+.sys.exec.capture."bash -lc 'mkdir -p .dots; rm -f .dots/real_calls_budget; cat > .dots/fake_real_backend_budget.sh <<EOF\n#!/usr/bin/env bash\nn=0\nif [ -f .dots/real_calls_budget ]; then n=$(cat .dots/real_calls_budget); fi\nn=$((n+1)); echo \"$n\" > .dots/real_calls_budget\necho \"{\\\"error_type\\\":\\\"E_TIMEOUT\\\",\\\"error_message\\\":\\\"budget\\\",\\\"error_category\\\":\\\"application\\\",\\\"retryable\\\":\\\"true\\\"}\"\nexit 1\nEOF\nchmod +x .dots/fake_real_backend_budget.sh\nDOTS_REGISTRY_MODE=real DOTS_RETRY_BUDGET=1 DOTS_RETRIES_APPLICATION=5 DOTS_REGISTRY_REAL_BIN=.dots/fake_real_backend_budget.sh dots update --json --retries 5 >/tmp/out_budget.json; echo calls=$(cat .dots/real_calls_budget); cat /tmp/out_budget.json'".$out.
+.assert.contains.$out."calls=2".
+.assert.contains.$out."E_TIMEOUT".
+.ret.
+.end.
+
+.test.cli.e2e.real_mode_timeout_overall.
+.begin.
+.sys.exec.capture."bash -lc 'mkdir -p .dots; cat > .dots/fake_real_backend_sleep.sh <<EOF\n#!/usr/bin/env bash\nsleep 1\necho \"{\\\"protocol_version\\\":\\\"1.1\\\",\\\"value\\\":\\\"ok\\\",\\\"count\\\":1,\\\"endpoint\\\":\\\"real://slow\\\"}\"\nexit 0\nEOF\nchmod +x .dots/fake_real_backend_sleep.sh\nDOTS_REGISTRY_MODE=real DOTS_REGISTRY_REAL_BIN=.dots/fake_real_backend_sleep.sh dots update --json --timeout-ms 10 --retries 0'".$out.
+.assert.contains.$out."TIMEOUT".
+.ret.
+.end.
+
+.test.cli.e2e.real_mode_all_mirrors_down.
+.begin.
+.sys.exec.capture."DOTS_REGISTRY_MODE=real DOTS_REGISTRY_REAL_STUB=1 DOTS_FAKE_ENDPOINT_FAIL=one,two dots update --json --mirror one,two --retries 0".$out.
+.assert.contains.$out."ENDPOINT_UNREACHABLE".
+.ret.
+.end.
+
+.test.cli.e2e.real_mode_invalid_mode_typed.
+.begin.
+.sys.exec.capture."DOTS_REGISTRY_MODE=bad dots update --json --retries 0".$out.
+.assert.contains.$out."INVALID_MODE".
+.ret.
+.end.
+
+.test.cli.e2e.real_mode_retry_application_distinct.
+.begin.
+.sys.exec.capture."bash -lc 'mkdir -p .dots; rm -f .dots/real_calls_app; cat > .dots/fake_real_backend_app_retry.sh <<EOF\n#!/usr/bin/env bash\nn=0\nif [ -f .dots/real_calls_app ]; then n=$(cat .dots/real_calls_app); fi\nn=$((n+1)); echo \"$n\" > .dots/real_calls_app\nif [ \"$n\" -le 1 ]; then\n  echo \"{\\\"error_type\\\":\\\"E_TEMP\\\",\\\"error_message\\\":\\\"app fail\\\",\\\"error_category\\\":\\\"application\\\",\\\"retryable\\\":\\\"true\\\"}\"\n  exit 1\nfi\necho \"{\\\"protocol_version\\\":\\\"1.1\\\",\\\"value\\\":\\\"ok\\\",\\\"count\\\":1,\\\"endpoint\\\":\\\"real://app\\\"}\"\nexit 0\nEOF\nchmod +x .dots/fake_real_backend_app_retry.sh\nDOTS_REGISTRY_MODE=real DOTS_RETRIES_CONNECT=0 DOTS_RETRIES_APPLICATION=1 DOTS_REGISTRY_REAL_BIN=.dots/fake_real_backend_app_retry.sh dots update --json --retries 0 >/tmp/out_app.json; echo calls=$(cat .dots/real_calls_app); cat /tmp/out_app.json'".$out.
+.assert.contains.$out."calls=2".
+.assert.contains.$out."real://app".
+.ret.
+.end.
+
+.test.cli.e2e.real_mode_retry_jitter_seed_deterministic.
+.begin.
+.sys.exec.capture."bash -lc 'mkdir -p .dots; cat > .dots/fake_real_backend_jitter.sh <<EOF\n#!/usr/bin/env bash\necho \"{\\\"protocol_version\\\":\\\"1.1\\\",\\\"value\\\":\\\"ok\\\",\\\"count\\\":1,\\\"endpoint\\\":\\\"real://j\\\"}\"\nexit 0\nEOF\nchmod +x .dots/fake_real_backend_jitter.sh\nDOTS_REGISTRY_MODE=real DOTS_BACKEND_SEED=42 DOTS_JITTER_POLICY=none DOTS_REGISTRY_REAL_BIN=.dots/fake_real_backend_jitter.sh dots update --json --retries 0 >/tmp/j1.json; DOTS_REGISTRY_MODE=real DOTS_BACKEND_SEED=42 DOTS_JITTER_POLICY=equal DOTS_REGISTRY_REAL_BIN=.dots/fake_real_backend_jitter.sh dots update --json --retries 0 >/tmp/j2.json; DOTS_REGISTRY_MODE=real DOTS_BACKEND_SEED=42 DOTS_JITTER_POLICY=full DOTS_REGISTRY_REAL_BIN=.dots/fake_real_backend_jitter.sh dots update --json --retries 0 >/tmp/j3.json; echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.cli.e2e.real_mode_timeout_args_forwarded.
+.begin.
+.sys.exec.capture."bash -lc 'mkdir -p .dots; cat > .dots/fake_real_backend_args.sh <<EOF\n#!/usr/bin/env bash\nprintf \"%s\\n\" \"$@\" > .dots/real_args.txt\necho \"{\\\"error_type\\\":\\\"E_FAIL\\\",\\\"error_message\\\":\\\"x\\\",\\\"error_category\\\":\\\"connect\\\",\\\"retryable\\\":\\\"false\\\"}\"\nexit 1\nEOF\nchmod +x .dots/fake_real_backend_args.sh\nDOTS_REGISTRY_MODE=real DOTS_CONNECT_TIMEOUT_MS=11 DOTS_REQUEST_TIMEOUT_MS=22 DOTS_REGISTRY_REAL_BIN=.dots/fake_real_backend_args.sh dots update --json --timeout-ms 33 --retries 0 >/dev/null; cat .dots/real_args.txt'".$out.
+.assert.contains.$out."--connect-timeout-ms".
+.assert.contains.$out."11".
+.assert.contains.$out."--request-timeout-ms".
+.assert.contains.$out."22".
+.assert.contains.$out."--overall-timeout-ms".
+.assert.contains.$out."33".
+.ret.
+.end.
+
+.test.cli.e2e.real_mode_backend_error_redaction.
+.begin.
+.sys.exec.capture."bash -lc 'mkdir -p .dots; cat > .dots/fake_real_backend_secret.sh <<EOF\n#!/usr/bin/env bash\necho \"{\\\"error_type\\\":\\\"E_AUTH\\\",\\\"error_message\\\":\\\"secret=abc\\\",\\\"error_category\\\":\\\"application\\\"}\"\nexit 1\nEOF\nchmod +x .dots/fake_real_backend_secret.sh\nDOTS_REGISTRY_MODE=real DOTS_REGISTRY_REAL_BIN=.dots/fake_real_backend_secret.sh dots update --json --retries 0'".$out.
+.assert.contains.$out."secret=[REDACTED]".
+.ret.
+.end.

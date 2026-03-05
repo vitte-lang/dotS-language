@@ -1,0 +1,6 @@
+.test.cli.injection.args.
+.begin.
+.sys.exec.capture."dots run --args -- '; rm -rf /' src/main.dotS".$out.
+.assert.contains.$out."run".
+.ret.
+.end.

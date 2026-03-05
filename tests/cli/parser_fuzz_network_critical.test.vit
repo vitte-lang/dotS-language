@@ -1,0 +1,12 @@
+.test.cli.parser.fuzz.network.critical.
+.begin.
+.assert.parse.ok."dots install core".
+.assert.parse.ok."dots install --json core".
+.assert.parse.ok."dots install --retries 2 --jitter-ms 5 --cb-threshold 2 --timeout-ms 10 core".
+.assert.parse.ok."dots update --json --retries 2 --jitter-ms 5 --cb-threshold 2 --timeout-ms 10".
+.assert.parse.ok."dots publish --json --tag next --retries 2 --jitter-ms 5 --cb-threshold 2 --timeout-ms 10".
+.assert.parse.fail."dots publish --tag bad".
+.assert.parse.fail."dots install --timeout-ms -1 core".
+.assert.parse.fail."dots update --retries 0".
+.ret.
+.end.

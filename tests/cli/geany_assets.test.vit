@@ -1,0 +1,13 @@
+.test.cli.geany.assets.gate.
+.begin.
+.sys.exec.capture."bash scripts/ci_geany_assets_gate.sh".$out.
+.assert.contains.$out."geany assets gate ok".
+.ret.
+.end.
+
+.test.cli.geany.snapshots.match.
+.begin.
+.sys.exec.capture."bash -lc 'cmp -s filedefs/filetypes.DOTS.conf tests/snapshots/geany/filetypes.DOTS.conf.snapshot && cmp -s filedefs/filetypes.VIT.conf tests/snapshots/geany/filetypes.VIT.conf.snapshot && cmp -s filedefs/snippets.DOTS.conf tests/snapshots/geany/snippets.DOTS.conf.snapshot && cmp -s tools/geany/geany.conf tests/snapshots/geany/geany.conf.snapshot && cmp -s tools/geany/keybindings.conf tests/snapshots/geany/keybindings.conf.snapshot && cmp -s tools/geany/plugins/geanylsp.conf tests/snapshots/geany/geanylsp.conf.snapshot && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

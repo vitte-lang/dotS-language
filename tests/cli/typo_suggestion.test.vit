@@ -1,0 +1,6 @@
+.test.cli.typo.suggestion.
+.begin.
+.sys.exec.capture."dots hepl".$out.
+.assert.contains.$out."did you mean".
+.ret.
+.end.

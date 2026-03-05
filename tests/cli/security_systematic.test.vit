@@ -1,0 +1,20 @@
+.test.cli.security.path_traversal.systematic.
+.begin.
+.sys.exec.capture."dots --config ../etc/passwd help".$out.
+.assert.contains.$out."dots:".
+.ret.
+.end.
+
+.test.cli.security.injection_args.systematic.
+.begin.
+.sys.exec.capture."dots run --args -- '; echo pwn' src/main.dotS".$out.
+.assert.contains.$out."run".
+.ret.
+.end.
+
+.test.cli.security.allowlist_exec.contract.
+.begin.
+.assert.parse.ok."dots run src/main.dotS".
+.assert.parse.ok."dots test --filter cli".
+.ret.
+.end.

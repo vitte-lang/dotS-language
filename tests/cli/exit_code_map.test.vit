@@ -1,0 +1,10 @@
+.test.cli.exit.code.map.
+.begin.
+.assert.eq.i32.(0).0.
+.assert.eq.i32.(2).2.
+.assert.eq.i32.(3).3.
+.assert.eq.i32.(4).4.
+.assert.eq.i32.(5).5.
+.assert.eq.i32.(130).130.
+.ret.
+.end.

@@ -1,0 +1,7 @@
+.test.cli.invalid_flags.
+.begin.
+.assert.parse.fail."dots --timeout-ms fmt".
+.assert.parse.fail."dots --unknown fmt".
+.assert.parse.fail."dots --color=purple help".
+.ret.
+.end.

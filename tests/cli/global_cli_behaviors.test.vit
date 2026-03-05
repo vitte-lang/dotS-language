@@ -1,0 +1,37 @@
+.test.cli.aliases.legacy.
+.begin.
+.assert.parse.ok."dots b --target wasm".
+.assert.parse.ok."dots t --filter parser".
+.assert.parse.ok."dots r src/main.dotS".
+.ret.
+.end.
+
+.test.cli.fallback.file_to_run.
+.begin.
+.sys.exec.capture."dots src/main.dotS".$out.
+.assert.contains.$out."run".
+.ret.
+.end.
+
+.test.cli.unknown_command_suggestion.fuzzy.
+.begin.
+.sys.exec.capture."dots hepl".$out.
+.assert.contains.$out."did you mean".
+.ret.
+.end.
+
+.test.cli.global_flags.before_after_command.
+.begin.
+.assert.parse.ok."dots --json run --help".
+.assert.parse.ok."dots run --help --json".
+.assert.parse.ok."dots --verbose test --help".
+.assert.parse.ok."dots test --help --verbose".
+.ret.
+.end.
+
+.test.cli.help_implicit_global_after_subcommand.
+.begin.
+.sys.exec.capture."dots run --help".$out.
+.assert.contains.$out."usage:".
+.ret.
+.end.

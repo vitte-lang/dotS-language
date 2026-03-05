@@ -1,0 +1,6 @@
+.test.cli.json_contract.snapshots.required_fields.
+.begin.
+.sys.exec.capture."bash -lc 'for f in tests/snapshots/cli_json_contract/*.json; do grep -q \"schema_version\" $f || exit 1; grep -q \"command\" $f || exit 1; grep -q \"status\" $f || exit 1; grep -q \"error_type\" $f || exit 1; grep -q \"error_message\" $f || exit 1; grep -q \"run_id\" $f || exit 1; grep -q \"request_id\" $f || exit 1; done; echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

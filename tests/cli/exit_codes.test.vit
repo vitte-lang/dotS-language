@@ -1,0 +1,7 @@
+.test.cli.exit_codes.
+.begin.
+.assert.eq.i32.(dots_exit_unknown_command()).4.
+.assert.eq.i32.(dots_exit_invalid_args()).3.
+.assert.eq.i32.(dots_exit_usage()).2.
+.ret.
+.end.

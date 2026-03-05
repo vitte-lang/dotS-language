@@ -1,0 +1,6 @@
+.test.cli.security_basics.
+.begin.
+.assert.contains.(run_cli("dots login --token abc123"))."[REDACTED]".
+.assert.contains.(run_cli("dots --json help"))."\"run_id\"".
+.ret.
+.end.

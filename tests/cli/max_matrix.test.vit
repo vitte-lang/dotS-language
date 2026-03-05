@@ -1,0 +1,268 @@
+.test.cli.security.path_traversal_rejected.
+.begin.
+.sys.exec.capture."dots --config ../etc/passwd help".$out.
+.assert.contains.$out."dots:".
+.ret.
+.end.
+
+.test.cli.security.injection_shell_sensitive.
+.begin.
+.sys.exec.capture."dots run --args -- '; rm -rf /' src/main.dotS".$out.
+.assert.contains.$out."run".
+.ret.
+.end.
+
+.test.cli.security.secret_redaction.
+.begin.
+.assert.contains.(run_cli("dots login --token abc123"))."[REDACTED]".
+.ret.
+.end.
+
+.test.cli.strict_mode_env.
+.begin.
+.assert.parse.ok."DOTS_CLI_STRICT=1 dots help".
+.ret.
+.end.
+
+.test.cli.output.non_tty_fallback.
+.begin.
+.sys.exec.capture."bash -lc 'dots --color never help | cat'".$out.
+.assert.contains.$out."Global options".
+.ret.
+.end.
+
+.test.cli.output.width_wrapping.
+.begin.
+.sys.exec.capture."bash -lc 'COLUMNS=40 dots help'".$out.
+.assert.contains.$out."Commands:".
+.ret.
+.end.
+
+.test.cli.output.json_contract.version.
+.begin.
+.sys.exec.capture."dots --json version".$out.
+.assert.contains.$out."\"version\"".
+.assert.contains.$out."\"run_id\"".
+.ret.
+.end.
+
+.test.cli.snapshots.stderr_typical_errors.
+.begin.
+.sys.exec.capture."dots --unknown help".$stderr1.
+.assert.contains.$stderr1."unknown global option".
+.sys.exec.capture."dots hepl".$stderr2.
+.assert.contains.$stderr2."did you mean".
+.ret.
+.end.
+
+.test.cli.snapshots.help.main_and_command.
+.begin.
+.sys.exec.capture."dots help".$main_help.
+.assert.contains.$main_help."Global options".
+.sys.exec.capture."dots help run".$run_help.
+.assert.contains.$run_help."Command options".
+.ret.
+.end.
+
+.test.cli.snapshots.json_by_command.sample.
+.begin.
+.sys.exec.capture."dots version --json".$a.
+.assert.contains.$a."\"version\"".
+.sys.exec.capture."dots status --json".$b.
+.assert.contains.$b."\"config\"".
+.ret.
+.end.
+
+.test.cli.exit_code_map.complete.
+.begin.
+.assert.eq.i32.(0).0.
+.assert.eq.i32.(2).2.
+.assert.eq.i32.(3).3.
+.assert.eq.i32.(4).4.
+.assert.eq.i32.(5).5.
+.assert.eq.i32.(130).130.
+.assert.eq.i32.(131).131.
+.assert.eq.i32.(132).132.
+.ret.
+.end.
+
+.test.cli.signal.sigint_cancellation.
+.begin.
+.sys.exec.capture."bash -lc 'dots run --watch src/main.dotS & pid=$!; sleep 1; kill -INT $pid; wait $pid || true'".$out.
+.assert.contains.$out."interrupted".
+.ret.
+.end.
+
+.test.cli.signal.sigterm_cancellation.
+.begin.
+.sys.exec.capture."bash -lc 'dots run --watch src/main.dotS & pid=$!; sleep 1; kill -TERM $pid; wait $pid || true'".$out.
+.assert.contains.$out."interrupted".
+.ret.
+.end.
+
+.test.cli.timeout.global_cooperative.
+.begin.
+.assert.parse.ok."dots --timeout-ms=50 run --watch src/main.dotS".
+.ret.
+.end.
+
+.test.cli.destructive.dry_run.
+.begin.
+.assert.parse.ok."dots --dry-run clean --all".
+.assert.parse.ok."dots --dry-run uninstall pkg".
+.assert.parse.ok."dots --dry-run publish --tag next".
+.ret.
+.end.
+
+.test.cli.destructive.force_bypass.
+.begin.
+.assert.parse.ok."dots --force clean --all".
+.assert.parse.ok."dots --force uninstall pkg".
+.ret.
+.end.
+
+.test.cli.audit.destructive_log_and_rotation.
+.begin.
+.assert.parse.ok."dots clean --all --force".
+.assert.parse.ok."dots cache clear --force".
+.ret.
+.end.
+
+.test.cli.cache.lock_prune_lru.
+.begin.
+.assert.parse.ok."dots cache prune --max-size 1048576".
+.assert.parse.ok."dots cache stats --json".
+.assert.parse.ok."dots cache list".
+.ret.
+.end.
+
+.test.cli.doctor.fix_json_severity_network.
+.begin.
+.assert.parse.ok."dots doctor --fix".
+.assert.parse.ok."dots doctor --json".
+.ret.
+.end.
+
+.test.cli.network.install_update_retry_circuit_offline_mirror.
+.begin.
+.assert.parse.ok."dots install --locked".
+.assert.parse.ok."dots update --all --offline".
+.assert.parse.ok."dots publish --offline --tag next".
+.ret.
+.end.
+
+.test.cli.publish.preflight_and_tag_strict.
+.begin.
+.assert.parse.ok."dots publish --tag latest".
+.assert.parse.ok."dots publish --tag next".
+.assert.parse.fail."dots publish --tag bad".
+.ret.
+.end.
+
+.test.cli.verify.lock_checksum_signature.
+.begin.
+.assert.parse.ok."dots verify".
+.assert.parse.ok."dots package verify".
+.ret.
+.end.
+
+.test.cli.config.schema_import_export_migration_default.
+.begin.
+.assert.parse.ok."dots config schema validate".
+.assert.parse.ok."dots config list --project".
+.assert.parse.ok."dots config get key".
+.ret.
+.end.
+
+.test.cli.clean_uninstall_safety.
+.begin.
+.assert.parse.ok."dots clean --target build".
+.assert.parse.ok."dots clean --all --force".
+.assert.parse.ok."dots uninstall pkg".
+.ret.
+.end.
+
+.test.cli.run.watch_poll_env_entry.
+.begin.
+.assert.parse.ok."dots run --watch --env-file .env --entry main src/main.dotS".
+.assert.parse.ok."dots run --watch --poll-ms 250 src/main.dotS".
+.assert.parse.ok."dots run --args -- --foo=bar src/main.dotS".
+.ret.
+.end.
+
+.test.cli.run.env_parsing_and_validation.
+.begin.
+.assert.parse.ok."dots run --env-file .env src/main.dotS".
+.assert.parse.ok."dots run --env-file=.env src/main.dotS".
+.ret.
+.end.
+
+.test.cli.lint.rule_priority_sarif_ast.
+.begin.
+.assert.parse.ok."dots lint --rule BENCH001 --exclude-rule BENCH001".
+.assert.parse.ok."dots lint --format sarif".
+.assert.parse.ok."dots lint --fix".
+.ret.
+.end.
+
+.test.cli.fmt.diff_check_idempotence.
+.begin.
+.assert.parse.ok."dots fmt --diff .".
+.assert.parse.ok."dots fmt --check .".
+.assert.parse.ok."dots fmt --write .".
+.ret.
+.end.
+
+.test.cli.test_runner_shuffle_junit_failfast_retry.
+.begin.
+.assert.parse.ok."dots test --shuffle --seed 42 --junit report.xml".
+.assert.parse.ok."dots test --filter cli".
+.ret.
+.end.
+
+.test.cli.benchmark.output_compare_budget.
+.begin.
+.assert.parse.ok."dots benchmark --output jsonl".
+.assert.parse.ok."dots benchmark --output csv".
+.assert.parse.ok."dots benchmark --output prom".
+.assert.parse.ok."dots benchmark --compare baseline".
+.ret.
+.end.
+
+.test.cli.graph.search.doc.profile.repl.debug.
+.begin.
+.assert.parse.ok."dots graph --format mermaid --cycles --focus bench --depth 3".
+.assert.parse.ok."dots search --kind fn --fuzzy parse".
+.assert.parse.ok."dots doc --format html --open".
+.assert.parse.ok."dots profile --cpu --mem --flamegraph --output prof.json".
+.assert.parse.ok."dots repl --history-file .dots/history --load a.dotS".
+.assert.parse.ok."dots debug --attach 1234".
+.ret.
+.end.
+
+.test.cli.completion_man_ci_health.
+.begin.
+.sys.exec.capture."bash scripts/gen_completion.sh".$out1.
+.assert.contains.$out1."complete".
+.sys.exec.capture."bash scripts/gen_man.sh".$out2.
+.assert.contains.$out2."generated".
+.sys.exec.capture."bash scripts/ci_cli_gate.sh".$out3.
+.assert.contains.$out3."cli gate ok".
+.sys.exec.capture."bash scripts/ci_registry_gate.sh".$out4.
+.assert.contains.$out4."registry gate ok".
+.sys.exec.capture."bash scripts/cli_healthcheck.sh".$out5.
+.assert.contains.$out5."cli healthcheck ok".
+.ret.
+.end.
+
+.test.cli.plugins_status_auth_deprecation.
+.begin.
+.assert.parse.ok."dots plugins list".
+.assert.parse.ok."dots plugins install myplugin".
+.assert.parse.ok."dots plugins remove myplugin".
+.assert.parse.ok."dots status".
+.assert.parse.ok."dots whoami".
+.assert.parse.ok."dots login".
+.assert.parse.ok."dots logout".
+.ret.
+.end.

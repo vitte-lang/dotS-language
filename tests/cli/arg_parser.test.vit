@@ -1,0 +1,7 @@
+.test.cli.arg_parser.global_flags.
+.begin.
+.assert.parse.ok."dots --config=./dots.json --cwd . --json --verbose --timeout-ms=1000 fmt".
+.assert.parse.ok."dots --include a,b,c check file.dotS".
+.assert.parse.ok."dots --no-color help".
+.ret.
+.end.

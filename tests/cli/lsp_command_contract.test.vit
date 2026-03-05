@@ -1,0 +1,16 @@
+.test.cli.lsp.command.parse.
+.begin.
+.assert.parse.ok."dots lsp serve --stdio".
+.assert.parse.ok."dots lsp doctor".
+.assert.parse.ok."dots lsp stats --json".
+.assert.parse.ok."dots lsp stats --prom".
+.assert.parse.ok."dots doctor --lsp".
+.ret.
+.end.
+
+.test.cli.lsp.gates.scripts.
+.begin.
+.sys.exec.capture."bash -lc 'test -x scripts/ci_lsp_stdout_gate.sh && test -x scripts/ci_lsp_latency_gate.sh && test -x scripts/ci_lsp_schema_gate.sh && test -x scripts/ci_lsp_ttfo_gate.sh && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

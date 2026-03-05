@@ -1,0 +1,6 @@
+.test.cli.signal.cancel.
+.begin.
+.sys.exec.capture."bash -lc 'dots run --watch src/main.dotS & pid=$!; sleep 1; kill -INT $pid; wait $pid || true'".$out.
+.assert.contains.$out."interrupted".
+.ret.
+.end.

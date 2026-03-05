@@ -1,0 +1,17 @@
+.test.cli.completion.generate_and_validate.
+.begin.
+.sys.exec.capture."bash scripts/gen_completion_from_registry.sh".$out.
+.assert.contains.$out."generated completions".
+.sys.exec.capture."bash scripts/ci_completion_up_to_date.sh".$o2.
+.assert.contains.$o2."completion up-to-date gate ok".
+.sys.exec.capture."bash scripts/ci_completion_no_network_gate.sh".$o3.
+.assert.contains.$o3."completion no-network gate ok".
+.ret.
+.end.
+
+.test.cli.completion.each_registry_command_covered.
+.begin.
+.sys.exec.capture."bash -lc 'python3 - <<PY\nimport json\nreg=json.load(open(\"completions/registry.json\"))\nbash=open(\"completions/dots.bash\").read()\nmissing=[]\nfor c in reg[\"commands\"]:\n    if c[\"name\"] not in bash:\n        missing.append(c[\"name\"])\nprint(\"OK\" if not missing else \"MISSING:\"+\",\".join(missing))\nPY'".$out.
+.assert.contains.$out."OK".
+.ret.
+.end.

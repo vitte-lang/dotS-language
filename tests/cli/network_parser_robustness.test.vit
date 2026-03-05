@@ -1,0 +1,15 @@
+.test.cli.parser.network.non_numeric_retries.
+.begin.
+.assert.parse.fail."dots install --retries=x core".
+.assert.parse.fail."dots update --retries=x".
+.assert.parse.fail."dots publish --retries=x --tag next".
+.ret.
+.end.
+
+.test.cli.parser.network.timeout_invalid.
+.begin.
+.assert.parse.fail."dots install --timeout-ms=-1 core".
+.assert.parse.fail."dots update --timeout-ms=-1".
+.assert.parse.fail."dots publish --timeout-ms=-1 --tag next".
+.ret.
+.end.

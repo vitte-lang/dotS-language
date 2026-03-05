@@ -1,0 +1,35 @@
+.test.cli.build.contracts.
+.begin.
+.assert.parse.ok."dots build --dry-run --json --target wasm --emit bytecode src/main.dotS".
+.assert.parse.ok."dots build --no-cache --out-dir=build src/main.dotS".
+.ret.
+.end.
+
+.test.cli.fmt.contracts.
+.begin.
+.assert.parse.ok."dots fmt --check --diff --json .".
+.assert.parse.ok."dots fmt --write --json .".
+.ret.
+.end.
+
+.test.cli.install.network.contracts.
+.begin.
+.assert.parse.ok."dots install --retries 3 --jitter-ms 50 --cb-threshold 4 pkgA".
+.assert.parse.ok."dots install --mirror=https://m1,https://m2 --json pkgA".
+.assert.parse.ok."dots install --offline pkgA".
+.ret.
+.end.
+
+.test.cli.update.network.contracts.
+.begin.
+.assert.parse.ok."dots update --all --retries=2 --jitter-ms=30 --cb-threshold=3 --json".
+.assert.parse.ok."dots update --mirror https://m1,https://m2".
+.ret.
+.end.
+
+.test.cli.publish.network_preflight.contracts.
+.begin.
+.assert.parse.ok."dots publish --tag next --retries 2 --jitter-ms 10 --cb-threshold 3 --json".
+.assert.parse.fail."dots publish --tag bad".
+.ret.
+.end.
