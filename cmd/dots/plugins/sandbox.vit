@@ -1,0 +1,13 @@
+space dots/cmd/plugins/sandbox
+
+form SandboxPolicy
+{
+    allow_fs_write: bool
+    allow_network: bool
+    allow_process_exec: bool
+}
+
+proc default_policy() -> SandboxPolicy
+{
+    give SandboxPolicy(false, false, false)
+}

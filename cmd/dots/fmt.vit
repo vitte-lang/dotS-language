@@ -1,0 +1,209 @@
+space dots/cmd/fmt
+
+pull core/io
+pull core/fs
+pull core/str
+pull core/process
+
+form FmtArgs
+{
+    help: bool
+    json: bool
+    check: bool
+    write: bool
+    stdin_mode: bool
+    diff: bool
+    target: string
+}
+
+proc usage() -> void
+{
+    io.print("usage: dots fmt [--check|--write] [--stdin] [--diff] [--json] [target]")
+}
+
+proc parse(argv: [string]) -> FmtArgs
+{
+    let out = FmtArgs(false, false, false, false, false, false, ".")
+
+    let i: i32 = 1
+    loop while i < argv.len
+    {
+        let a = argv[i]
+        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--json" { out.json = true; i = i + 1; continue }
+        if a == "--check" { out.check = true; i = i + 1; continue }
+        if a == "--write" { out.write = true; i = i + 1; continue }
+        if a == "--stdin" { out.stdin_mode = true; i = i + 1; continue }
+        if a == "--diff" { out.diff = true; i = i + 1; continue }
+        if !str.starts_with(a, "-") { out.target = a; i = i + 1; continue }
+        i = i + 1
+    }
+
+    if !out.check && !out.write
+    {
+        out.write = true
+    }
+
+    give out
+}
+
+proc validate(a: FmtArgs) -> string?
+{
+    if a.help { give null }
+    if !a.stdin_mode && !fs.exists(a.target) { give "target not found: " + a.target }
+    give null
+}
+
+proc normalize(line: string) -> string
+{
+    let l = str.trim(line)
+    if l == "" { give "" }
+    if !str.starts_with(l, ".") { l = "." + l }
+    if !str.ends_with(l, ".") { l = l + "." }
+    give l
+}
+
+proc format_source(src: string) -> string
+{
+    let lines = str.split(src, "\n")
+    let out: string = ""
+    let indent: i32 = 0
+
+    loop raw in lines
+    {
+        let line = normalize(raw)
+        if line == "" { continue }
+
+        if str.contains(line, ".end.") { indent = indent - 1 }
+        let pad = str.repeat("  ", indent)
+        out = out + pad + line + "\n"
+        if str.contains(line, ".begin.") { indent = indent + 1 }
+    }
+
+    give out
+}
+
+proc unified_diff(path: string, before: string, after: string) -> string
+{
+    if before == after
+    {
+        give ""
+    }
+
+    let out = "--- " + path + "\n+++ " + path + "\n"
+    let b = str.split(before, "\n")
+    let a = str.split(after, "\n")
+
+    let i: i32 = 0
+    let max = b.len
+    if a.len > max { max = a.len }
+
+    loop while i < max
+    {
+        let lb = ""
+        let la = ""
+        if i < b.len { lb = b[i] }
+        if i < a.len { la = a[i] }
+
+        if lb != la
+        {
+            if lb != "" { out = out + "-" + lb + "\n" }
+            if la != "" { out = out + "+" + la + "\n" }
+        }
+
+        i = i + 1
+    }
+
+    give out
+}
+
+proc process_file(path: string, a: FmtArgs) -> i32
+{
+    let src = fs.read_file(path)
+    let out = format_source(src)
+
+    if a.check
+    {
+        if out != src
+        {
+            if a.diff
+            {
+                io.print(unified_diff(path, src, out))
+            }
+            give 1
+        }
+
+        give 0
+    }
+
+    fs.write_file(path, out)
+
+    let second = format_source(out)
+    if second != out
+    {
+        io.print("dots: formatter non-idempotent for " + path)
+        give 1
+    }
+
+    if a.diff
+    {
+        let d = unified_diff(path, src, out)
+        if d != "" { io.print(d) }
+    }
+
+    give 0
+}
+
+proc execute(a: FmtArgs) -> i32
+{
+    if a.help { usage(); give 0 }
+
+    if a.stdin_mode
+    {
+        let src = io.read_stdin_all()
+        io.print(format_source(src))
+        give 0
+    }
+
+    let failures: i32 = 0
+    let processed: i32 = 0
+
+    if fs.is_file(a.target)
+    {
+        failures = failures + process_file(a.target, a)
+        processed = processed + 1
+    }
+    else
+    {
+        let files = fs.read_dir(a.target)
+        loop f in files
+        {
+            if str.ends_with(f, ".dotS") || str.ends_with(f, ".vit")
+            {
+                failures = failures + process_file(a.target + "/" + f, a)
+                processed = processed + 1
+            }
+        }
+    }
+
+    if a.json
+    {
+        io.print("{\"schema_version\":\"1\",\"command\":\"fmt\",\"processed\":\"" + str.from_i64(processed) + "\",\"failures\":\"" + str.from_i64(failures) + "\"}")
+    }
+
+    if failures > 0 { give 1 }
+    give 0
+}
+
+proc main() -> i32
+{
+    let a = parse(process.args())
+    let err = validate(a)
+    if err != null { io.print("dots: " + err); usage(); give 2 }
+    give execute(a)
+}
+
+entry at dots/cmd/fmt
+{
+    give main()
+}

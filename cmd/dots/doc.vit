@@ -1,0 +1,148 @@
+space dots/cmd/doc
+
+pull core/io
+pull core/fs
+pull core/str
+pull core/process
+
+pull dots/cmd/registry
+
+form DocArgs
+{
+    help: bool
+    json: bool
+    format: string
+    include_private: bool
+    open: bool
+}
+
+proc usage() -> void
+{
+    io.print("usage: dots doc [--format md|html|json] [--private] [--open] [--json]")
+}
+
+proc parse(argv: [string]) -> DocArgs
+{
+    let out = DocArgs(false, false, "md", false, false)
+    let i: i32 = 1
+    loop while i < argv.len
+    {
+        let a = argv[i]
+        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--json" { out.json = true; i = i + 1; continue }
+        if a == "--private" { out.include_private = true; i = i + 1; continue }
+        if a == "--open" { out.open = true; i = i + 1; continue }
+        if str.starts_with(a, "--format=") { out.format = str.replace(a, "--format=", ""); i = i + 1; continue }
+        if a == "--format" && i + 1 < argv.len { out.format = argv[i + 1]; i = i + 2; continue }
+        i = i + 1
+    }
+    give out
+}
+
+proc validate(a: DocArgs) -> string?
+{
+    if a.help { give null }
+    if a.format != "md" && a.format != "html" && a.format != "json" { give "invalid format" }
+    give null
+}
+
+proc docs_out_dir() -> string
+{
+    give "docs/generated"
+}
+
+proc open_file_cross_platform(path: string) -> void
+{
+    let p1 = process.exec("bash", ["-lc", "xdg-open \"" + path + "\" >/dev/null 2>&1"])
+    if p1.code == 0 { give }
+
+    let p2 = process.exec("bash", ["-lc", "open \"" + path + "\" >/dev/null 2>&1"])
+    if p2.code == 0 { give }
+
+    process.exec("bash", ["-lc", "cmd /c start \"\" \"" + path + "\" >/dev/null 2>&1"])
+}
+
+proc render_md() -> string
+{
+    let out = "# DotS CLI\n\n"
+    let cmds = command_registry()
+
+    loop c in cmds
+    {
+        out = out + "## " + c.name + "\n"
+        out = out + c.description + "\n\n"
+        out = out + "Usage: `" + c.usage + "`\n\n"
+    }
+
+    give out
+}
+
+proc render_html() -> string
+{
+    let out = "<html><head><meta charset=\"utf-8\"><title>DotS CLI</title></head><body>"
+    out = out + "<h1>DotS CLI</h1>"
+
+    let cmds = command_registry()
+    loop c in cmds
+    {
+        out = out + "<h2>" + c.name + "</h2>"
+        out = out + "<p>" + c.description + "</p>"
+        out = out + "<pre>" + c.usage + "</pre>"
+    }
+
+    out = out + "</body></html>"
+    give out
+}
+
+proc render_json() -> string
+{
+    let cmds = command_registry()
+    give "{\"doc\":\"cli\",\"commands\":\"" + str.from_i64(cmds.len) + "\"}"
+}
+
+proc render_by_format(format: string) -> string
+{
+    if format == "md" { give render_md() }
+    if format == "html" { give render_html() }
+    give render_json()
+}
+
+proc execute(a: DocArgs) -> i32
+{
+    if a.help { usage(); give 0 }
+
+    fs.mkdir_p(docs_out_dir())
+
+    let file = docs_out_dir() + "/index." + a.format
+    let content = render_by_format(a.format)
+    fs.write_file(file, content)
+
+    if a.open
+    {
+        open_file_cross_platform(file)
+    }
+
+    if a.json
+    {
+        io.print("{\"command\":\"doc\",\"file\":\"" + file + "\",\"format\":\"" + a.format + "\"}")
+    }
+    else
+    {
+        io.print("doc generated: " + file)
+    }
+
+    give 0
+}
+
+proc main() -> i32
+{
+    let a = parse(process.args())
+    let err = validate(a)
+    if err != null { io.print("dots: " + err); usage(); give 2 }
+    give execute(a)
+}
+
+entry at dots/cmd/doc
+{
+    give main()
+}

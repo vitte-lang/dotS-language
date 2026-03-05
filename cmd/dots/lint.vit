@@ -1,0 +1,254 @@
+space dots/cmd/lint
+
+pull core/io
+pull core/fs
+pull core/str
+pull core/list
+pull core/process
+
+form LintArgs
+{
+    help: bool
+    json: bool
+    fix: bool
+    format: string
+    rules: [string]
+    exclude_rules: [string]
+    target: string
+}
+
+proc usage() -> void
+{
+    io.print("usage: dots lint [--fix] [--rule <r1,r2>] [--exclude-rule <r1,r2>] [--format stylish|json|sarif] [target]")
+    io.print("rules: TABS,DOTDOT,TRAILING_SPACES,AST_PARSE,NO_BASH_EXEC_PACKAGE")
+}
+
+proc split_csv(raw: string) -> [string]
+{
+    if raw == "" { give [] }
+    let parts = str.split(raw, ",")
+    let out: [string] = []
+    loop p in parts
+    {
+        let v = str.trim(p)
+        if v != "" { out = out.push(v) }
+    }
+    give out
+}
+
+proc parse(argv: [string]) -> LintArgs
+{
+    let out = LintArgs(false, false, false, "stylish", [], [], ".")
+    let i: i32 = 1
+
+    loop while i < argv.len
+    {
+        let a = argv[i]
+
+        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--json" { out.json = true; i = i + 1; continue }
+        if a == "--fix" { out.fix = true; i = i + 1; continue }
+
+        if str.starts_with(a, "--rule=") { out.rules = split_csv(str.replace(a, "--rule=", "")); i = i + 1; continue }
+        if a == "--rule" && i + 1 < argv.len { out.rules = split_csv(argv[i + 1]); i = i + 2; continue }
+
+        if str.starts_with(a, "--exclude-rule=") { out.exclude_rules = split_csv(str.replace(a, "--exclude-rule=", "")); i = i + 1; continue }
+        if a == "--exclude-rule" && i + 1 < argv.len { out.exclude_rules = split_csv(argv[i + 1]); i = i + 2; continue }
+
+        if str.starts_with(a, "--format=") { out.format = str.replace(a, "--format=", ""); i = i + 1; continue }
+        if a == "--format" && i + 1 < argv.len { out.format = argv[i + 1]; i = i + 2; continue }
+
+        if !str.starts_with(a, "-") { out.target = a; i = i + 1; continue }
+
+        i = i + 1
+    }
+
+    give out
+}
+
+proc validate_rule_name(r: string) -> bool
+{
+    if r == "TABS" || r == "DOTDOT" || r == "TRAILING_SPACES" || r == "AST_PARSE" || r == "NO_BASH_EXEC_PACKAGE"
+    {
+        give true
+    }
+
+    give false
+}
+
+proc validate(a: LintArgs) -> string?
+{
+    if a.help { give null }
+
+    if a.format != "stylish" && a.format != "json" && a.format != "sarif"
+    {
+        give "invalid --format"
+    }
+
+    if !fs.exists(a.target)
+    {
+        give "target not found: " + a.target
+    }
+
+    loop r in a.rules
+    {
+        if !validate_rule_name(r)
+        {
+            give "unknown lint rule: " + r
+        }
+    }
+
+    loop r in a.exclude_rules
+    {
+        if !validate_rule_name(r)
+        {
+            give "unknown excluded lint rule: " + r
+        }
+    }
+
+    give null
+}
+
+proc collect_files(target: string) -> [string]
+{
+    let out: [string] = []
+
+    if fs.is_file(target)
+    {
+        if str.ends_with(target, ".dotS") || str.ends_with(target, ".vit")
+        {
+            out = out.push(target)
+        }
+
+        give out
+    }
+
+    let files = fs.read_dir(target)
+    loop f in files
+    {
+        let p = target + "/" + f
+        if str.ends_with(p, ".dotS") || str.ends_with(p, ".vit")
+        {
+            out = out.push(p)
+        }
+    }
+
+    give out
+}
+
+proc rule_enabled(a: LintArgs, rule: string) -> bool
+{
+    if list.contains(a.exclude_rules, rule)
+    {
+        give false
+    }
+
+    if a.rules.len == 0
+    {
+        give true
+    }
+
+    give list.contains(a.rules, rule)
+}
+
+proc lint_file(path: string, a: LintArgs) -> [string]
+{
+    let out: [string] = []
+    let src = fs.read_file(path)
+    let lines = str.split(src, "\n")
+    let ln: i32 = 1
+
+    loop l in lines
+    {
+        if rule_enabled(a, "TABS") && str.contains(l, "\t")
+        {
+            out = out.push(path + ":" + str.from_i64(ln) + ": TABS tab character")
+        }
+
+        if rule_enabled(a, "DOTDOT") && str.contains(l, "..")
+        {
+            out = out.push(path + ":" + str.from_i64(ln) + ": DOTDOT suspicious token '..'")
+        }
+
+        if rule_enabled(a, "TRAILING_SPACES") && str.ends_with(l, " ")
+        {
+            out = out.push(path + ":" + str.from_i64(ln) + ": TRAILING_SPACES")
+        }
+
+        if rule_enabled(a, "NO_BASH_EXEC_PACKAGE")
+        {
+            let is_pkg_path = str.contains(path, "cmd/dots/install.vit") || str.contains(path, "cmd/dots/update.vit") || str.contains(path, "cmd/dots/publish.vit") || str.contains(path, "modules/package/")
+            if is_pkg_path && str.contains(l, "process.exec(\"bash\"")
+            {
+                out = out.push(path + ":" + str.from_i64(ln) + ": NO_BASH_EXEC_PACKAGE forbidden process.exec(\"bash\")")
+            }
+        }
+
+        ln = ln + 1
+    }
+
+    if rule_enabled(a, "AST_PARSE")
+    {
+        if str.contains(src, ".begin.") && !str.contains(src, ".end.")
+        {
+            out = out.push(path + ":1: AST_PARSE missing .end.")
+        }
+    }
+
+    give out
+}
+
+proc print_sarif(errs: [string]) -> void
+{
+    let n = str.from_i64(errs.len)
+    io.print("{\"$schema\":\"https://json.schemastore.org/sarif-2.1.0.json\",\"version\":\"2.1.0\",\"runs\":[{\"tool\":{\"driver\":{\"name\":\"dots-lint\"}},\"results_count\":\"" + n + "\"}]}")
+}
+
+proc execute(a: LintArgs) -> i32
+{
+    if a.help { usage(); give 0 }
+
+    let files = collect_files(a.target)
+    let errs: [string] = []
+
+    loop f in files
+    {
+        let e = lint_file(f, a)
+        loop x in e { errs = errs.push(x) }
+    }
+
+    if a.fix
+    {
+        process.exec("bash", ["scripts/bench_autofix.sh"])
+    }
+
+    if a.format == "sarif"
+    {
+        print_sarif(errs)
+    }
+    else if a.json || a.format == "json"
+    {
+        io.print("{\"command\":\"lint\",\"errors\":\"" + str.from_i64(errs.len) + "\",\"files\":\"" + str.from_i64(files.len) + "\"}")
+    }
+    else
+    {
+        loop e in errs { io.print("lint: " + e) }
+        io.print("files=" + str.from_i64(files.len) + " errors=" + str.from_i64(errs.len))
+    }
+
+    if errs.len > 0 { give 1 }
+    give 0
+}
+
+proc main() -> i32
+{
+    let a = parse(process.args())
+    let err = validate(a)
+    if err != null { io.print("dots: " + err); usage(); give 2 }
+    give execute(a)
+}
+
+entry at dots/cmd/lint
+{
+    give main()
+}

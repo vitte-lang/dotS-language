@@ -1,0 +1,258 @@
+space dots/cmd/search
+
+pull core/io
+pull core/fs
+pull core/str
+pull core/process
+pull core/time
+
+form SearchArgs
+{
+    help: bool
+    json: bool
+    kind: string
+    fuzzy: bool
+    query: string
+    root: string
+    rebuild: bool
+}
+
+form Hit
+{
+    path: string
+    line: i64
+    token: string
+    score: i32
+}
+
+proc usage() -> void
+{
+    io.print("usage: dots search [--kind fn|module|type] [--fuzzy] [--rebuild] [--json] <query>")
+}
+
+proc parse(argv: [string]) -> SearchArgs
+{
+    let out = SearchArgs(false, false, "", false, "", ".", false)
+    let i: i32 = 1
+
+    loop while i < argv.len
+    {
+        let a = argv[i]
+        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--json" { out.json = true; i = i + 1; continue }
+        if a == "--fuzzy" { out.fuzzy = true; i = i + 1; continue }
+        if a == "--rebuild" { out.rebuild = true; i = i + 1; continue }
+        if str.starts_with(a, "--kind=") { out.kind = str.replace(a, "--kind=", ""); i = i + 1; continue }
+        if a == "--kind" && i + 1 < argv.len { out.kind = argv[i + 1]; i = i + 2; continue }
+        if !str.starts_with(a, "-") { out.query = a; i = i + 1; continue }
+        i = i + 1
+    }
+
+    give out
+}
+
+proc validate(a: SearchArgs) -> string?
+{
+    if a.help { give null }
+    if a.kind != "" && a.kind != "fn" && a.kind != "module" && a.kind != "type" { give "invalid --kind" }
+    if a.query == "" { give "missing query" }
+    give null
+}
+
+proc index_dir() -> string { give ".dots/index" }
+proc index_file() -> string { give index_dir() + "/search_index.jsonl" }
+
+proc source_files() -> [string]
+{
+    let out: [string] = []
+    let roots: [string] = ["cmd/dots", "bench", "grammar", "tests/cli"]
+
+    loop r in roots
+    {
+        if !fs.exists(r) { continue }
+
+        let files = fs.read_dir(r)
+        loop f in files
+        {
+            let p = r + "/" + f
+            if str.ends_with(p, ".vit") || str.ends_with(p, ".dotS") || str.ends_with(p, ".ebnf")
+            {
+                out = out.push(p)
+            }
+        }
+    }
+
+    give out
+}
+
+proc tokenize(line: string) -> [string]
+{
+    let s = str.lower(line)
+    s = str.replace(s, "(", " ")
+    s = str.replace(s, ")", " ")
+    s = str.replace(s, "{", " ")
+    s = str.replace(s, "}", " ")
+    s = str.replace(s, "[", " ")
+    s = str.replace(s, "]", " ")
+    s = str.replace(s, "\"", " ")
+    s = str.replace(s, ".", " ")
+    s = str.replace(s, ",", " ")
+    s = str.replace(s, ":", " ")
+    s = str.replace(s, "=", " ")
+
+    let raw = str.split(s, " ")
+    let out: [string] = []
+    loop t in raw
+    {
+        let tok = str.trim(t)
+        if tok != "" && tok.len >= 2
+        {
+            out = out.push(tok)
+        }
+    }
+
+    give out
+}
+
+proc build_index() -> i32
+{
+    fs.mkdir_p(index_dir())
+
+    let lines_out = ""
+    let files = source_files()
+
+    loop p in files
+    {
+        let lines = str.split(fs.read_file(p), "\n")
+        let ln: i32 = 1
+
+        loop l in lines
+        {
+            let toks = tokenize(l)
+            loop tok in toks
+            {
+                lines_out = lines_out + "{\"token\":\"" + tok + "\",\"path\":\"" + p + "\",\"line\":\"" + str.from_i64(ln) + "\"}\n"
+            }
+            ln = ln + 1
+        }
+    }
+
+    fs.write_file(index_file(), lines_out)
+    give files.len
+}
+
+proc json_field(line: string, key: string) -> string
+{
+    let pat = "\"" + key + "\":\""
+    if !str.contains(line, pat) { give "" }
+    let rest = str.split(line, pat)
+    if rest.len < 2 { give "" }
+    let tail = rest[1]
+    let p = str.split(tail, "\"")
+    if p.len < 1 { give "" }
+    give p[0]
+}
+
+proc score_token(tok: string, query: string, fuzzy: bool) -> i32
+{
+    if tok == query { give 100 }
+    if str.contains(tok, query) { give 70 }
+    if fuzzy
+    {
+        if str.starts_with(tok, query) || str.starts_with(query, tok)
+        {
+            give 40
+        }
+        if str.contains(query, tok) || str.contains(tok, str.replace(query, "_", ""))
+        {
+            give 35
+        }
+    }
+    give 0
+}
+
+proc maybe_insert_top(hits: [Hit], h: Hit, limit: i32) -> [Hit]
+{
+    let out = hits.push(h)
+
+    if out.len <= limit
+    {
+        give out
+    }
+
+    let min_idx: i32 = 0
+    let i: i32 = 1
+    loop while i < out.len
+    {
+        if out[i].score < out[min_idx].score
+        {
+            min_idx = i
+        }
+        i = i + 1
+    }
+
+    let keep: [Hit] = []
+    i = 0
+    loop while i < out.len
+    {
+        if i != min_idx { keep = keep.push(out[i]) }
+        i = i + 1
+    }
+
+    give keep
+}
+
+proc execute(a: SearchArgs) -> i32
+{
+    if a.help { usage(); give 0 }
+
+    if !fs.exists(index_file()) || a.rebuild
+    {
+        build_index()
+    }
+
+    let q = str.lower(a.query)
+    let lines = str.split(fs.read_file(index_file()), "\n")
+
+    let hits: [Hit] = []
+    loop l in lines
+    {
+        let line = str.trim(l)
+        if line == "" { continue }
+
+        let tok = json_field(line, "token")
+        let sc = score_token(tok, q, a.fuzzy)
+        if sc <= 0 { continue }
+
+        let h = Hit(json_field(line, "path"), str.to_i64(json_field(line, "line")), tok, sc)
+        hits = maybe_insert_top(hits, h, 25)
+    }
+
+    if a.json
+    {
+        io.print("{\"command\":\"search\",\"hits\":\"" + str.from_i64(hits.len) + "\",\"index\":\"" + index_file() + "\"}")
+    }
+    else
+    {
+        loop h in hits
+        {
+            io.print(h.path + ":" + str.from_i64(h.line) + " [" + str.from_i64(h.score) + "] " + h.token)
+        }
+    }
+
+    if hits.len == 0 { give 1 }
+    give 0
+}
+
+proc main() -> i32
+{
+    let a = parse(process.args())
+    let err = validate(a)
+    if err != null { io.print("dots: " + err); usage(); give 2 }
+    give execute(a)
+}
+
+entry at dots/cmd/search
+{
+    give main()
+}

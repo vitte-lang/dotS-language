@@ -1,0 +1,288 @@
+space dots/cmd/doctor
+
+pull core/io
+pull core/fs
+pull core/str
+pull core/process
+pull core/time
+pull modules/package/backend
+pull ffi/c/ffi
+
+form Check
+{
+    name: string
+    severity: string
+    ok: bool
+    detail: string
+    fixable: bool
+}
+
+form DoctorArgs
+{
+    help: bool
+    json: bool
+    fix: bool
+    network_timeout_ms: i64
+    registry_only: bool
+    lsp_only: bool
+}
+
+proc usage() -> void
+{
+    io.print("usage: dots doctor [--fix] [--registry|--lsp] [--network-timeout-ms <ms>] [--json]")
+}
+
+proc parse(argv: [string]) -> DoctorArgs
+{
+    let out = DoctorArgs(false, false, false, 1500, false, false)
+    let i: i32 = 1
+
+    loop while i < argv.len
+    {
+        let a = argv[i]
+        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--json" { out.json = true; i = i + 1; continue }
+        if a == "--fix" { out.fix = true; i = i + 1; continue }
+        if a == "--registry" { out.registry_only = true; i = i + 1; continue }
+        if a == "--lsp" { out.lsp_only = true; i = i + 1; continue }
+        if str.starts_with(a, "--network-timeout-ms=") { out.network_timeout_ms = str.to_i64(str.replace(a, "--network-timeout-ms=", "")); i = i + 1; continue }
+        if a == "--network-timeout-ms" && i + 1 < argv.len { out.network_timeout_ms = str.to_i64(argv[i + 1]); i = i + 2; continue }
+        i = i + 1
+    }
+
+    give out
+}
+
+proc validate(a: DoctorArgs) -> string?
+{
+    if a.help { give null }
+    if a.network_timeout_ms <= 0 { give "network-timeout-ms must be > 0" }
+    if a.registry_only && a.lsp_only { give "choose only one of --registry or --lsp" }
+    give null
+}
+
+proc check_runtime() -> Check
+{
+    let p = process.exec("dots", ["--version"])
+    if p.code == 0 { give Check("runtime", "error", true, "dots available", false) }
+    give Check("runtime", "error", false, "dots not found in PATH", false)
+}
+
+proc check_path() -> Check
+{
+    let p = process.env("PATH")
+    if p == "" { give Check("path", "warn", false, "PATH empty", false) }
+    give Check("path", "info", true, "PATH set", false)
+}
+
+proc check_config() -> Check
+{
+    if fs.exists(".dots/config.v2.conf") { give Check("config", "info", true, "config v2 present", false) }
+    if fs.exists(".dots/config.json") { give Check("config", "warn", false, "legacy config only", true) }
+    give Check("config", "warn", false, "config missing", true)
+}
+
+proc check_cache() -> Check
+{
+    if fs.exists(".dots-cache") { give Check("cache", "info", true, "cache dir present", false) }
+    give Check("cache", "warn", false, "cache dir missing", true)
+}
+
+proc check_proxy() -> Check
+{
+    let hp = process.env("HTTP_PROXY")
+    let hps = process.env("HTTPS_PROXY")
+    if hp != "" || hps != ""
+    {
+        give Check("proxy", "info", true, "proxy env configured", false)
+    }
+
+    give Check("proxy", "info", true, "proxy env not set", false)
+}
+
+proc check_cert_store() -> Check
+{
+    if fs.exists("/etc/ssl/certs")
+    {
+        give Check("cert", "info", true, "cert store found", false)
+    }
+
+    give Check("cert", "warn", false, "cert store not found", false)
+}
+
+proc check_network(timeout_ms: i64) -> Check
+{
+    let sec = timeout_ms / 1000
+    if sec <= 0 { sec = 1 }
+
+    let p = process.exec("curl", ["-Is", "--max-time", str.from_i64(sec), "https://github.com"])
+
+    if p.code == 0
+    {
+        give Check("network", "info", true, "network reachable", false)
+    }
+
+    give Check("network", "error", false, "network timeout/unreachable", false)
+}
+
+proc check_ffi() -> Check
+{
+    let lines = ffi_doctor_checks()
+    let has_error = false
+    loop l in lines
+    {
+        if str.starts_with(l, "error:")
+        {
+            has_error = true
+        }
+    }
+    if has_error
+    {
+        give Check("ffi", "warn", false, "ffi doctor has warnings/errors", false)
+    }
+    give Check("ffi", "info", true, "ffi doctor ok", false)
+}
+
+proc print_check(c: Check) -> void
+{
+    let tag = "[ok]"
+    if !c.ok { tag = "[fail]" }
+
+    io.print(tag + " [" + c.severity + "] " + c.name + " - " + c.detail)
+}
+
+proc apply_fix(checks: [Check]) -> bool
+{
+    let created_paths: [string] = []
+
+    loop c in checks
+    {
+        if c.ok || !c.fixable
+        {
+            continue
+        }
+
+        if c.name == "cache"
+        {
+            fs.mkdir_p(".dots-cache")
+            created_paths = created_paths.push(".dots-cache")
+            continue
+        }
+
+        if c.name == "config"
+        {
+            fs.mkdir_p(".dots")
+            fs.write_file(".dots/config.v2.conf", "schema_version=2\n")
+            created_paths = created_paths.push(".dots/config.v2.conf")
+            continue
+        }
+    }
+
+    loop c in checks
+    {
+        if c.name == "runtime" && !c.ok
+        {
+            loop p in created_paths
+            {
+                if fs.exists(p)
+                {
+                    if fs.is_file(p) { fs.remove(p) } else { fs.remove_all(p) }
+                }
+            }
+            give false
+        }
+    }
+
+    give true
+}
+
+proc execute(a: DoctorArgs) -> i32
+{
+    if a.help { usage(); give 0 }
+
+    if a.lsp_only
+    {
+        let p = process.exec("dots", ["lsp", "doctor"])
+        if a.json
+        {
+            io.print("{\"command\":\"doctor\",\"scope\":\"lsp\",\"ok\":\"" + str.from_bool(p.code == 0) + "\"}")
+        }
+        else
+        {
+            if p.code == 0 { io.print("[ok] [info] lsp - stdio launch ok") }
+            else { io.print("[fail] [error] lsp - stdio launch failed") }
+        }
+        if p.code == 0 { give 0 }
+        give 1
+    }
+
+    if a.registry_only
+    {
+        let lines = backend_status_pairs()
+        if a.json
+        {
+            io.print("{\"command\":\"doctor\",\"scope\":\"registry\",\"checks\":\"" + str.from_i64(lines.len) + "\"}")
+        }
+        else
+        {
+            io.print("[ok] [info] registry - backend status")
+            loop l in lines { io.print("  " + l) }
+        }
+        give 0
+    }
+
+    let checks: [Check] = [
+        check_runtime(),
+        check_path(),
+        check_config(),
+        check_cache(),
+        check_proxy(),
+        check_cert_store(),
+        check_network(a.network_timeout_ms),
+        check_ffi()
+    ]
+
+    if a.fix
+    {
+        let ok = apply_fix(checks)
+        if !ok
+        {
+            io.print("dots: doctor --fix rollback completed")
+        }
+    }
+
+    let failed: i32 = 0
+    let warn: i32 = 0
+
+    loop c in checks
+    {
+        if !c.ok { failed = failed + 1 }
+        if c.severity == "warn" { warn = warn + 1 }
+
+        if !a.json
+        {
+            print_check(c)
+        }
+    }
+
+    if a.json
+    {
+        io.print("{\"command\":\"doctor\",\"failed\":\"" + str.from_i64(failed) + "\",\"warn\":\"" + str.from_i64(warn) + "\",\"checks\":\"" + str.from_i64(checks.len) + "\"}")
+    }
+
+    if failed > 0 { give 1 }
+    give 0
+}
+
+proc main() -> i32
+{
+    let a = parse(process.args())
+    let err = validate(a)
+    if err != null { io.print("dots: " + err); usage(); give 2 }
+    give execute(a)
+}
+
+entry at dots/cmd/doctor
+{
+    give main()
+}

@@ -1,0 +1,150 @@
+space dots/cmd/install
+
+pull core/io
+pull core/fs
+pull core/str
+pull core/time
+pull core/process
+
+pull dots/cmd/common/output
+pull dots/cmd/common/validate
+pull modules/package/install
+
+form InstallArgs
+{
+    help: bool
+    json: bool
+    dry_run: bool
+    offline: bool
+    mirror: string
+    global: bool
+    local: bool
+    locked: bool
+    packages: [string]
+    retries: i32
+    jitter_ms: i64
+    cb_threshold: i32
+    timeout_ms: i64
+}
+
+proc usage() -> void
+{
+    io.print("usage: dots install [--global|--local] [--locked] [--offline] [--mirror <url[,url]>] [--retries <n>] [--jitter-ms <ms>] [--cb-threshold <n>] [--timeout-ms <ms>] [--dry-run] [--json] <pkg...>")
+}
+
+proc parse(argv: [string]) -> InstallArgs
+{
+    let out = InstallArgs(false, false, false, false, "", false, true, false, [], 2, 50, 3, 0)
+    let i: i32 = 1
+
+    loop while i < argv.len
+    {
+        let a = argv[i]
+        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--json" { out.json = true; i = i + 1; continue }
+        if a == "--dry-run" { out.dry_run = true; i = i + 1; continue }
+        if a == "--offline" { out.offline = true; i = i + 1; continue }
+        if a == "--global" { out.global = true; out.local = false; i = i + 1; continue }
+        if a == "--local" { out.local = true; out.global = false; i = i + 1; continue }
+        if a == "--locked" { out.locked = true; i = i + 1; continue }
+        if str.starts_with(a, "--mirror=") { out.mirror = str.replace(a, "--mirror=", ""); i = i + 1; continue }
+        if a == "--mirror" && i + 1 < argv.len { out.mirror = argv[i + 1]; i = i + 2; continue }
+        if str.starts_with(a, "--retries=") { out.retries = str.to_i64(str.replace(a, "--retries=", "")); i = i + 1; continue }
+        if a == "--retries" && i + 1 < argv.len { out.retries = str.to_i64(argv[i + 1]); i = i + 2; continue }
+        if str.starts_with(a, "--jitter-ms=") { out.jitter_ms = str.to_i64(str.replace(a, "--jitter-ms=", "")); i = i + 1; continue }
+        if a == "--jitter-ms" && i + 1 < argv.len { out.jitter_ms = str.to_i64(argv[i + 1]); i = i + 2; continue }
+        if str.starts_with(a, "--cb-threshold=") { out.cb_threshold = str.to_i64(str.replace(a, "--cb-threshold=", "")); i = i + 1; continue }
+        if a == "--cb-threshold" && i + 1 < argv.len { out.cb_threshold = str.to_i64(argv[i + 1]); i = i + 2; continue }
+        if str.starts_with(a, "--timeout-ms=") { out.timeout_ms = str.to_i64(str.replace(a, "--timeout-ms=", "")); i = i + 1; continue }
+        if a == "--timeout-ms" && i + 1 < argv.len { out.timeout_ms = str.to_i64(argv[i + 1]); i = i + 2; continue }
+        if !str.starts_with(a, "-") { out.packages = out.packages.push(a); i = i + 1; continue }
+        i = i + 1
+    }
+
+    give out
+}
+
+proc validate(a: InstallArgs) -> string?
+{
+    if a.help { give null }
+    if a.packages.len == 0 { give "missing package list" }
+    if a.locked && !fs.exists("dots.lock") { give "--locked requires dots.lock" }
+
+    let n = validate_network_options(a.retries, a.jitter_ms, a.cb_threshold, a.timeout_ms)
+    if n != null { give n }
+
+    give null
+}
+
+proc execute(a: InstallArgs) -> i32
+{
+    if a.help { usage(); give 0 }
+
+    let scope = "local"
+    if a.global { scope = "global" }
+
+    if a.dry_run
+    {
+        if a.json
+        {
+            print_json_response_ex("1.1.0", "install", "ok", "", "", ["dry_run", "scope", "packages"], ["true", scope, str.join(a.packages, ",")])
+        }
+        else
+        {
+            io.print("dry-run install scope=" + scope + " packages=" + str.join(a.packages, ","))
+        }
+        give 0
+    }
+
+    let failed: i32 = 0
+    let last_error = ""
+    let last_message = ""
+    let endpoint = ""
+    let start = time.now_ms()
+
+    loop pkg in a.packages
+    {
+        let r = install_package(pkg, a.mirror, a.offline, a.retries, a.jitter_ms, a.cb_threshold, a.timeout_ms)
+        if !r.ok
+        {
+            failed = failed + 1
+            last_error = r.error.code
+            last_message = r.error.message
+        }
+        endpoint = r.endpoint
+    }
+
+    let dur = time.now_ms() - start
+
+    if a.json
+    {
+        let status = "ok"
+        if failed > 0 { status = "error" }
+        print_json_response_ex("1.1.0", "install", status, last_error, last_message, ["scope", "packages", "failed", "duration_ms", "endpoint", "mirror"], [scope, str.from_i64(a.packages.len), str.from_i64(failed), str.from_i64(dur), endpoint, a.mirror])
+    }
+    else
+    {
+        io.print("install scope=" + scope + " packages=" + str.from_i64(a.packages.len) + " failed=" + str.from_i64(failed) + " duration_ms=" + str.from_i64(dur) + " error=" + last_error + " endpoint=" + endpoint)
+    }
+
+    if failed > 0
+    {
+        if last_error == "OFFLINE" { give 5 }
+        give 1
+    }
+
+    give 0
+}
+
+proc main() -> i32
+{
+    let a = parse(process.args())
+    let err = validate(a)
+    if err != null { io.print("dots: " + err); usage(); give 2 }
+    give execute(a)
+}
+
+entry at dots/cmd/install
+{
+    give main()
+}

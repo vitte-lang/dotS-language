@@ -1,0 +1,78 @@
+space dots/cmd/eval
+
+pull core/io
+pull core/process
+pull core/time
+pull core/str
+
+form EvalArgs
+{
+    help: bool
+    json: bool
+    expr: string
+}
+
+proc usage() -> void
+{
+    io.print("usage: dots eval [--expr <code>] [--json] '<code>'")
+}
+
+proc parse(argv: [string]) -> EvalArgs
+{
+    let out = EvalArgs(false, false, "")
+    let i: i32 = 1
+
+    loop while i < argv.len
+    {
+        let a = argv[i]
+        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--json" { out.json = true; i = i + 1; continue }
+        if str.starts_with(a, "--expr=") { out.expr = str.replace(a, "--expr=", ""); i = i + 1; continue }
+        if a == "--expr" && i + 1 < argv.len { out.expr = argv[i + 1]; i = i + 2; continue }
+        if !str.starts_with(a, "-") { out.expr = a; i = i + 1; continue }
+        i = i + 1
+    }
+
+    give out
+}
+
+proc validate(a: EvalArgs) -> string?
+{
+    if a.help { give null }
+    if a.expr == "" { give "missing expression" }
+    give null
+}
+
+proc execute(a: EvalArgs) -> i32
+{
+    if a.help { usage(); give 0 }
+    if a.expr == "" { usage(); give 2 }
+
+    let start: i64 = time.now_ms()
+    let p = process.exec("dots", ["run", "-e", a.expr])
+    let dur = time.now_ms() - start
+
+    if a.json
+    {
+        io.print("{\"command\":\"eval\",\"duration_ms\":\"" + str.from_i64(dur) + "\",\"exit\":\"" + str.from_i64(p.code) + "\"}")
+    }
+    else
+    {
+        io.print("time: " + str.from_i64(dur) + " ms")
+    }
+
+    give p.code
+}
+
+proc main() -> i32
+{
+    let a = parse(process.args())
+    let err = validate(a)
+    if err != null { io.print("dots: " + err); usage(); give 2 }
+    give execute(a)
+}
+
+entry at dots/cmd/eval
+{
+    give main()
+}

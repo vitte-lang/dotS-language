@@ -1,0 +1,86 @@
+space dots/cmd/uninstall
+
+pull core/io
+pull core/str
+pull core/process
+
+form UninstallArgs
+{
+    help: bool
+    json: bool
+    dry_run: bool
+    global: bool
+    local: bool
+    packages: [string]
+}
+
+proc usage() -> void
+{
+    io.print("usage: dots uninstall [--global|--local] [--dry-run] [--json] <pkg...>")
+}
+
+proc parse(argv: [string]) -> UninstallArgs
+{
+    let out = UninstallArgs(false, false, false, false, true, [])
+    let i: i32 = 1
+
+    loop while i < argv.len
+    {
+        let a = argv[i]
+        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--json" { out.json = true; i = i + 1; continue }
+        if a == "--dry-run" { out.dry_run = true; i = i + 1; continue }
+        if a == "--global" { out.global = true; out.local = false; i = i + 1; continue }
+        if a == "--local" { out.local = true; out.global = false; i = i + 1; continue }
+        if !str.starts_with(a, "-") { out.packages = out.packages.push(a); i = i + 1; continue }
+        i = i + 1
+    }
+
+    give out
+}
+
+proc validate(a: UninstallArgs) -> string?
+{
+    if a.help { give null }
+    if a.packages.len == 0 { give "missing package list" }
+    give null
+}
+
+proc execute(a: UninstallArgs) -> i32
+{
+    if a.help { usage(); give 0 }
+
+    let scope = "local"
+    if a.global { scope = "global" }
+
+    if a.dry_run
+    {
+        io.print("dry-run uninstall scope=" + scope + " packages=" + str.join(a.packages, ","))
+        give 0
+    }
+
+    loop p in a.packages
+    {
+        io.print("uninstall " + p + " (" + scope + ")")
+    }
+
+    if a.json
+    {
+        io.print("{\"command\":\"uninstall\",\"count\":\"" + str.from_i64(a.packages.len) + "\"}")
+    }
+
+    give 0
+}
+
+proc main() -> i32
+{
+    let a = parse(process.args())
+    let err = validate(a)
+    if err != null { io.print("dots: " + err); usage(); give 2 }
+    give execute(a)
+}
+
+entry at dots/cmd/uninstall
+{
+    give main()
+}

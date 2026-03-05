@@ -1,0 +1,75 @@
+space dots/cmd/version
+
+pull core/io
+pull core/str
+pull core/process
+
+form VersionArgs
+{
+    help: bool
+    short: bool
+    json: bool
+}
+
+proc usage() -> void
+{
+    io.print("usage: dots version [--short] [--json]")
+}
+
+proc parse(argv: [string]) -> VersionArgs
+{
+    let out = VersionArgs(false, false, false)
+    let i: i32 = 1
+
+    loop while i < argv.len
+    {
+        let a = argv[i]
+        if a == "--help" || a == "-h" { out.help = true }
+        if a == "--short" { out.short = true }
+        if a == "--json" { out.json = true }
+        i = i + 1
+    }
+
+    give out
+}
+
+proc validate(a: VersionArgs) -> string?
+{
+    if a.help { give null }
+    give null
+}
+
+proc execute(a: VersionArgs) -> i32
+{
+    if a.help { usage(); give 0 }
+
+    let ver = "0.2.0-alpha"
+
+    if a.json
+    {
+        io.print("{\"name\":\"dots\",\"version\":\"" + ver + "\"}")
+        give 0
+    }
+
+    if a.short
+    {
+        io.print(ver)
+        give 0
+    }
+
+    io.print("dots version " + ver)
+    give 0
+}
+
+proc main() -> i32
+{
+    let a = parse(process.args())
+    let err = validate(a)
+    if err != null { io.print("dots: " + err); usage(); give 2 }
+    give execute(a)
+}
+
+entry at dots/cmd/version
+{
+    give main()
+}

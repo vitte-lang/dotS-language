@@ -1,0 +1,120 @@
+space dots/cmd/update
+
+pull core/io
+pull core/str
+pull core/time
+pull core/process
+
+pull dots/cmd/common/output
+pull dots/cmd/common/validate
+pull modules/package/update
+
+form UpdateArgs
+{
+    help: bool
+    json: bool
+    dry_run: bool
+    all: bool
+    interactive: bool
+    offline: bool
+    mirror: string
+    retries: i32
+    jitter_ms: i64
+    cb_threshold: i32
+    timeout_ms: i64
+}
+
+proc usage() -> void
+{
+    io.print("usage: dots update [--all] [--interactive] [--offline] [--mirror <url[,url]>] [--retries <n>] [--jitter-ms <ms>] [--cb-threshold <n>] [--timeout-ms <ms>] [--dry-run] [--json]")
+}
+
+proc parse(argv: [string]) -> UpdateArgs
+{
+    let out = UpdateArgs(false, false, false, false, false, false, "", 2, 50, 3, 0)
+    let i: i32 = 1
+    loop while i < argv.len
+    {
+        let a = argv[i]
+        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--json" { out.json = true; i = i + 1; continue }
+        if a == "--dry-run" { out.dry_run = true; i = i + 1; continue }
+        if a == "--all" { out.all = true; i = i + 1; continue }
+        if a == "--interactive" { out.interactive = true; i = i + 1; continue }
+        if a == "--offline" { out.offline = true; i = i + 1; continue }
+        if str.starts_with(a, "--mirror=") { out.mirror = str.replace(a, "--mirror=", ""); i = i + 1; continue }
+        if a == "--mirror" && i + 1 < argv.len { out.mirror = argv[i + 1]; i = i + 2; continue }
+        if str.starts_with(a, "--retries=") { out.retries = str.to_i64(str.replace(a, "--retries=", "")); i = i + 1; continue }
+        if a == "--retries" && i + 1 < argv.len { out.retries = str.to_i64(argv[i + 1]); i = i + 2; continue }
+        if str.starts_with(a, "--jitter-ms=") { out.jitter_ms = str.to_i64(str.replace(a, "--jitter-ms=", "")); i = i + 1; continue }
+        if a == "--jitter-ms" && i + 1 < argv.len { out.jitter_ms = str.to_i64(argv[i + 1]); i = i + 2; continue }
+        if str.starts_with(a, "--cb-threshold=") { out.cb_threshold = str.to_i64(str.replace(a, "--cb-threshold=", "")); i = i + 1; continue }
+        if a == "--cb-threshold" && i + 1 < argv.len { out.cb_threshold = str.to_i64(argv[i + 1]); i = i + 2; continue }
+        if str.starts_with(a, "--timeout-ms=") { out.timeout_ms = str.to_i64(str.replace(a, "--timeout-ms=", "")); i = i + 1; continue }
+        if a == "--timeout-ms" && i + 1 < argv.len { out.timeout_ms = str.to_i64(argv[i + 1]); i = i + 2; continue }
+        i = i + 1
+    }
+    give out
+}
+
+proc validate(a: UpdateArgs) -> string?
+{
+    if a.help { give null }
+    let n = validate_network_options(a.retries, a.jitter_ms, a.cb_threshold, a.timeout_ms)
+    if n != null { give n }
+    give null
+}
+
+proc execute(a: UpdateArgs) -> i32
+{
+    if a.help { usage(); give 0 }
+
+    if a.dry_run
+    {
+        if a.json
+        {
+            print_json_response_ex("1.1.0", "update", "ok", "", "", ["dry_run"], ["true"])
+        }
+        else
+        {
+            io.print("dry-run update")
+        }
+        give 0
+    }
+
+    let start = time.now_ms()
+    let r = update_packages(a.mirror, a.offline, a.retries, a.jitter_ms, a.cb_threshold, a.timeout_ms)
+    let dur = time.now_ms() - start
+
+    if a.json
+    {
+        let status = "ok"
+        if !r.ok { status = "error" }
+        print_json_response_ex("1.1.0", "update", status, r.error.code, r.error.message, ["all", "interactive", "duration_ms", "endpoint", "updated_count", "mirror"], [str.from_bool(a.all), str.from_bool(a.interactive), str.from_i64(dur), r.endpoint, str.from_i64(r.count), a.mirror])
+    }
+    else
+    {
+        io.print("update all=" + str.from_bool(a.all) + " interactive=" + str.from_bool(a.interactive) + " ok=" + str.from_bool(r.ok) + " duration_ms=" + str.from_i64(dur) + " error=" + r.error.code + " endpoint=" + r.endpoint)
+    }
+
+    if !r.ok
+    {
+        if r.error.code == "OFFLINE" { give 5 }
+        give 1
+    }
+
+    give 0
+}
+
+proc main() -> i32
+{
+    let a = parse(process.args())
+    let err = validate(a)
+    if err != null { io.print("dots: " + err); usage(); give 2 }
+    give execute(a)
+}
+
+entry at dots/cmd/update
+{
+    give main()
+}

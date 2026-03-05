@@ -1,0 +1,477 @@
+space dots/cmd/cache
+
+pull core/io
+pull core/fs
+pull core/str
+pull core/time
+pull core/process
+
+form CacheArgs
+{
+    help: bool
+    json: bool
+    sub: string
+    max_size_mb: i64
+    max_age_ms: i64
+}
+
+form CacheEntry
+{
+    name: string
+    size_bytes: i64
+    mtime_ms: i64
+    last_access_ms: i64
+}
+
+proc usage() -> void
+{
+    io.print("usage: dots cache <list|clear|stats|prune> [--max-size <mb>] [--max-age-ms <ms>] [--json]")
+}
+
+proc cache_dir() -> string { give ".dots-cache" }
+proc metadata_file() -> string { give cache_dir() + "/metadata.json" }
+proc lock_dir() -> string { give cache_dir() + "/.lock" }
+proc lock_stamp_file() -> string { give lock_dir() + "/stamp" }
+
+proc parse(argv: [string]) -> CacheArgs
+{
+    let out = CacheArgs(false, false, "stats", 256, 86400000)
+    let i: i32 = 1
+
+    loop while i < argv.len
+    {
+        let a = argv[i]
+        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--json" { out.json = true; i = i + 1; continue }
+        if str.starts_with(a, "--max-size=") { out.max_size_mb = str.to_i64(str.replace(a, "--max-size=", "")); i = i + 1; continue }
+        if a == "--max-size" && i + 1 < argv.len { out.max_size_mb = str.to_i64(argv[i + 1]); i = i + 2; continue }
+        if str.starts_with(a, "--max-age-ms=") { out.max_age_ms = str.to_i64(str.replace(a, "--max-age-ms=", "")); i = i + 1; continue }
+        if a == "--max-age-ms" && i + 1 < argv.len { out.max_age_ms = str.to_i64(argv[i + 1]); i = i + 2; continue }
+        if !str.starts_with(a, "-") { out.sub = a; i = i + 1; continue }
+        i = i + 1
+    }
+
+    give out
+}
+
+proc validate(a: CacheArgs) -> string?
+{
+    if a.help { give null }
+    if a.sub != "list" && a.sub != "clear" && a.sub != "stats" && a.sub != "prune" { give "invalid subcommand" }
+    if a.max_size_mb <= 0 { give "max-size must be > 0" }
+    if a.max_age_ms <= 0 { give "max-age-ms must be > 0" }
+    give null
+}
+
+proc json_field(line: string, key: string) -> string
+{
+    let pat = "\"" + key + "\":\""
+    if !str.contains(line, pat)
+    {
+        give ""
+    }
+
+    let rest = str.split(line, pat)
+    if rest.len < 2
+    {
+        give ""
+    }
+
+    let tail = rest[1]
+    let parts = str.split(tail, "\"")
+    if parts.len < 1
+    {
+        give ""
+    }
+
+    give parts[0]
+}
+
+proc entry_to_json(e: CacheEntry) -> string
+{
+    give "{\"name\":\"" + e.name + "\",\"size_bytes\":\"" + str.from_i64(e.size_bytes) + "\",\"mtime_ms\":\"" + str.from_i64(e.mtime_ms) + "\",\"last_access_ms\":\"" + str.from_i64(e.last_access_ms) + "\"}"
+}
+
+proc parse_entry(line: string) -> CacheEntry
+{
+    give CacheEntry(
+        json_field(line, "name"),
+        str.to_i64(json_field(line, "size_bytes")),
+        str.to_i64(json_field(line, "mtime_ms")),
+        str.to_i64(json_field(line, "last_access_ms"))
+    )
+}
+
+proc is_cache_payload_file(name: string) -> bool
+{
+    if name == ".lock" || name == "metadata.json"
+    {
+        give false
+    }
+
+    give true
+}
+
+proc acquire_lock(stale_ms: i64) -> string?
+{
+    fs.mkdir_p(cache_dir())
+
+    if fs.exists(lock_dir())
+    {
+        if fs.exists(lock_stamp_file())
+        {
+            let stamp_raw = str.trim(fs.read_file(lock_stamp_file()))
+            let stamp = str.to_i64(stamp_raw)
+            if time.now_ms() - stamp > stale_ms
+            {
+                fs.remove_all(lock_dir())
+            }
+        }
+        else
+        {
+            fs.remove_all(lock_dir())
+        }
+    }
+
+    let mk = process.exec("bash", ["-lc", "mkdir -p \"" + lock_dir() + "\" >/dev/null 2>&1"])
+    if mk.code != 0
+    {
+        give "cache lock acquisition failed"
+    }
+
+    fs.write_file(lock_stamp_file(), str.from_i64(time.now_ms()) + "\n")
+    give null
+}
+
+proc release_lock() -> void
+{
+    if fs.exists(lock_dir())
+    {
+        fs.remove_all(lock_dir())
+    }
+}
+
+proc load_metadata() -> [CacheEntry]
+{
+    let out: [CacheEntry] = []
+
+    if !fs.exists(metadata_file())
+    {
+        give out
+    }
+
+    let lines = str.split(fs.read_file(metadata_file()), "\n")
+    loop l in lines
+    {
+        let line = str.trim(l)
+        if line == "" { continue }
+        if !str.contains(line, "\"name\":\"") { continue }
+        out = out.push(parse_entry(line))
+    }
+
+    give out
+}
+
+proc persist_metadata(entries: [CacheEntry]) -> void
+{
+    let out = ""
+    loop e in entries
+    {
+        out = out + entry_to_json(e) + "\n"
+    }
+
+    fs.write_file(metadata_file(), out)
+}
+
+proc index_of_entry(entries: [CacheEntry], name: string) -> i32
+{
+    let i: i32 = 0
+    loop while i < entries.len
+    {
+        if entries[i].name == name
+        {
+            give i
+        }
+
+        i = i + 1
+    }
+
+    give -1
+}
+
+proc estimate_file_size(path: string) -> i64
+{
+    let content = fs.read_file(path)
+    give content.len
+}
+
+proc scan_payload_entries() -> [CacheEntry]
+{
+    let out: [CacheEntry] = []
+    fs.mkdir_p(cache_dir())
+
+    let names = fs.read_dir(cache_dir())
+    loop name in names
+    {
+        if !is_cache_payload_file(name) { continue }
+        let p = cache_dir() + "/" + name
+        if fs.is_file(p)
+        {
+            out = out.push(CacheEntry(name, estimate_file_size(p), fs.mtime_ms(p), time.now_ms()))
+        }
+    }
+
+    give out
+}
+
+proc sync_metadata() -> [CacheEntry]
+{
+    let current = scan_payload_entries()
+    let old = load_metadata()
+
+    let merged: [CacheEntry] = []
+    loop c in current
+    {
+        let idx = index_of_entry(old, c.name)
+        if idx >= 0
+        {
+            let o = old[idx]
+            merged = merged.push(CacheEntry(c.name, c.size_bytes, c.mtime_ms, o.last_access_ms))
+        }
+        else
+        {
+            merged = merged.push(c)
+        }
+    }
+
+    persist_metadata(merged)
+    give merged
+}
+
+proc touch_access(names: [string]) -> void
+{
+    let entries = sync_metadata()
+    let now = time.now_ms()
+
+    let out: [CacheEntry] = []
+    loop e in entries
+    {
+        if str.contains("|" + str.join(names, "|") + "|", "|" + e.name + "|")
+        {
+            out = out.push(CacheEntry(e.name, e.size_bytes, e.mtime_ms, now))
+        }
+        else
+        {
+            out = out.push(e)
+        }
+    }
+
+    persist_metadata(out)
+}
+
+proc stats_lines(entries: [CacheEntry]) -> [string]
+{
+    let total: i64 = 0
+    let oldest: i64 = 0
+    let newest: i64 = 0
+
+    loop e in entries
+    {
+        total = total + e.size_bytes
+
+        if oldest == 0 || e.last_access_ms < oldest
+        {
+            oldest = e.last_access_ms
+        }
+
+        if newest == 0 || e.last_access_ms > newest
+        {
+            newest = e.last_access_ms
+        }
+    }
+
+    give [
+        "entries=" + str.from_i64(entries.len),
+        "total_bytes=" + str.from_i64(total),
+        "oldest_access_ms=" + str.from_i64(oldest),
+        "newest_access_ms=" + str.from_i64(newest)
+    ]
+}
+
+proc remove_entry_file(name: string) -> bool
+{
+    let p = cache_dir() + "/" + name
+    if fs.exists(p)
+    {
+        fs.remove(p)
+        give true
+    }
+
+    give false
+}
+
+proc find_oldest(entries: [CacheEntry]) -> i32
+{
+    let oldest_idx: i32 = -1
+    let oldest_ts: i64 = 0
+
+    let i: i32 = 0
+    loop while i < entries.len
+    {
+        let ts = entries[i].last_access_ms
+        if oldest_idx == -1 || ts < oldest_ts
+        {
+            oldest_idx = i
+            oldest_ts = ts
+        }
+        i = i + 1
+    }
+
+    give oldest_idx
+}
+
+proc prune_entries(entries: [CacheEntry], max_size_mb: i64, max_age_ms: i64) -> [CacheEntry]
+{
+    let keep = entries
+    let now = time.now_ms()
+
+    let filtered: [CacheEntry] = []
+    loop e in keep
+    {
+        if now - e.last_access_ms > max_age_ms
+        {
+            remove_entry_file(e.name)
+            continue
+        }
+        filtered = filtered.push(e)
+    }
+
+    keep = filtered
+
+    let max_bytes = max_size_mb * 1024 * 1024
+    let total: i64 = 0
+    loop e in keep { total = total + e.size_bytes }
+
+    loop while total > max_bytes && keep.len > 0
+    {
+        let idx = find_oldest(keep)
+        if idx < 0 { break }
+
+        let victim = keep[idx]
+        remove_entry_file(victim.name)
+        total = total - victim.size_bytes
+
+        let next: [CacheEntry] = []
+        let i: i32 = 0
+        loop while i < keep.len
+        {
+            if i != idx
+            {
+                next = next.push(keep[i])
+            }
+            i = i + 1
+        }
+
+        keep = next
+    }
+
+    give keep
+}
+
+proc execute(a: CacheArgs) -> i32
+{
+    if a.help { usage(); give 0 }
+
+    let lock_err = acquire_lock(120000)
+    if lock_err != null
+    {
+        io.print("dots: " + lock_err)
+        give 2
+    }
+
+    let entries = sync_metadata()
+
+    if a.sub == "list"
+    {
+        let names: [string] = []
+        loop e in entries { names = names.push(e.name); io.print(e.name) }
+        touch_access(names)
+
+        if a.json
+        {
+            io.print("{\"command\":\"cache\",\"sub\":\"list\",\"entries\":\"" + str.from_i64(entries.len) + "\"}")
+        }
+
+        release_lock()
+        give 0
+    }
+
+    if a.sub == "clear"
+    {
+        if fs.exists(cache_dir()) { fs.remove_all(cache_dir()) }
+        fs.mkdir_p(cache_dir())
+        persist_metadata([])
+        release_lock()
+
+        if a.json
+        {
+            io.print("{\"command\":\"cache\",\"sub\":\"clear\",\"status\":\"ok\"}")
+        }
+        else
+        {
+            io.print("cache cleared")
+        }
+
+        give 0
+    }
+
+    if a.sub == "stats"
+    {
+        let lines = stats_lines(entries)
+        if a.json
+        {
+            io.print("{\"command\":\"cache\",\"sub\":\"stats\",\"stats\":\"" + str.join(lines, ",") + "\"}")
+        }
+        else
+        {
+            loop l in lines { io.print(l) }
+        }
+        release_lock()
+        give 0
+    }
+
+    if a.sub == "prune"
+    {
+        let kept = prune_entries(entries, a.max_size_mb, a.max_age_ms)
+        persist_metadata(kept)
+
+        if a.json
+        {
+            io.print("{\"command\":\"cache\",\"sub\":\"prune\",\"kept\":\"" + str.from_i64(kept.len) + "\",\"max_size_mb\":\"" + str.from_i64(a.max_size_mb) + "\",\"max_age_ms\":\"" + str.from_i64(a.max_age_ms) + "\"}")
+        }
+        else
+        {
+            io.print("prune done: kept=" + str.from_i64(kept.len) + " max_size_mb=" + str.from_i64(a.max_size_mb) + " max_age_ms=" + str.from_i64(a.max_age_ms))
+        }
+
+        release_lock()
+        give 0
+    }
+
+    release_lock()
+    io.print("dots: unknown cache subcommand")
+    give 2
+}
+
+proc main() -> i32
+{
+    let a = parse(process.args())
+    let err = validate(a)
+    if err != null { io.print("dots: " + err); usage(); give 2 }
+    give execute(a)
+}
+
+entry at dots/cmd/cache
+{
+    give main()
+}

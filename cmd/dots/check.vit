@@ -1,0 +1,77 @@
+space dots/cmd/check
+
+pull core/io
+pull core/fs
+pull core/str
+pull core/time
+pull core/process
+
+form CheckArgs
+{
+    help: bool
+    json: bool
+    file: string
+}
+
+proc usage() -> void
+{
+    io.print("usage: dots check [--json] <file.dotS>")
+}
+
+proc parse(argv: [string]) -> CheckArgs
+{
+    let out = CheckArgs(false, false, "")
+    let i: i32 = 1
+
+    loop while i < argv.len
+    {
+        let a = argv[i]
+        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--json" { out.json = true; i = i + 1; continue }
+        if !str.starts_with(a, "-") { out.file = a; i = i + 1; continue }
+        i = i + 1
+    }
+
+    give out
+}
+
+proc validate(a: CheckArgs) -> string?
+{
+    if a.help { give null }
+    if a.file == "" { give "missing file" }
+    if !fs.exists(a.file) { give "file not found: " + a.file }
+    give null
+}
+
+proc execute(a: CheckArgs) -> i32
+{
+    if a.help { usage(); give 0 }
+
+    let start = time.now_ms()
+    let p = process.exec("dots", ["check", a.file])
+    let dur = time.now_ms() - start
+
+    if a.json
+    {
+        io.print("{\"command\":\"check\",\"duration_ms\":\"" + str.from_i64(dur) + "\",\"exit\":\"" + str.from_i64(p.code) + "\"}")
+    }
+    else
+    {
+        io.print("check duration_ms=" + str.from_i64(dur))
+    }
+
+    give p.code
+}
+
+proc main() -> i32
+{
+    let a = parse(process.args())
+    let err = validate(a)
+    if err != null { io.print("dots: " + err); usage(); give 2 }
+    give execute(a)
+}
+
+entry at dots/cmd/check
+{
+    give main()
+}

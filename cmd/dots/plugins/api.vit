@@ -1,0 +1,13 @@
+space dots/cmd/plugins/api
+
+form PluginCommand
+{
+    name: string
+    description: string
+    entrypoint: string
+}
+
+proc register_command(name: string, description: string, entrypoint: string) -> PluginCommand
+{
+    give PluginCommand(name, description, entrypoint)
+}

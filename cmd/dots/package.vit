@@ -1,0 +1,70 @@
+space dots/cmd/package
+
+pull core/io
+pull core/str
+pull core/process
+
+form PackageArgs
+{
+    help: bool
+    json: bool
+    sub: string
+}
+
+proc usage() -> void
+{
+    io.print("usage: dots package <pack|unpack|verify> [--json]")
+}
+
+proc parse(argv: [string]) -> PackageArgs
+{
+    let out = PackageArgs(false, false, "")
+    let i: i32 = 1
+    loop while i < argv.len
+    {
+        let a = argv[i]
+        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--json" { out.json = true; i = i + 1; continue }
+        if out.sub == "" && !str.starts_with(a, "-") { out.sub = a }
+        i = i + 1
+    }
+    give out
+}
+
+proc validate(a: PackageArgs) -> string?
+{
+    if a.help { give null }
+    if a.sub == "" { give "missing subcommand" }
+    if a.sub != "pack" && a.sub != "unpack" && a.sub != "verify" { give "invalid subcommand" }
+    give null
+}
+
+proc execute(a: PackageArgs) -> i32
+{
+    if a.help { usage(); give 0 }
+    if a.sub == "" { usage(); give 2 }
+
+    if a.sub != "pack" && a.sub != "unpack" && a.sub != "verify"
+    {
+        io.print("dots: unknown package subcommand: " + a.sub)
+        give 2
+    }
+
+    if a.json { io.print("{\"command\":\"package\",\"sub\":\"" + a.sub + "\"}") }
+    else { io.print("package: " + a.sub) }
+
+    give 0
+}
+
+proc main() -> i32
+{
+    let a = parse(process.args())
+    let err = validate(a)
+    if err != null { io.print("dots: " + err); usage(); give 2 }
+    give execute(a)
+}
+
+entry at dots/cmd/package
+{
+    give main()
+}

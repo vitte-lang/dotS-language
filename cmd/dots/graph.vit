@@ -1,0 +1,281 @@
+space dots/cmd/graph
+
+pull core/io
+pull core/fs
+pull core/str
+pull core/process
+
+form GraphArgs
+{
+    help: bool
+    json: bool
+    format: string
+    focus: string
+    reverse: bool
+    cycles: bool
+    depth: i32
+}
+
+form Edge
+{
+    from: string
+    to: string
+}
+
+proc usage() -> void
+{
+    io.print("usage: dots graph [--format mermaid|dot|json] [--focus <module>] [--reverse] [--cycles] [--depth <n>] [--json]")
+}
+
+proc parse(argv: [string]) -> GraphArgs
+{
+    let out = GraphArgs(false, false, "mermaid", "", false, false, 3)
+    let i: i32 = 1
+
+    loop while i < argv.len
+    {
+        let a = argv[i]
+        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--json" { out.json = true; i = i + 1; continue }
+        if a == "--reverse" { out.reverse = true; i = i + 1; continue }
+        if a == "--cycles" { out.cycles = true; i = i + 1; continue }
+        if str.starts_with(a, "--format=") { out.format = str.replace(a, "--format=", ""); i = i + 1; continue }
+        if a == "--format" && i + 1 < argv.len { out.format = argv[i + 1]; i = i + 2; continue }
+        if str.starts_with(a, "--focus=") { out.focus = str.replace(a, "--focus=", ""); i = i + 1; continue }
+        if a == "--focus" && i + 1 < argv.len { out.focus = argv[i + 1]; i = i + 2; continue }
+        if str.starts_with(a, "--depth=") { out.depth = str.to_i32(str.replace(a, "--depth=", "")); i = i + 1; continue }
+        if a == "--depth" && i + 1 < argv.len { out.depth = str.to_i32(argv[i + 1]); i = i + 2; continue }
+        i = i + 1
+    }
+
+    give out
+}
+
+proc validate(a: GraphArgs) -> string?
+{
+    if a.help { give null }
+    if a.format != "mermaid" && a.format != "dot" && a.format != "json"
+    {
+        give "invalid format"
+    }
+
+    if a.depth <= 0
+    {
+        give "depth must be > 0"
+    }
+
+    give null
+}
+
+proc mod_name(path: string) -> string
+{
+    let base = fs.base_name(path)
+    give str.replace(base, ".vit", "")
+}
+
+proc scan_modules() -> [string]
+{
+    let out: [string] = []
+    let files = fs.read_dir("cmd/dots")
+
+    loop f in files
+    {
+        if !str.ends_with(f, ".vit") { continue }
+        if f == "main.vit" || f == "registry.vit" { continue }
+        out = out.push(mod_name("cmd/dots/" + f))
+    }
+
+    give out
+}
+
+proc scan_edges() -> [Edge]
+{
+    let out: [Edge] = []
+    let files = fs.read_dir("cmd/dots")
+
+    loop f in files
+    {
+        if !str.ends_with(f, ".vit") { continue }
+
+        let p = "cmd/dots/" + f
+        let src = fs.read_file(p)
+        let lines = str.split(src, "\n")
+        let from = mod_name(p)
+
+        loop l in lines
+        {
+            let line = str.trim(l)
+            if !str.starts_with(line, "pull ") { continue }
+            let target = str.trim(str.replace(line, "pull ", ""))
+            out = out.push(Edge(from, target))
+        }
+    }
+
+    give out
+}
+
+proc node_in(nodes: [string], n: string) -> bool
+{
+    loop x in nodes { if x == n { give true } }
+    give false
+}
+
+proc neighbors(edges: [Edge], n: string, reverse: bool) -> [string]
+{
+    let out: [string] = []
+
+    loop e in edges
+    {
+        if !reverse
+        {
+            if e.from == n { out = out.push(e.to) }
+        }
+        else
+        {
+            if e.to == n { out = out.push(e.from) }
+        }
+    }
+
+    give out
+}
+
+proc subgraph(nodes: [string], edges: [Edge], focus: string, depth: i32, reverse: bool) -> [Edge]
+{
+    if focus == "" { give edges }
+
+    let frontier: [string] = [focus]
+    let seen: [string] = [focus]
+    let d: i32 = 0
+
+    loop while d < depth
+    {
+        let next: [string] = []
+        loop n in frontier
+        {
+            let neigh = neighbors(edges, n, reverse)
+            loop m in neigh
+            {
+                if !node_in(seen, m)
+                {
+                    seen = seen.push(m)
+                    next = next.push(m)
+                }
+            }
+        }
+
+        frontier = next
+        d = d + 1
+    }
+
+    let out: [Edge] = []
+    loop e in edges
+    {
+        if node_in(seen, e.from) && node_in(seen, e.to)
+        {
+            out = out.push(e)
+        }
+    }
+
+    give out
+}
+
+proc has_back_edge(edges: [Edge], start: string, current: string, path: [string], max_depth: i32) -> bool
+{
+    if max_depth <= 0 { give false }
+
+    if current == start && path.len > 0
+    {
+        give true
+    }
+
+    if node_in(path, current)
+    {
+        give false
+    }
+
+    let next_path = path.push(current)
+    let neigh = neighbors(edges, current, false)
+    loop n in neigh
+    {
+        if has_back_edge(edges, start, n, next_path, max_depth - 1)
+        {
+            give true
+        }
+    }
+
+    give false
+}
+
+proc tarjan_cycle_scan(nodes: [string], edges: [Edge]) -> [string]
+{
+    let cyc: [string] = []
+
+    loop n in nodes
+    {
+        if has_back_edge(edges, n, n, [], 32)
+        {
+            cyc = cyc.push(n)
+        }
+    }
+
+    give cyc
+}
+
+proc emit_mermaid(edges: [Edge]) -> void
+{
+    io.print("graph TD")
+    loop e in edges
+    {
+        io.print("  " + e.from + " --> " + e.to)
+    }
+}
+
+proc emit_dot(edges: [Edge]) -> void
+{
+    io.print("digraph dots {")
+    loop e in edges
+    {
+        io.print("  \"" + e.from + "\" -> \"" + e.to + "\";")
+    }
+    io.print("}")
+}
+
+proc emit_json(edges: [Edge], cycles: [string]) -> void
+{
+    io.print("{\"edges\":\"" + str.from_i64(edges.len) + "\",\"cycles\":\"" + str.from_i64(cycles.len) + "\"}")
+}
+
+proc execute(a: GraphArgs) -> i32
+{
+    if a.help { usage(); give 0 }
+
+    let nodes = scan_modules()
+    let edges_all = scan_edges()
+    let edges = subgraph(nodes, edges_all, a.focus, a.depth, a.reverse)
+
+    let cycles: [string] = []
+    if a.cycles
+    {
+        cycles = tarjan_cycle_scan(nodes, edges)
+        io.print("cycle scan: " + str.from_i64(cycles.len) + " candidate roots")
+    }
+
+    if a.format == "mermaid" { emit_mermaid(edges); give 0 }
+    if a.format == "dot" { emit_dot(edges); give 0 }
+
+    emit_json(edges, cycles)
+    give 0
+}
+
+proc main() -> i32
+{
+    let a = parse(process.args())
+    let err = validate(a)
+    if err != null { io.print("dots: " + err); usage(); give 2 }
+    give execute(a)
+}
+
+entry at dots/cmd/graph
+{
+    give main()
+}

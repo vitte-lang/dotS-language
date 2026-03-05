@@ -1,0 +1,117 @@
+space dots/cmd/lock
+
+pull core/io
+pull core/fs
+pull core/str
+pull core/process
+
+pull dots/cmd/common/args
+pull dots/cmd/common/path
+pull dots/cmd/common/validate
+pull dots/cmd/common/base_command
+pull dots/cmd/common/result
+pull dots/cmd/common/output
+
+form LockArgs
+{
+    help: bool
+    json: bool
+    strict: bool
+    out_file: string
+}
+
+proc usage() -> void
+{
+    print_usage_for("lock")
+}
+
+proc parse(argv: [string]) -> LockArgs
+{
+    let out = LockArgs(false, false, false, "dots.lock")
+
+    if has_flag(argv, "--help") || has_flag(argv, "-h")
+    {
+        out.help = true
+    }
+
+    out.json = has_flag(argv, "--json")
+    out.strict = has_flag(argv, "--strict")
+
+    let of = value_of(argv, "--out")
+    if of != null
+    {
+        out.out_file = of
+    }
+
+    give out
+}
+
+proc validate(a: LockArgs) -> Result
+{
+    if a.help
+    {
+        give ok("help")
+    }
+
+    let e = in_enum(a.out_file, ["dots.lock", "lock.json"], "out_file")
+    if e != null
+    {
+        give err(e)
+    }
+
+    give ok("ok")
+}
+
+proc execute(a: LockArgs) -> i32
+{
+    if a.help
+    {
+        usage()
+        give 0
+    }
+
+    let mode = "normal"
+    if a.strict { mode = "strict" }
+
+    let out_path = secure_join(".", a.out_file)
+    if out_path == null
+    {
+        io.print("dots: invalid out path")
+        give 2
+    }
+
+    let content = "{\n  \"lock_version\": 1,\n  \"mode\": \"" + mode + "\",\n  \"checksum\": \"TODO\"\n}\n"
+
+    fs.write_file(out_path, content)
+
+    if a.json
+    {
+        print_json_response("lock", "ok", ["mode", "file"], [mode, out_path])
+    }
+    else
+    {
+        io.print("lock generated: " + out_path + " mode=" + mode)
+    }
+
+    give 0
+}
+
+proc main() -> i32
+{
+    let a = parse(process.args())
+    let v = validate(a)
+
+    if !v.ok
+    {
+        io.print("dots: " + v.error)
+        usage()
+        give 2
+    }
+
+    give execute(a)
+}
+
+entry at dots/cmd/lock
+{
+    give main()
+}

@@ -1,0 +1,26 @@
+space dots/cmd/plugins/loader
+
+pull core/fs
+pull core/io
+
+proc discover_plugins(root: string) -> [string]
+{
+    if !fs.exists(root)
+    {
+        give []
+    }
+
+    give fs.read_dir(root)
+}
+
+proc load_plugins(root: string) -> i32
+{
+    let list = discover_plugins(root)
+
+    loop p in list
+    {
+        io.print("plugin discovered: " + p)
+    }
+
+    give 0
+}

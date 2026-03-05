@@ -1,0 +1,68 @@
+space dots/cmd/help
+
+pull core/io
+pull core/str
+pull core/process
+
+form HelpArgs
+{
+    help: bool
+    json: bool
+    command: string
+}
+
+proc usage() -> void
+{
+    io.print("usage: dots help [command] [--json]")
+}
+
+proc parse(argv: [string]) -> HelpArgs
+{
+    let out = HelpArgs(false, false, "")
+    let i: i32 = 1
+    loop while i < argv.len
+    {
+        let a = argv[i]
+        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--json" { out.json = true; i = i + 1; continue }
+        if !str.starts_with(a, "-") && out.command == "" { out.command = a; i = i + 1; continue }
+        i = i + 1
+    }
+    give out
+}
+
+proc validate(a: HelpArgs) -> string?
+{
+    if a.help { give null }
+    give null
+}
+
+proc execute(a: HelpArgs) -> i32
+{
+    if a.help { usage(); give 0 }
+
+    let argv: [string] = ["help"]
+    if a.command != "" { argv = argv.push(a.command) }
+
+    let p = process.exec("dots", argv)
+
+    if a.json
+    {
+        io.print("{\"command\":\"help\",\"exit\":\"" + str.from_i64(p.code) + "\"}")
+    }
+
+    give p.code
+}
+
+proc main() -> i32
+{
+    let a = parse(process.args())
+    let err = validate(a)
+    if err != null { io.print("dots: " + err); usage(); give 2 }
+    give execute(a)
+}
+
+entry at dots/cmd/help
+{
+    give main()
+}

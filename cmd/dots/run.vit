@@ -1,0 +1,348 @@
+space dots/cmd/run
+
+pull core/io
+pull core/fs
+pull core/str
+pull core/time
+pull core/process
+
+form RunArgs
+{
+    help: bool
+    json: bool
+    watch: bool
+    env_file: string
+    entry: string
+    file: string
+    passthrough: [string]
+    poll_ms: i64
+    timeout_ms: i64
+}
+
+proc usage() -> void
+{
+    io.print("usage: dots run [--watch] [--poll-ms <ms>] [--timeout-ms <ms>] [--env-file <f>] [--entry <e>] [--args -- ...] <file.dotS>")
+    io.print("examples:")
+    io.print("  dots run src/main.dotS")
+    io.print("  dots run --watch --poll-ms 250 --env-file .env src/main.dotS")
+    io.print("  dots run --entry main --timeout-ms 30000 src/main.dotS")
+}
+
+proc parse(argv: [string]) -> RunArgs
+{
+    let out = RunArgs(false, false, false, "", "", "", [], 1000, 0)
+
+    let i: i32 = 1
+    let pass = false
+
+    loop while i < argv.len
+    {
+        let a = argv[i]
+
+        if pass
+        {
+            out.passthrough = out.passthrough.push(a)
+            i = i + 1
+            continue
+        }
+
+        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--json" { out.json = true; i = i + 1; continue }
+        if a == "--watch" { out.watch = true; i = i + 1; continue }
+
+        if a == "--args"
+        {
+            pass = true
+            i = i + 1
+            continue
+        }
+
+        if str.starts_with(a, "--poll-ms=")
+        {
+            out.poll_ms = str.to_i64(str.replace(a, "--poll-ms=", ""))
+            i = i + 1
+            continue
+        }
+
+        if a == "--poll-ms" && i + 1 < argv.len
+        {
+            out.poll_ms = str.to_i64(argv[i + 1])
+            i = i + 2
+            continue
+        }
+
+        if str.starts_with(a, "--timeout-ms=")
+        {
+            out.timeout_ms = str.to_i64(str.replace(a, "--timeout-ms=", ""))
+            i = i + 1
+            continue
+        }
+
+        if a == "--timeout-ms" && i + 1 < argv.len
+        {
+            out.timeout_ms = str.to_i64(argv[i + 1])
+            i = i + 2
+            continue
+        }
+
+        if str.starts_with(a, "--env-file=")
+        {
+            out.env_file = str.replace(a, "--env-file=", "")
+            i = i + 1
+            continue
+        }
+
+        if a == "--env-file" && i + 1 < argv.len
+        {
+            out.env_file = argv[i + 1]
+            i = i + 2
+            continue
+        }
+
+        if str.starts_with(a, "--entry=")
+        {
+            out.entry = str.replace(a, "--entry=", "")
+            i = i + 1
+            continue
+        }
+
+        if a == "--entry" && i + 1 < argv.len
+        {
+            out.entry = argv[i + 1]
+            i = i + 2
+            continue
+        }
+
+        if !str.starts_with(a, "-")
+        {
+            out.file = a
+            i = i + 1
+            continue
+        }
+
+        i = i + 1
+    }
+
+    give out
+}
+
+proc validate_env_name(name: string) -> bool
+{
+    if name == "" { give false }
+    if str.contains(name, " ") { give false }
+    if str.contains(name, "-") { give false }
+    if str.contains(name, ".") { give false }
+    if str.contains(name, "/") { give false }
+    if str.contains(name, "\\") { give false }
+    if str.starts_with(name, "0") || str.starts_with(name, "1") || str.starts_with(name, "2") || str.starts_with(name, "3") || str.starts_with(name, "4") || str.starts_with(name, "5") || str.starts_with(name, "6") || str.starts_with(name, "7") || str.starts_with(name, "8") || str.starts_with(name, "9")
+    {
+        give false
+    }
+    give true
+}
+
+proc normalize_env_value(raw: string) -> string
+{
+    let v = str.trim(raw)
+
+    if str.starts_with(v, "\"") && str.ends_with(v, "\"")
+    {
+        v = str.replace(v, "\"", "")
+    }
+
+    if str.starts_with(v, "'") && str.ends_with(v, "'")
+    {
+        v = str.replace(v, "'", "")
+    }
+
+    v = str.replace(v, "\\n", "\n")
+    v = str.replace(v, "\\t", "\t")
+    v = str.replace(v, "\\\"", "\"")
+
+    give v
+}
+
+proc load_env_file(path: string) -> string?
+{
+    if path == ""
+    {
+        give null
+    }
+
+    let raw = fs.read_file(path)
+    let lines = str.split(raw, "\n")
+
+    loop l in lines
+    {
+        let line = str.trim(l)
+        if line == "" { continue }
+        if str.starts_with(line, "#") { continue }
+
+        let kv = str.split(line, "=")
+        if kv.len < 2
+        {
+            continue
+        }
+
+        let key = str.trim(kv[0])
+        let value = normalize_env_value(kv[1])
+
+        if !validate_env_name(key)
+        {
+            give "invalid env var name: " + key
+        }
+
+        process.set_env(key, value)
+    }
+
+    give null
+}
+
+proc validate(a: RunArgs) -> string?
+{
+    if a.help
+    {
+        give null
+    }
+
+    if a.file == "" && a.entry == ""
+    {
+        give "missing file or --entry"
+    }
+
+    if a.file != "" && !fs.exists(a.file)
+    {
+        give "entry file not found: " + a.file
+    }
+
+    if a.env_file != "" && !fs.exists(a.env_file)
+    {
+        give "env file not found: " + a.env_file
+    }
+
+    if a.poll_ms < 10
+    {
+        give "--poll-ms must be >= 10"
+    }
+
+    if a.timeout_ms < 0
+    {
+        give "--timeout-ms must be >= 0"
+    }
+
+    give null
+}
+
+proc execute_once(a: RunArgs) -> i32
+{
+    let env_err = load_env_file(a.env_file)
+    if env_err != null
+    {
+        io.print("dots: " + env_err)
+        give 2
+    }
+
+    let argv: [string] = ["run"]
+
+    if a.file != ""
+    {
+        argv = argv.push(a.file)
+    }
+
+    loop p in a.passthrough
+    {
+        argv = argv.push(p)
+    }
+
+    let start = time.now_ms()
+    let p = process.exec("dots", argv)
+    let dur = time.now_ms() - start
+
+    if a.json
+    {
+        io.print("{\"command\":\"run\",\"duration_ms\":\"" + str.from_i64(dur) + "\",\"exit\":\"" + str.from_i64(p.code) + "\"}")
+    }
+
+    give p.code
+}
+
+proc execute_watch(a: RunArgs) -> i32
+{
+    io.print("watch mode active (polling every " + str.from_i64(a.poll_ms) + "ms, ctrl-c to stop)")
+
+    let started = time.now_ms()
+    let last_mtime: i64 = -1
+    let last_run_at: i64 = 0
+
+    loop while true
+    {
+        if a.timeout_ms > 0
+        {
+            let elapsed = time.now_ms() - started
+            if elapsed >= a.timeout_ms
+            {
+                io.print("dots: run timeout reached")
+                give 130
+            }
+        }
+
+        let now_mtime = fs.mtime_ms(a.file)
+        let now = time.now_ms()
+
+        if now_mtime != last_mtime && (now - last_run_at) >= a.poll_ms
+        {
+            last_mtime = now_mtime
+            last_run_at = now
+            let code = execute_once(a)
+            if code != 0
+            {
+                io.print("dots: watched execution failed")
+            }
+        }
+
+        time.sleep_ms(a.poll_ms)
+    }
+
+    give 0
+}
+
+proc execute(a: RunArgs) -> i32
+{
+    if a.help
+    {
+        usage()
+        give 0
+    }
+
+    if a.entry != ""
+    {
+        io.print("entry resolution placeholder: " + a.entry)
+    }
+
+    if !a.watch
+    {
+        give execute_once(a)
+    }
+
+    give execute_watch(a)
+}
+
+proc main() -> i32
+{
+    let a = parse(process.args())
+    let err = validate(a)
+
+    if err != null
+    {
+        io.print("dots: " + err)
+        usage()
+        give 2
+    }
+
+    give execute(a)
+}
+
+entry at dots/cmd/run
+{
+    give main()
+}

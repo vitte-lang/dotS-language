@@ -1,0 +1,243 @@
+space dots/cmd/test
+
+pull core/io
+pull core/fs
+pull core/str
+pull core/time
+pull core/process
+
+form TestArgs
+{
+    help: bool
+    json: bool
+    filter: string
+    shuffle: bool
+    seed: i64
+    update_snapshots: bool
+    junit_file: string
+    target: string
+    fail_fast: bool
+    retry: i32
+}
+
+proc usage() -> void
+{
+    io.print("usage: dots test [--filter <pat>] [--shuffle] [--seed <n>] [--update-snapshots] [--junit <file>] [--fail-fast] [--retry <n>] [target]")
+}
+
+proc parse(argv: [string]) -> TestArgs
+{
+    let out = TestArgs(false, false, "", false, 0, false, "", "tests", false, 0)
+    let i: i32 = 1
+
+    loop while i < argv.len
+    {
+        let a = argv[i]
+
+        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--json" { out.json = true; i = i + 1; continue }
+        if a == "--shuffle" { out.shuffle = true; i = i + 1; continue }
+        if a == "--update-snapshots" { out.update_snapshots = true; i = i + 1; continue }
+        if a == "--fail-fast" { out.fail_fast = true; i = i + 1; continue }
+
+        if str.starts_with(a, "--filter=") { out.filter = str.replace(a, "--filter=", ""); i = i + 1; continue }
+        if a == "--filter" && i + 1 < argv.len { out.filter = argv[i + 1]; i = i + 2; continue }
+
+        if str.starts_with(a, "--seed=") { out.seed = str.to_i64(str.replace(a, "--seed=", "")); i = i + 1; continue }
+        if a == "--seed" && i + 1 < argv.len { out.seed = str.to_i64(argv[i + 1]); i = i + 2; continue }
+
+        if str.starts_with(a, "--junit=") { out.junit_file = str.replace(a, "--junit=", ""); i = i + 1; continue }
+        if a == "--junit" && i + 1 < argv.len { out.junit_file = argv[i + 1]; i = i + 2; continue }
+
+        if str.starts_with(a, "--retry=") { out.retry = str.to_i64(str.replace(a, "--retry=", "")); i = i + 1; continue }
+        if a == "--retry" && i + 1 < argv.len { out.retry = str.to_i64(argv[i + 1]); i = i + 2; continue }
+
+        if !str.starts_with(a, "-") { out.target = a; i = i + 1; continue }
+
+        i = i + 1
+    }
+
+    if out.seed == 0
+    {
+        out.seed = time.now_ms()
+    }
+
+    give out
+}
+
+proc validate(a: TestArgs) -> string?
+{
+    if a.help { give null }
+
+    if !fs.exists(a.target)
+    {
+        give "target not found: " + a.target
+    }
+
+    if a.retry < 0
+    {
+        give "--retry must be >= 0"
+    }
+
+    give null
+}
+
+proc list_tests(target: string) -> [string]
+{
+    let out: [string] = []
+    let files = fs.read_dir(target)
+
+    loop f in files
+    {
+        if str.ends_with(f, ".test.vit")
+        {
+            out = out.push(target + "/" + f)
+        }
+    }
+
+    give out
+}
+
+proc rotate_tests(tests: [string], seed: i64) -> [string]
+{
+    if tests.len == 0
+    {
+        give tests
+    }
+
+    let shift = seed % tests.len
+    if shift == 0
+    {
+        give tests
+    }
+
+    let out: [string] = []
+    let i: i32 = 0
+
+    loop while i < tests.len
+    {
+        let idx = (i + shift) % tests.len
+        out = out.push(tests[idx])
+        i = i + 1
+    }
+
+    give out
+}
+
+proc run_one_test(path: string, retry: i32) -> i32
+{
+    let attempts: i32 = retry + 1
+    let i: i32 = 0
+    let code: i32 = 0
+
+    loop while i < attempts
+    {
+        let p = process.exec("dots", ["run", path])
+        code = p.code
+
+        if code == 0
+        {
+            give 0
+        }
+
+        i = i + 1
+    }
+
+    give code
+}
+
+proc write_junit(path: string, tests: [string], failed: i32, duration_ms: i64) -> void
+{
+    let xml = "<testsuite tests=\"" + str.from_i64(tests.len) + "\" failures=\"" + str.from_i64(failed) + "\" time=\"" + str.from_i64(duration_ms) + "\">"
+
+    loop t in tests
+    {
+        xml = xml + "<testcase name=\"" + t + "\"/>"
+    }
+
+    xml = xml + "</testsuite>"
+    fs.write_file(path, xml)
+}
+
+proc execute(a: TestArgs) -> i32
+{
+    if a.help { usage(); give 0 }
+
+    let tests = list_tests(a.target)
+    let run = tests
+
+    if a.filter != ""
+    {
+        let filtered: [string] = []
+        loop t in run
+        {
+            if str.contains(t, a.filter)
+            {
+                filtered = filtered.push(t)
+            }
+        }
+        run = filtered
+    }
+
+    if a.shuffle
+    {
+        run = rotate_tests(run, a.seed)
+        io.print("shuffle=true seed=" + str.from_i64(a.seed))
+    }
+
+    let passed: i32 = 0
+    let failed: i32 = 0
+    let start = time.now_ms()
+
+    loop t in run
+    {
+        let code = run_one_test(t, a.retry)
+
+        if code == 0
+        {
+            passed = passed + 1
+        }
+        else
+        {
+            failed = failed + 1
+
+            if a.fail_fast
+            {
+                io.print("fail-fast: stopping after " + t)
+                break
+            }
+        }
+    }
+
+    let duration_ms = time.now_ms() - start
+
+    if a.junit_file != ""
+    {
+        write_junit(a.junit_file, run, failed, duration_ms)
+    }
+
+    if a.json
+    {
+        io.print("{\"command\":\"test\",\"tests\":\"" + str.from_i64(run.len) + "\",\"passed\":\"" + str.from_i64(passed) + "\",\"failed\":\"" + str.from_i64(failed) + "\",\"duration_ms\":\"" + str.from_i64(duration_ms) + "\"}")
+    }
+    else
+    {
+        io.print("tests=" + str.from_i64(run.len) + " passed=" + str.from_i64(passed) + " failed=" + str.from_i64(failed) + " duration_ms=" + str.from_i64(duration_ms))
+    }
+
+    if failed > 0 { give 1 }
+    give 0
+}
+
+proc main() -> i32
+{
+    let a = parse(process.args())
+    let err = validate(a)
+    if err != null { io.print("dots: " + err); usage(); give 2 }
+    give execute(a)
+}
+
+entry at dots/cmd/test
+{
+    give main()
+}

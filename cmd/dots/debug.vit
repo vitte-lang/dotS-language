@@ -1,0 +1,71 @@
+space dots/cmd/debug
+
+pull core/io
+pull core/str
+pull core/process
+
+form DebugArgs
+{
+    help: bool
+    json: bool
+    breakpoint: string
+    attach: string
+}
+
+proc usage() -> void
+{
+    io.print("usage: dots debug [--breakpoint <bp>] [--attach <pid>] [--json]")
+}
+
+proc parse(argv: [string]) -> DebugArgs
+{
+    let out = DebugArgs(false, false, "", "")
+    let i: i32 = 1
+    loop while i < argv.len
+    {
+        let a = argv[i]
+        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--json" { out.json = true; i = i + 1; continue }
+        if str.starts_with(a, "--breakpoint=") { out.breakpoint = str.replace(a, "--breakpoint=", ""); i = i + 1; continue }
+        if a == "--breakpoint" && i + 1 < argv.len { out.breakpoint = argv[i + 1]; i = i + 2; continue }
+        if str.starts_with(a, "--attach=") { out.attach = str.replace(a, "--attach=", ""); i = i + 1; continue }
+        if a == "--attach" && i + 1 < argv.len { out.attach = argv[i + 1]; i = i + 2; continue }
+        i = i + 1
+    }
+    give out
+}
+
+proc validate(a: DebugArgs) -> string?
+{
+    if a.help { give null }
+    give null
+}
+
+proc execute(a: DebugArgs) -> i32
+{
+    if a.help { usage(); give 0 }
+
+    if a.json
+    {
+        io.print("{\"command\":\"debug\",\"breakpoint\":\"" + a.breakpoint + "\",\"attach\":\"" + a.attach + "\"}")
+    }
+    else
+    {
+        io.print("debug breakpoint=" + a.breakpoint + " attach=" + a.attach)
+    }
+
+    give 0
+}
+
+proc main() -> i32
+{
+    let a = parse(process.args())
+    let err = validate(a)
+    if err != null { io.print("dots: " + err); usage(); give 2 }
+    give execute(a)
+}
+
+entry at dots/cmd/debug
+{
+    give main()
+}

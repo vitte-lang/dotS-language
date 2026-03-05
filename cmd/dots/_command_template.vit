@@ -1,0 +1,54 @@
+space dots/cmd/_template
+
+pull core/io
+pull core/process
+
+form Parsed
+{
+    ok: bool
+    args: [string]
+    err: string?
+}
+
+proc parse(argv: [string]) -> Parsed
+{
+    give Parsed(true, argv, null)
+}
+
+proc validate(p: Parsed) -> string?
+{
+    if !p.ok
+    {
+        give p.err
+    }
+
+    give null
+}
+
+proc execute(p: Parsed) -> i32
+{
+    io.print("TODO: implement command")
+    give 0
+}
+
+proc main() -> i32
+{
+    let argv = process.args()
+
+    let p = parse(argv)
+
+    let err = validate(p)
+
+    if err != null
+    {
+        io.print("dots: " + err)
+        give 2
+    }
+
+    give execute(p)
+}
+
+entry at dots/cmd/_template
+{
+    give main()
+}
