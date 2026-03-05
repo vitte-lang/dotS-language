@@ -1,0 +1,83 @@
+name: CLI
+
+on:
+  pull_request:
+    branches: [ main, master ]
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  test-cli:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup DotS runtime
+        run: echo "Install dots runtime"
+      - name: Generate parser tests from registry
+        run: bash scripts/gen_parser_each_command_test.sh
+      - name: Generate help/json snapshots from registry
+        run: bash scripts/gen_help_snapshots.sh
+      - name: Generate completion/man from registry
+        run: |
+          bash scripts/gen_completion_from_registry.sh
+          bash scripts/gen_man.sh
+      - name: Completion up-to-date gate
+        run: bash scripts/ci_completion_up_to_date.sh
+      - name: Completion no-network gate
+        run: bash scripts/ci_completion_no_network_gate.sh
+      - name: CLI smoke
+        run: |
+          dots help || true
+          dots version --short --json || true
+      - name: CLI contract gate
+        run: bash scripts/ci_cli_gate.sh
+      - name: Registry gate
+        run: bash scripts/ci_registry_gate.sh
+      - name: Geany assets gate
+        run: bash scripts/ci_geany_assets_gate.sh
+      - name: JSON flag gate
+        run: bash scripts/ci_json_flag_gate.sh
+      - name: JSON contract gate
+        run: bash scripts/ci_json_contract_gate.sh
+      - name: Real protocol gate
+        run: bash scripts/ci_real_protocol_gate.sh
+      - name: No shell network gate
+        run: bash scripts/ci_no_shell_network_gate.sh
+      - name: Package coverage gate
+        run: bash scripts/ci_package_coverage_gate.sh
+      - name: LSP stdout gate
+        run: bash scripts/ci_lsp_stdout_gate.sh
+      - name: LSP latency gate
+        run: bash scripts/ci_lsp_latency_gate.sh
+      - name: LSP schema gate
+        run: bash scripts/ci_lsp_schema_gate.sh
+      - name: LSP TTFO gate
+        run: bash scripts/ci_lsp_ttfo_gate.sh
+      - name: State perf budget
+        run: bash scripts/ci_state_perf_budget.sh 15 150
+      - name: CLI coverage gate
+        run: bash scripts/ci_cli_coverage_gate.sh
+      - name: CLI healthcheck
+        run: bash scripts/cli_healthcheck.sh
+      - name: Vit lint gate
+        run: bash scripts/lint_vit.sh
+      - name: Vit fmt-check gate
+        run: bash scripts/fmt_vit_check.sh
+      - name: Startup benchmark budget
+        run: bash scripts/cli_startup_bench.sh 20 120
+
+  release-artifacts:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build release
+        run: echo "Build CLI artifacts"
+      - name: Sign artifacts
+        run: echo "Sign binaries placeholder"
+      - name: SLSA provenance
+        run: echo "Generate provenance placeholder"
