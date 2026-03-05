@@ -1,0 +1,7 @@
+DOTS-logout(1)
+# NAME
+dots logout
+# USAGE
+builtin.logout
+# DESCRIPTION
+Registry logout

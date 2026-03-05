@@ -1,0 +1,7 @@
+DOTS-cache(1)
+# NAME
+dots cache
+# USAGE
+dots/cmd/cache
+# DESCRIPTION
+Cache operations

@@ -1,0 +1,7 @@
+DOTS-status(1)
+# NAME
+dots status
+# USAGE
+builtin.status
+# DESCRIPTION
+Project status

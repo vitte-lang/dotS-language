@@ -1,0 +1,7 @@
+DOTS-publish(1)
+# NAME
+dots publish
+# USAGE
+dots/cmd/publish
+# DESCRIPTION
+Publish package

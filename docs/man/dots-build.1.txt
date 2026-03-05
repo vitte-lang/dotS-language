@@ -1,0 +1,7 @@
+DOTS-build(1)
+# NAME
+dots build
+# USAGE
+dots/cmd/build
+# DESCRIPTION
+Build project

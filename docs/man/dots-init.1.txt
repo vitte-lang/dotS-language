@@ -1,0 +1,7 @@
+DOTS-init(1)
+# NAME
+dots init
+# USAGE
+dots/cmd/init
+# DESCRIPTION
+Initialize project

@@ -1,0 +1,7 @@
+DOTS-profile(1)
+# NAME
+dots profile
+# USAGE
+dots/cmd/profile
+# DESCRIPTION
+Profiling

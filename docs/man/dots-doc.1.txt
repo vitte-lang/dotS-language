@@ -1,0 +1,7 @@
+DOTS-doc(1)
+# NAME
+dots doc
+# USAGE
+dots/cmd/doc
+# DESCRIPTION
+Generate docs

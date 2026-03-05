@@ -1,0 +1,7 @@
+DOTS-graph(1)
+# NAME
+dots graph
+# USAGE
+dots/cmd/graph
+# DESCRIPTION
+Dependency graph

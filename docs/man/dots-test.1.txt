@@ -1,0 +1,7 @@
+DOTS-test(1)
+# NAME
+dots test
+# USAGE
+dots/cmd/test
+# DESCRIPTION
+Run tests

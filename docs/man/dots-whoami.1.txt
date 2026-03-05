@@ -1,0 +1,7 @@
+DOTS-whoami(1)
+# NAME
+dots whoami
+# USAGE
+builtin.whoami
+# DESCRIPTION
+Auth context

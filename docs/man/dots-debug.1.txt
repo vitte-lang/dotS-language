@@ -1,0 +1,7 @@
+DOTS-debug(1)
+# NAME
+dots debug
+# USAGE
+dots/cmd/debug
+# DESCRIPTION
+Debugger

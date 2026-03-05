@@ -1,0 +1,7 @@
+DOTS-lint(1)
+# NAME
+dots lint
+# USAGE
+dots/cmd/lint
+# DESCRIPTION
+Lint DotS project

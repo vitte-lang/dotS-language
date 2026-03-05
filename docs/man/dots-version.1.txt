@@ -1,0 +1,7 @@
+DOTS-version(1)
+# NAME
+dots version
+# USAGE
+builtin.version
+# DESCRIPTION
+Show version

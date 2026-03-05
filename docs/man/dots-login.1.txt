@@ -1,0 +1,7 @@
+DOTS-login(1)
+# NAME
+dots login
+# USAGE
+builtin.login
+# DESCRIPTION
+Registry login

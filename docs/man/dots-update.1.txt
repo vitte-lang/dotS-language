@@ -1,0 +1,7 @@
+DOTS-update(1)
+# NAME
+dots update
+# USAGE
+dots/cmd/update
+# DESCRIPTION
+Update dependencies

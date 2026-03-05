@@ -1,0 +1,7 @@
+DOTS-config(1)
+# NAME
+dots config
+# USAGE
+dots/cmd/config
+# DESCRIPTION
+Config management

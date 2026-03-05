@@ -1,0 +1,7 @@
+DOTS-self(1)
+# NAME
+dots self
+# USAGE
+builtin.self
+# DESCRIPTION
+Self management

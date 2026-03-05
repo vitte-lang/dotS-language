@@ -1,0 +1,7 @@
+DOTS-benchmark(1)
+# NAME
+dots benchmark
+# USAGE
+dots/cmd/benchmark
+# DESCRIPTION
+Run benchmarks

@@ -1,0 +1,7 @@
+DOTS-package(1)
+# NAME
+dots package
+# USAGE
+dots/cmd/package
+# DESCRIPTION
+Package tools

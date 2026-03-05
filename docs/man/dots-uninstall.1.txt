@@ -1,0 +1,7 @@
+DOTS-uninstall(1)
+# NAME
+dots uninstall
+# USAGE
+dots/cmd/uninstall
+# DESCRIPTION
+Uninstall package

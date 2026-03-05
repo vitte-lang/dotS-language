@@ -1,0 +1,7 @@
+DOTS-check(1)
+# NAME
+dots check
+# USAGE
+dots/cmd/check
+# DESCRIPTION
+Semantic/type checks

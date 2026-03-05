@@ -1,0 +1,7 @@
+DOTS-eval(1)
+# NAME
+dots eval
+# USAGE
+dots/cmd/eval
+# DESCRIPTION
+Evaluate expression

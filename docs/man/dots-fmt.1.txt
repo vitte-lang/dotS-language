@@ -1,0 +1,7 @@
+DOTS-fmt(1)
+# NAME
+dots fmt
+# USAGE
+dots/cmd/fmt
+# DESCRIPTION
+Format DotS files

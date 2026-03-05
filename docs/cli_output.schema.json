@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dots.dev/schema/cli-output.json",
+  "type": "object",
+  "properties": {
+    "ts": { "type": "string" },
+    "level": { "type": "string" },
+    "module": { "type": "string" },
+    "run_id": { "type": "string" },
+    "msg": { "type": "string" }
+  },
+  "required": ["ts", "level", "module", "run_id", "msg"]
+}

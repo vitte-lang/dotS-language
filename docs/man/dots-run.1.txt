@@ -1,0 +1,7 @@
+DOTS-run(1)
+# NAME
+dots run
+# USAGE
+dots/cmd/run
+# DESCRIPTION
+Run program

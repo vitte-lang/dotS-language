@@ -1,0 +1,42 @@
+DOTS(1)
+# NAME
+dots - DotS command line
+# SYNOPSIS
+dots [global options] <command> [command options]
+# COMMANDS
+- help: Show help
+- version: Show version
+- completion: Generate shell completion
+- cache: Cache operations
+- doctor: Environment diagnostics
+- fmt: Format DotS files
+- lint: Lint DotS project
+- check: Semantic/type checks
+- run: Run program
+- eval: Evaluate expression
+- build: Build project
+- test: Run tests
+- benchmark: Run benchmarks
+- profile: Profiling
+- graph: Dependency graph
+- doc: Generate docs
+- search: Search symbols
+- init: Initialize project
+- install: Install package
+- uninstall: Uninstall package
+- update: Update dependencies
+- publish: Publish package
+- package: Package tools
+- lock: Lock dependencies
+- clean: Clean artifacts
+- config: Config management
+- repl: Interactive REPL
+- debug: Debugger
+- plugins: Plugin manager
+- registry: Registry control
+- verify: Integrity verify
+- status: Project status
+- whoami: Auth context
+- login: Registry login
+- logout: Registry logout
+- self: Self management

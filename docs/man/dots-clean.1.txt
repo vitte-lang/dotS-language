@@ -1,0 +1,7 @@
+DOTS-clean(1)
+# NAME
+dots clean
+# USAGE
+dots/cmd/clean
+# DESCRIPTION
+Clean artifacts

@@ -1,0 +1,7 @@
+DOTS-registry(1)
+# NAME
+dots registry
+# USAGE
+builtin.registry
+# DESCRIPTION
+Registry control

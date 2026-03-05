@@ -1,0 +1,7 @@
+DOTS-verify(1)
+# NAME
+dots verify
+# USAGE
+builtin.verify
+# DESCRIPTION
+Integrity verify

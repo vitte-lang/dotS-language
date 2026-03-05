@@ -1,0 +1,7 @@
+DOTS-help(1)
+# NAME
+dots help
+# USAGE
+builtin.help
+# DESCRIPTION
+Show help

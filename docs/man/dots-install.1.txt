@@ -1,0 +1,7 @@
+DOTS-install(1)
+# NAME
+dots install
+# USAGE
+dots/cmd/install
+# DESCRIPTION
+Install package

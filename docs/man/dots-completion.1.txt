@@ -1,0 +1,7 @@
+DOTS-completion(1)
+# NAME
+dots completion
+# USAGE
+builtin.completion
+# DESCRIPTION
+Generate shell completion

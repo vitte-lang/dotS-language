@@ -1,0 +1,7 @@
+DOTS-doctor(1)
+# NAME
+dots doctor
+# USAGE
+dots/cmd/doctor
+# DESCRIPTION
+Environment diagnostics

@@ -1,0 +1,7 @@
+DOTS-search(1)
+# NAME
+dots search
+# USAGE
+dots/cmd/search
+# DESCRIPTION
+Search symbols

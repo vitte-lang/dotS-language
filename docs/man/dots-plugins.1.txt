@@ -1,0 +1,7 @@
+DOTS-plugins(1)
+# NAME
+dots plugins
+# USAGE
+builtin.plugins
+# DESCRIPTION
+Plugin manager

@@ -1,0 +1,7 @@
+DOTS-lock(1)
+# NAME
+dots lock
+# USAGE
+dots/cmd/lock
+# DESCRIPTION
+Lock dependencies
