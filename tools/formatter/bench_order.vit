@@ -1,0 +1,32 @@
+# DotS benchmark formatter profile
+# Preferred block order:
+# 1) module
+# 2) import
+# 3) use (alphabetical)
+# 4) constants/config
+# 5) env overrides
+# 6) metadata header
+# 7) work functions
+# 8) setup/warmup/runs
+# 9) stats
+# 10) summary human
+# 11) summary json
+# 12) exit code gates
+
+.fn.format_bench_file.
+.begin.
+# Placeholder implementation hook for dots fmt.
+.ret.
+.end.
+
+.fn.autofix_import_order.
+.begin.
+# Placeholder: alphabetic sort of .use.* and .import.* blocks.
+.ret.
+.end.
+
+.fn.autofix_duration_suffix.
+.begin.
+# Placeholder: rename $duration -> $duration_ms style vars.
+.ret.
+.end.
