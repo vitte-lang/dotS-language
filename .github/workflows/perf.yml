@@ -1,0 +1,42 @@
+name: Perf Bench
+
+on:
+  pull_request:
+    branches: [ main, master ]
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  quick-pr:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup DotS runtime
+        run: echo "Install dots runtime here"
+      - name: Run quick benches
+        run: |
+          DOTS_BENCH_MODE=quick \
+          DOTS_BENCH_FAIL_ON_REGRESSION=true \
+          bash scripts/bench.sh run-all
+      - name: Perf budget gate
+        run: bash scripts/check_perf_budget.sh
+      - name: Snapshot output gate
+        run: bash scripts/check_snapshots.sh
+
+  nightly-stress:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup DotS runtime
+        run: echo "Install dots runtime here"
+      - name: Run nightly stress benches
+        run: |
+          DOTS_BENCH_MODE=nightly \
+          DOTS_BENCH_PARALLEL=1 \
+          DOTS_BENCH_FAIL_ON_REGRESSION=true \
+          bash scripts/bench.sh run-all
+      - name: Perf budget gate
+        run: bash scripts/check_perf_budget.sh
