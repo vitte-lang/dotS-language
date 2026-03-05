@@ -1,0 +1,229 @@
+space dots/cmd/registry
+
+pull core/str
+
+form CommandDef
+{
+    name: string
+    aliases: [string]
+    description: string
+    usage: string
+    examples: [string]
+    options: [string]
+    handler: string
+}
+
+proc command_registry() -> [CommandDef]
+{
+    let cmds: [CommandDef] = []
+
+    cmds = cmds.push(CommandDef("help", ["h"], "Show help", "dots help [command]", ["dots help", "dots help fmt"], [], "builtin.help"))
+    cmds = cmds.push(CommandDef("version", ["v"], "Show version", "dots version [--short] [--json]", ["dots version", "dots version --short --json"], ["--short", "--json"], "builtin.version"))
+    cmds = cmds.push(CommandDef("completion", [], "Generate shell completion", "dots completion <bash|zsh|fish|validate|registry-json>", ["dots completion bash", "dots completion validate"], [], "builtin.completion"))
+    cmds = cmds.push(CommandDef("cache", [], "Cache operations", "dots cache <list|clear|stats|prune> [--max-size <mb>] [--max-age-ms <ms>] [--json]", ["dots cache list", "dots cache prune --max-size 128 --max-age-ms 3600000"], ["--max-size", "--max-age-ms", "--json"], "dots/cmd/cache"))
+
+    cmds = cmds.push(CommandDef("doctor", [], "Environment diagnostics", "dots doctor [--fix] [--registry|--lsp] [--network-timeout-ms <ms>] [--json]", ["dots doctor", "dots doctor --registry --json", "dots doctor --lsp"], ["--fix", "--registry", "--lsp", "--network-timeout-ms", "--json"], "dots/cmd/doctor"))
+    cmds = cmds.push(CommandDef("fmt", [], "Format DotS files", "dots fmt [--check|--write|--stdin|--diff] [--json] <path>", ["dots fmt .", "dots fmt --check --diff bench"], ["--check", "--write", "--stdin", "--diff", "--json"], "dots/cmd/fmt"))
+    cmds = cmds.push(CommandDef("lint", [], "Lint DotS project", "dots lint [--fix] [--rule <r>] [--exclude-rule <r>] [--format stylish|json|sarif]", ["dots lint", "dots lint --fix"], ["--fix", "--rule", "--exclude-rule", "--format"], "dots/cmd/lint"))
+    cmds = cmds.push(CommandDef("check", [], "Semantic/type checks", "dots check <file.dotS>", ["dots check bench/json_bench.dotS"], [], "dots/cmd/check"))
+    cmds = cmds.push(CommandDef("run", ["r"], "Run program", "dots run [--watch] [--env-file <f>] [--entry <e>] [--args -- ...] <file>", ["dots run app.dotS", "dots run --watch app.dotS"], ["--watch", "--env-file", "--entry", "--args"], "dots/cmd/run"))
+    cmds = cmds.push(CommandDef("eval", [], "Evaluate expression", "dots eval [--expr <code>] [--json]", ["dots eval --expr '.io.print.\"hi\".'"], ["--expr", "--json"], "dots/cmd/eval"))
+    cmds = cmds.push(CommandDef("build", ["b"], "Build project", "dots build [--target host|wasm|arduino|kernel] [--release|--debug] [--out-dir <dir>] [--emit ir|bytecode|ast] [--strip] [--dry-run] [--no-cache] [--json]", ["dots build --target wasm --release", "dots build --dry-run --json app.dotS"], ["--target", "--release", "--debug", "--out-dir", "--emit", "--strip", "--dry-run", "--no-cache", "--json"], "dots/cmd/build"))
+    cmds = cmds.push(CommandDef("test", ["t"], "Run tests", "dots test [--filter <pat>] [--shuffle] [--seed <n>] [--update-snapshots] [--junit <file>]", ["dots test --filter parser"], ["--filter", "--shuffle", "--seed", "--update-snapshots", "--junit"], "dots/cmd/test"))
+    cmds = cmds.push(CommandDef("benchmark", [], "Run benchmarks", "dots benchmark [--mode smoke|quick|stress|nightly] [--bench <name>] [--output jsonl|csv|prom] [--compare baseline|last] [--fail-on-regression]", ["dots benchmark --mode quick", "dots benchmark --bench http"], ["--mode", "--bench", "--output", "--compare", "--fail-on-regression"], "dots/cmd/benchmark"))
+    cmds = cmds.push(CommandDef("profile", [], "Profiling", "dots profile [--cpu] [--mem] [--flamegraph] [--output <file>]", ["dots profile --cpu --output cpu.json"], ["--cpu", "--mem", "--flamegraph", "--output"], "dots/cmd/profile"))
+    cmds = cmds.push(CommandDef("graph", [], "Dependency graph", "dots graph [--format mermaid|dot|json] [--focus <module>] [--reverse] [--cycles] [--depth <n>]", ["dots graph --format mermaid"], ["--format", "--focus", "--reverse", "--cycles", "--depth"], "dots/cmd/graph"))
+    cmds = cmds.push(CommandDef("doc", [], "Generate docs", "dots doc [--format md|html|json] [--private] [--open] [--json]", ["dots doc --format html", "dots doc --format json --json"], ["--format", "--private", "--open", "--json"], "dots/cmd/doc"))
+    cmds = cmds.push(CommandDef("search", [], "Search symbols", "dots search [--kind fn|module|type] [--fuzzy] [--rebuild] [--json] <query>", ["dots search --kind fn parse", "dots search --fuzzy --rebuild parser"], ["--kind", "--fuzzy", "--rebuild", "--json"], "dots/cmd/search"))
+
+    cmds = cmds.push(CommandDef("init", [], "Initialize project", "dots init [--template <name>] [--name <n>] [--org <o>] [--license <id>]", ["dots init --template web"], ["--template", "--name", "--org", "--license"], "dots/cmd/init"))
+    cmds = cmds.push(CommandDef("install", [], "Install package", "dots install [--global|--local] [--locked] [--offline] [--mirror <url[,url]>] [--retries <n>] [--jitter-ms <ms>] [--cb-threshold <n>] [--dry-run] [--json] <pkg...>", ["dots install pkg", "dots install --mirror https://m1,https://m2 pkg"], ["--global", "--local", "--locked", "--offline", "--mirror", "--retries", "--jitter-ms", "--cb-threshold", "--dry-run", "--json"], "dots/cmd/install"))
+    cmds = cmds.push(CommandDef("uninstall", [], "Uninstall package", "dots uninstall [--global|--local] <pkg...>", ["dots uninstall pkg"], ["--global", "--local"], "dots/cmd/uninstall"))
+    cmds = cmds.push(CommandDef("update", [], "Update dependencies", "dots update [--all] [--interactive] [--offline] [--mirror <url[,url]>] [--retries <n>] [--jitter-ms <ms>] [--cb-threshold <n>] [--dry-run] [--json]", ["dots update --all", "dots update --offline --json"], ["--all", "--interactive", "--offline", "--mirror", "--retries", "--jitter-ms", "--cb-threshold", "--dry-run", "--json"], "dots/cmd/update"))
+    cmds = cmds.push(CommandDef("publish", [], "Publish package", "dots publish [--dry-run] [--tag latest|next] [--offline] [--mirror <url[,url]>] [--retries <n>] [--jitter-ms <ms>] [--cb-threshold <n>] [--json]", ["dots publish --tag next", "dots publish --dry-run --json"], ["--dry-run", "--tag", "--offline", "--mirror", "--retries", "--jitter-ms", "--cb-threshold", "--json"], "dots/cmd/publish"))
+    cmds = cmds.push(CommandDef("package", [], "Package tools", "dots package <pack|unpack|verify>", ["dots package verify"], [], "dots/cmd/package"))
+    cmds = cmds.push(CommandDef("lock", [], "Lock dependencies", "dots lock [--strict] [--out dots.lock|lock.json] [--json]", ["dots lock --strict", "dots lock --out lock.json"], ["--strict", "--out", "--json"], "dots/cmd/lock"))
+    cmds = cmds.push(CommandDef("clean", [], "Clean artifacts", "dots clean [--all] [--target <name>] [--dry-run]", ["dots clean --all"], ["--all", "--target", "--dry-run"], "dots/cmd/clean"))
+    cmds = cmds.push(CommandDef("config", [], "Config management", "dots config <get|set|unset|list|schema validate|import <file>|export <file>|migrate> [--global|--project] [--json]", ["dots config list --project", "dots config schema validate"], ["--global", "--project", "--json"], "dots/cmd/config"))
+
+    cmds = cmds.push(CommandDef("repl", [], "Interactive REPL", "dots repl [--history-file <f>] [--load <f>]", ["dots repl --load init.dotS"], ["--history-file", "--load"], "dots/cmd/repl"))
+    cmds = cmds.push(CommandDef("debug", [], "Debugger", "dots debug [--breakpoint <bp>] [--attach <pid>]", ["dots debug --breakpoint main:12"], ["--breakpoint", "--attach"], "dots/cmd/debug"))
+    cmds = cmds.push(CommandDef("lsp", [], "Run/inspect LSP server", "dots lsp <serve|doctor|stats> [--stdio] [--json] [--prom]", ["dots lsp serve --stdio", "dots lsp doctor", "dots lsp stats --json", "dots lsp stats --prom"], ["--stdio", "--json", "--prom"], "builtin.lsp"))
+
+    cmds = cmds.push(CommandDef("plugins", [], "Plugin manager", "dots plugins <list|install|remove>", ["dots plugins list"], [], "builtin.plugins"))
+    cmds = cmds.push(CommandDef("registry", [], "Registry control", "dots registry <status|reset|doctor|events> [--json] [--prom] [--safe] [--fix] [--strict] [--follow] [--lines <n>] [--component <name>] [--severity <s>] [--since-ms <ms>] [--until-ms <ms>]", ["dots registry status --json", "dots registry status --prom", "dots registry doctor --json --fix --strict", "dots registry events --json --component core --severity warn", "dots registry reset --safe"], ["--json", "--prom", "--safe", "--fix", "--strict", "--follow", "--lines", "--component", "--severity", "--since-ms", "--until-ms"], "builtin.registry"))
+    cmds = cmds.push(CommandDef("ffi", [], "FFI control", "dots ffi <doctor|status|reset|events> [--json] [--prom] [--follow] [--lines <n>]", ["dots ffi status --json", "dots ffi status --prom", "dots ffi events --follow"], ["--json", "--prom", "--follow", "--lines"], "builtin.ffi"))
+    cmds = cmds.push(CommandDef("verify", [], "Integrity verify", "dots verify", ["dots verify"], [], "builtin.verify"))
+    cmds = cmds.push(CommandDef("status", [], "Project status", "dots status", ["dots status"], [], "builtin.status"))
+    cmds = cmds.push(CommandDef("whoami", [], "Auth context", "dots whoami", ["dots whoami"], [], "builtin.whoami"))
+    cmds = cmds.push(CommandDef("login", [], "Registry login", "dots login", ["dots login"], [], "builtin.login"))
+    cmds = cmds.push(CommandDef("logout", [], "Registry logout", "dots logout", ["dots logout"], [], "builtin.logout"))
+    cmds = cmds.push(CommandDef("self", [], "Self management", "dots self <update|doctor|uninstall>", ["dots self update"], [], "builtin.self"))
+
+    give cmds
+}
+
+proc cmd_is_alias(c: CommandDef, name: string) -> bool
+{
+    loop a in c.aliases
+    {
+        if a == name
+        {
+            give true
+        }
+    }
+
+    give false
+}
+
+proc command_is_destructive(name: string) -> bool
+{
+    if name == "clean" || name == "uninstall" || name == "install" || name == "update" || name == "publish"
+    {
+        give true
+    }
+
+    give false
+}
+
+proc command_supports_json(name: string) -> bool
+{
+    let c = find_command(name)
+
+    if c == null
+    {
+        give false
+    }
+
+    loop o in c.options
+    {
+        if o == "--json"
+        {
+            give true
+        }
+    }
+
+    if c.name == "version" || c.name == "status" || c.name == "help"
+    {
+        give true
+    }
+
+    give false
+}
+
+proc find_command(name: string) -> CommandDef?
+{
+    let registry = command_registry()
+
+    loop c in registry
+    {
+        if c.name == name
+        {
+            give c
+        }
+
+        if cmd_is_alias(c, name)
+        {
+            give c
+        }
+    }
+
+    give null
+}
+
+proc suggest_command(name: string) -> string
+{
+    let registry = command_registry()
+
+    loop c in registry
+    {
+        if str.starts_with(c.name, name)
+        {
+            give c.name
+        }
+
+        loop a in c.aliases
+        {
+            if str.starts_with(a, name)
+            {
+                give c.name
+            }
+        }
+    }
+
+    give ""
+}
+
+proc completion_script(shell: string) -> string
+{
+    let names: [string] = []
+
+    let registry = command_registry()
+    loop c in registry
+    {
+        names = names.push(c.name)
+    }
+
+    let all = str.join(names, " ")
+
+    if shell == "bash"
+    {
+        give "_dots_complete(){ COMPREPLY=( $(compgen -W '" + all + "' -- ${COMP_WORDS[1]}) ); }\\ncomplete -F _dots_complete dots"
+    }
+
+    if shell == "zsh"
+    {
+        give "#compdef dots\\n_arguments '1: :(" + all + ")'"
+    }
+
+    if shell == "fish"
+    {
+        let out = ""
+        loop n in names
+        {
+            out = out + "complete -c dots -f -a '" + n + "'\\n"
+        }
+
+        give out
+    }
+
+    give ""
+}
+
+proc completion_registry_json() -> string
+{
+    let out = "{\"completion_schema_version\":\"1.1.0\",\"commands\":["
+    let first = true
+
+    let registry = command_registry()
+    loop c in registry
+    {
+        if !first { out = out + "," }
+        first = false
+
+        let aliases = "["
+        let ai: i32 = 0
+        loop while ai < c.aliases.len
+        {
+            if ai > 0 { aliases = aliases + "," }
+            aliases = aliases + "\"" + c.aliases[ai] + "\""
+            ai = ai + 1
+        }
+        aliases = aliases + "]"
+
+        let opts = "["
+        let oi: i32 = 0
+        loop while oi < c.options.len
+        {
+            if oi > 0 { opts = opts + "," }
+            opts = opts + "\"" + c.options[oi] + "\""
+            oi = oi + 1
+        }
+        opts = opts + "]"
+
+        out = out + "{\"name\":\"" + c.name + "\",\"aliases\":" + aliases + ",\"options\":" + opts + "}"
+    }
+
+    out = out + "]}"
+    give out
+}
