@@ -1,0 +1,102 @@
+space runtime/concurrency/scheduler
+
+pull core/str
+pull core/time
+pull runtime/common/metrics
+pull runtime/common/config
+
+form SchedTask
+{
+    id: i64
+    runnable: bool
+    consumed_ms: i64
+    last_run_ms: i64
+}
+
+form Scheduler
+{
+    timeslice_ms: i64
+    fairness_quota: i64
+    starvation_ms: i64
+    seed: i64
+    tasks: [SchedTask]
+}
+
+proc new() -> Scheduler
+{
+    let c = config.load()
+    give Scheduler(4, 20, 200, c.seed, [])
+}
+
+proc with_policy(s: Scheduler, timeslice_ms: i64, fairness_quota: i64, starvation_ms: i64, seed: i64) -> Scheduler
+{
+    if timeslice_ms <= 0 { timeslice_ms = 4 }
+    if fairness_quota <= 0 { fairness_quota = 20 }
+    if starvation_ms <= 0 { starvation_ms = 200 }
+    s.timeslice_ms = timeslice_ms
+    s.fairness_quota = fairness_quota
+    s.starvation_ms = starvation_ms
+    s.seed = seed
+    give s
+}
+
+proc add_task(s: Scheduler, id: i64) -> Scheduler
+{
+    s.tasks = s.tasks.push(SchedTask(id, true, 0, 0))
+    give s
+}
+
+proc pick_next(s: Scheduler) -> i64
+{
+    let now = time.now_ms()
+    let best: i32 = -1
+    let best_score: i64 = -1
+
+    let i: i32 = 0
+    loop while i < s.tasks.len
+    {
+        let t = s.tasks[i]
+        if !t.runnable { i = i + 1; continue }
+
+        let starved = now - t.last_run_ms
+        if starved > s.starvation_ms
+        {
+            metrics.inc_ops("scheduler.starvation_detected")
+        }
+
+        let score = starved - t.consumed_ms
+        if score > best_score
+        {
+            best_score = score
+            best = i
+        }
+        i = i + 1
+    }
+
+    if best < 0 { give -1 }
+
+    let chosen = s.tasks[best]
+    chosen.consumed_ms = chosen.consumed_ms + s.timeslice_ms
+    chosen.last_run_ms = now
+    s.tasks[best] = chosen
+    metrics.append_metric("scheduler_fairness_score", fairness_score(s), "")
+    metrics.inc_ops("scheduler.pick_next")
+    give chosen.id
+}
+
+proc fairness_score(s: Scheduler) -> i64
+{
+    if s.tasks.len == 0 { give 100 }
+    let min_c = s.tasks[0].consumed_ms
+    let max_c = s.tasks[0].consumed_ms
+    loop t in s.tasks
+    {
+        if t.consumed_ms < min_c { min_c = t.consumed_ms }
+        if t.consumed_ms > max_c { max_c = t.consumed_ms }
+    }
+    let spread = max_c - min_c
+    if spread <= 0 { give 100 }
+    let score = 100 - spread
+    if score < 0 { score = 0 }
+    give score
+}

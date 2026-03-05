@@ -1,0 +1,51 @@
+space runtime/status
+
+pull core/str
+pull runtime/common/metrics
+pull runtime/common/config
+pull runtime/common/events
+pull runtime/vm
+pull runtime/memory/gc
+
+proc runtime_status_json() -> string
+{
+    let c = config.load()
+    let v = vm.new()
+    let g = gc.new()
+    give "{" +
+        "\"schema_version\":\"1.1.0\"," +
+        "\"config\":{\"schema_version\":\"" + c.schema_version + "\",\"strict\":\"" + str.from_bool(c.strict) + "\"}," +
+        "\"vm\":" + vm.status_json(v) + "," +
+        "\"gc\":" + gc.status_json(g) + "," +
+        "\"metrics\":" + metrics.status_json() +
+    "}"
+}
+
+proc runtime_status_prom() -> string
+{
+    let v = vm.new()
+    give vm.status_prom(v) + metrics.status_prom()
+}
+
+proc runtime_doctor() -> string
+{
+    let v = vm.new()
+    let r = vm.doctor(v)
+    events.rotate_if_needed(2 * 1024 * 1024, 7 * 24 * 3600 * 1000)
+    if r.ok { give "runtime doctor ok" }
+    give "runtime doctor failed: " + r.error.code
+}
+
+proc runtime_status_table() -> string
+{
+    let c = config.load()
+    let v = vm.new()
+    let out = ""
+    out = out + "runtime status\n"
+    out = out + "schema_version: 1.1.0\n"
+    out = out + "strict: " + str.from_bool(c.strict) + "\n"
+    out = out + "safe_points_total: " + str.from_i64(v.safe_points_total) + "\n"
+    out = out + "interrupted_total: " + str.from_i64(v.interrupted_total) + "\n"
+    out = out + "latency_p95_ms: " + str.from_i64(metrics.p95_latency("runtime", "all")) + "\n"
+    give out
+}

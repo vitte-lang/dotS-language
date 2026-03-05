@@ -1,0 +1,65 @@
+space runtime/common/config
+
+pull core/str
+pull core/process
+
+const CFG_SCHEMA_VERSION: string = "1.1.0"
+
+form RuntimeConfig
+{
+    schema_version: string
+    strict: bool
+    seed: i64
+    timeout_global_ms: i64
+    retry_budget_total: i32
+    retry_budget_connect: i32
+    retry_budget_application: i32
+    instruction_budget: i64
+    safe_point_interval: i32
+    gc_stw_timeout_ms: i64
+    jitter_max_ms: i64
+}
+
+proc env_bool(name: string, fallback: bool) -> bool
+{
+    let v = process.env(name)
+    if v == "" { give fallback }
+    if v == "1" || v == "true" || v == "on" { give true }
+    if v == "0" || v == "false" || v == "off" { give false }
+    give fallback
+}
+
+proc env_i64(name: string, fallback: i64, min_v: i64, max_v: i64) -> i64
+{
+    let v = process.env(name)
+    if v == "" { give fallback }
+    let n = str.to_i64(v)
+    if n < min_v || n > max_v { give fallback }
+    give n
+}
+
+proc env_i32(name: string, fallback: i32, min_v: i32, max_v: i32) -> i32
+{
+    let n = env_i64(name, fallback, min_v, max_v)
+    give n
+}
+
+proc load() -> RuntimeConfig
+{
+    let seed = env_i64("DOTS_RUNTIME_SEED", 1, 1, 922337203685477580)
+    let strict = env_bool("DOTS_RUNTIME_STRICT", false)
+
+    give RuntimeConfig(
+        CFG_SCHEMA_VERSION,
+        strict,
+        seed,
+        env_i64("DOTS_RUNTIME_TIMEOUT_MS", 30000, 1, 3600000),
+        env_i32("DOTS_RUNTIME_RETRY_BUDGET_TOTAL", 16, 0, 100000),
+        env_i32("DOTS_RUNTIME_RETRY_BUDGET_CONNECT", 8, 0, 100000),
+        env_i32("DOTS_RUNTIME_RETRY_BUDGET_APPLICATION", 8, 0, 100000),
+        env_i64("DOTS_VM_INSTRUCTION_BUDGET", 2000000, 1, 200000000),
+        env_i32("DOTS_VM_SAFE_POINT_INTERVAL", 64, 1, 100000),
+        env_i64("DOTS_GC_STW_TIMEOUT_MS", 5000, 1, 600000),
+        env_i64("DOTS_RUNTIME_JITTER_MAX_MS", 8, 0, 1000)
+    )
+}

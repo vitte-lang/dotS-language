@@ -1,0 +1,8 @@
+space runtime/interpreter
+
+pull runtime/common/result
+
+proc execute_fallback(ir_hash: string) -> result.RuntimeResult
+{
+    give result.ok("interpreted:" + ir_hash)
+}

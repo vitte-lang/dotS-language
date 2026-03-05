@@ -1,0 +1,18 @@
+space runtime/events
+
+pull runtime/common/events
+
+proc append(component: string, severity: string, message: string) -> void
+{
+    events.append(component, severity, message)
+}
+
+proc tail(lines: i32) -> string
+{
+    give events.tail(lines)
+}
+
+proc rotate(max_bytes: i64, max_age_ms: i64) -> void
+{
+    events.rotate_if_needed(max_bytes, max_age_ms)
+}

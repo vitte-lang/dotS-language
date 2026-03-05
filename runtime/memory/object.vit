@@ -1,0 +1,7 @@
+space runtime/memory/object
+
+form Object
+{
+    id: i64
+    type_name: string
+}

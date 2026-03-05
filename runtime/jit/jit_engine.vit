@@ -1,0 +1,22 @@
+space runtime/jit/engine
+
+pull runtime/common/result
+
+form JitEngine
+{
+    enabled: bool
+}
+
+proc new() -> JitEngine
+{
+    give JitEngine(true)
+}
+
+proc execute(engine: JitEngine, machine_code: string) -> result.RuntimeResult
+{
+    if !engine.enabled
+    {
+        give result.err(result.E_NOT_IMPLEMENTED, "jit engine disabled", false)
+    }
+    give result.ok("executed:" + machine_code)
+}

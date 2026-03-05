@@ -1,0 +1,6 @@
+space runtime/memory/gc_mark
+
+proc run() -> bool
+{
+    give true
+}

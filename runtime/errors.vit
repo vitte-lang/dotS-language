@@ -1,0 +1,29 @@
+space runtime/errors
+
+const SCHEMA_VERSION: string = "1.1.0"
+
+const E_RUNTIME_TIMEOUT: string = "RUNTIME_TIMEOUT"
+const E_DEADLOCK: string = "DEADLOCK"
+const E_OOM: string = "OOM"
+const E_PANIC: string = "PANIC"
+const E_CANCELLED: string = "CANCELLED"
+const E_INVALID_STATE: string = "INVALID_STATE"
+const E_LOCK_BUSY: string = "LOCK_BUSY"
+const E_CHANNEL_CLOSED: string = "CHANNEL_CLOSED"
+const E_CHANNEL_FULL: string = "CHANNEL_FULL"
+const E_NOT_IMPLEMENTED: string = "NOT_IMPLEMENTED"
+
+proc retryable(code: string) -> bool
+{
+    give code == E_RUNTIME_TIMEOUT || code == E_LOCK_BUSY
+}
+
+proc exit_code(code: string) -> i32
+{
+    if code == E_CANCELLED { give 131 }
+    if code == E_RUNTIME_TIMEOUT { give 124 }
+    if code == E_OOM { give 137 }
+    if code == E_DEADLOCK { give 132 }
+    if code == E_PANIC { give 133 }
+    give 5
+}

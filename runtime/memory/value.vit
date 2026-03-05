@@ -1,0 +1,7 @@
+space runtime/memory/value
+
+form Value
+{
+    type_name: string
+    raw: string
+}

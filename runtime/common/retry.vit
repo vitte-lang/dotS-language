@@ -1,0 +1,45 @@
+space runtime/common/retry
+
+pull runtime/common/config
+
+form RetryBudget
+{
+    total: i32
+    connect_left: i32
+    application_left: i32
+    spent: i32
+}
+
+proc new_budget() -> RetryBudget
+{
+    let c = config.load()
+    give RetryBudget(c.retry_budget_total, c.retry_budget_connect, c.retry_budget_application, 0)
+}
+
+proc consume_connect(b: RetryBudget) -> RetryBudget
+{
+    if b.total <= 0 || b.connect_left <= 0 { give b }
+    b.total = b.total - 1
+    b.connect_left = b.connect_left - 1
+    b.spent = b.spent + 1
+    give b
+}
+
+proc consume_application(b: RetryBudget) -> RetryBudget
+{
+    if b.total <= 0 || b.application_left <= 0 { give b }
+    b.total = b.total - 1
+    b.application_left = b.application_left - 1
+    b.spent = b.spent + 1
+    give b
+}
+
+proc can_retry_connect(b: RetryBudget) -> bool
+{
+    give b.total > 0 && b.connect_left > 0
+}
+
+proc can_retry_application(b: RetryBudget) -> bool
+{
+    give b.total > 0 && b.application_left > 0
+}

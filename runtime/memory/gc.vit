@@ -1,0 +1,70 @@
+space runtime/memory/gc
+
+pull core/time
+pull core/str
+pull runtime/common/config
+pull runtime/common/metrics
+
+form GcState
+{
+    collections_total: i64
+    pause_ms_last: i64
+    live_bytes: i64
+    mark_ms_last: i64
+    sweep_ms_last: i64
+}
+
+proc new() -> GcState
+{
+    give GcState(0, 0, 0, 0, 0)
+}
+
+proc collect(g: GcState, live_bytes: i64) -> GcState
+{
+    let cfg = config.load()
+    let start = time.now_ms()
+    let mark_start = time.now_ms()
+    # mark phase placeholder
+    g.mark_ms_last = time.now_ms() - mark_start
+    let sweep_start = time.now_ms()
+    # sweep phase placeholder
+    g.sweep_ms_last = time.now_ms() - sweep_start
+    g.collections_total = g.collections_total + 1
+    g.live_bytes = live_bytes
+    g.pause_ms_last = time.now_ms() - start
+
+    if g.pause_ms_last > cfg.gc_stw_timeout_ms
+    {
+        metrics.inc_errors("gc.collect", "STW_TIMEOUT")
+    }
+
+    metrics.append_metric("gc_pause_ms", g.pause_ms_last, "phase=collect")
+    metrics.append_metric("gc_mark_ms", g.mark_ms_last, "phase=mark")
+    metrics.append_metric("gc_sweep_ms", g.sweep_ms_last, "phase=sweep")
+    metrics.append_metric("gc_collections_total", g.collections_total, "")
+    metrics.append_metric("gc_live_bytes", g.live_bytes, "")
+    metrics.append_metric("gc_pause_ms_bucket", g.pause_ms_last, "le=10")
+    metrics.append_metric("gc_pause_ms_bucket", g.pause_ms_last, "le=50")
+    metrics.append_metric("gc_pause_ms_bucket", g.pause_ms_last, "le=200")
+    give g
+}
+
+proc write_barrier(obj_id: i64, field: string) -> bool
+{
+    if obj_id < 0 { give false }
+    if field == "" { give false }
+    if config.load().strict && field == "raw_ptr_unsafe" { give false }
+    give true
+}
+
+proc status_json(g: GcState) -> string
+{
+    give "{" +
+        "\"schema_version\":\"1.1.0\"," +
+        "\"collections_total\":\"" + str.from_i64(g.collections_total) + "\"," +
+        "\"pause_ms\":\"" + str.from_i64(g.pause_ms_last) + "\"," +
+        "\"mark_ms\":\"" + str.from_i64(g.mark_ms_last) + "\"," +
+        "\"sweep_ms\":\"" + str.from_i64(g.sweep_ms_last) + "\"," +
+        "\"live_bytes\":\"" + str.from_i64(g.live_bytes) + "\"" +
+    "}"
+}

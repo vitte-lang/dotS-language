@@ -1,0 +1,6 @@
+space runtime/memory/gc_sweep
+
+proc run() -> bool
+{
+    give true
+}

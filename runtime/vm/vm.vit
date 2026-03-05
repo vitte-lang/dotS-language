@@ -1,0 +1,125 @@
+space runtime/vm
+
+pull core/str
+pull core/process
+pull core/time
+pull runtime/common/result
+pull runtime/common/cancel
+pull runtime/common/metrics
+pull runtime/common/log
+pull runtime/common/config
+pull runtime/common/events
+pull runtime/common/trace
+pull runtime/common/panic
+
+form VM
+{
+    strict: bool
+    safe_points_total: i64
+    interrupted_total: i64
+    instruction_budget: i64
+    safe_point_interval: i32
+    opcode_exec_total: i64
+}
+
+proc new() -> VM
+{
+    let c = config.load()
+    give VM(c.strict, 0, 0, c.instruction_budget, c.safe_point_interval, 0)
+}
+
+proc safe_point(vm: VM, tok: cancel.CancelToken) -> (VM, result.RuntimeResult)
+{
+    vm.safe_points_total = vm.safe_points_total + 1
+    if cancel.is_cancelled(tok)
+    {
+        vm.interrupted_total = vm.interrupted_total + 1
+        metrics.inc_errors("vm.safe_point", result.E_CANCELLED)
+        give (vm, result.err(result.E_CANCELLED, "vm interrupted", false))
+    }
+    metrics.inc_ops("vm.safe_point")
+    give (vm, result.ok("continue"))
+}
+
+proc execute(vm: VM, bytecode: [string], tok: cancel.CancelToken, timeout_ms: i64) -> (VM, result.RuntimeResult)
+{
+    if timeout_ms <= 0
+    {
+        timeout_ms = config.load().timeout_global_ms
+    }
+    let start = time.now_ms()
+    let i: i32 = 0
+
+    loop while i < bytecode.len
+    {
+        vm.instruction_budget = vm.instruction_budget - 1
+        if vm.instruction_budget <= 0
+        {
+            metrics.inc_errors("vm.execute", result.E_RUNTIME_TIMEOUT)
+            events.append("vm", "error", "instruction budget exhausted")
+            give (vm, result.err(result.E_RUNTIME_TIMEOUT, "instruction budget exhausted", false))
+        }
+
+        if vm.safe_point_interval > 0 && (i % vm.safe_point_interval) == 0
+        {
+            let vm2, sp = safe_point(vm, tok)
+            vm = vm2
+            if !sp.ok
+            {
+                events.append("vm", "warn", "interrupted at safe point")
+                give (vm, sp)
+            }
+        }
+
+        if timeout_ms > 0 && time.now_ms() - start >= timeout_ms
+        {
+            metrics.inc_errors("vm.execute", result.E_RUNTIME_TIMEOUT)
+            events.append("vm", "error", "vm timeout reached")
+            give (vm, result.err(result.E_RUNTIME_TIMEOUT, "vm timeout", true))
+        }
+
+        let op = bytecode[i]
+        metrics.append_metric("opcode_exec_total", 1, "op=" + op)
+        vm.opcode_exec_total = vm.opcode_exec_total + 1
+        trace.append("vm.op", op)
+        i = i + 1
+    }
+
+    metrics.inc_ops("vm.execute")
+    metrics.observe_latency("runtime", "all", time.now_ms() - start)
+    let ok = result.ok("ok")
+    give (vm, panic.with_panic_boundary("vm.execute", ok))
+}
+
+proc status_json(vm: VM) -> string
+{
+    give "{" +
+        "\"schema_version\":\"1.1.0\"," +
+        "\"strict\":\"" + str.from_bool(vm.strict) + "\"," +
+        "\"safe_points_total\":\"" + str.from_i64(vm.safe_points_total) + "\"," +
+        "\"interrupted_total\":\"" + str.from_i64(vm.interrupted_total) + "\"," +
+        "\"instruction_budget\":\"" + str.from_i64(vm.instruction_budget) + "\"," +
+        "\"safe_point_interval\":\"" + str.from_i64(vm.safe_point_interval) + "\"," +
+        "\"opcode_exec_total\":\"" + str.from_i64(vm.opcode_exec_total) + "\"," +
+        "\"metrics\":" + metrics.status_json() +
+    "}"
+}
+
+proc status_prom(vm: VM) -> string
+{
+    let out = ""
+    out = out + "dots_runtime_safe_points_total " + str.from_i64(vm.safe_points_total) + "\n"
+    out = out + "dots_runtime_interrupted_total " + str.from_i64(vm.interrupted_total) + "\n"
+    out = out + "dots_runtime_opcode_exec_total " + str.from_i64(vm.opcode_exec_total) + "\n"
+    out = out + metrics.status_prom()
+    give out
+}
+
+proc doctor(vm: VM) -> result.RuntimeResult
+{
+    if vm.strict && vm.interrupted_total > 0
+    {
+        log.emit("warn", "runtime.vm", "strict mode + interruptions detected")
+    }
+    give result.ok("runtime doctor ok")
+}

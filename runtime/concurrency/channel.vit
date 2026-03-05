@@ -1,0 +1,189 @@
+space runtime/concurrency/channel
+
+pull core/str
+pull core/time
+pull runtime/common/result
+pull runtime/common/cancel
+pull runtime/common/metrics
+pull runtime/common/config
+pull runtime/common/retry
+pull runtime/common/watchdog
+pull runtime/common/trace
+
+const CH_POLICY_DROP: string = "drop"
+const CH_POLICY_BLOCK: string = "block"
+
+form Channel
+{
+    id: i64
+    capacity: i32
+    policy: string
+    queue: [string]
+    sent: i64
+    recv: i64
+    dropped: i64
+    closed: bool
+}
+
+proc make(id: i64, capacity: i32, policy: string) -> Channel
+{
+    if capacity < 0 { capacity = 0 }
+    if policy != CH_POLICY_DROP && policy != CH_POLICY_BLOCK { policy = CH_POLICY_BLOCK }
+    give Channel(id, capacity, policy, [], 0, 0, 0, false)
+}
+
+proc is_bounded(ch: Channel) -> bool
+{
+    give ch.capacity > 0
+}
+
+proc buffered(ch: Channel) -> i64
+{
+    give ch.queue.len
+}
+
+proc check_invariants(ch: Channel) -> result.RuntimeResult
+{
+    let lhs = ch.sent
+    let rhs = ch.recv + buffered(ch) + ch.dropped
+    if lhs != rhs
+    {
+        metrics.inc_errors("channel.invariant", result.E_PANIC)
+        give result.err(result.E_PANIC, "channel invariant violated sent!=recv+buffered+dropped", false)
+    }
+    give result.ok("ok")
+}
+
+proc send(ch: Channel, value: string, timeout_ms: i64, tok: cancel.CancelToken) -> (Channel, result.RuntimeResult)
+{
+    if timeout_ms <= 0
+    {
+        timeout_ms = config.load().timeout_global_ms
+    }
+    if ch.closed
+    {
+        metrics.inc_errors("channel.send", result.E_CHANNEL_CLOSED)
+        give (ch, result.err(result.E_CHANNEL_CLOSED, "channel closed", false))
+    }
+
+    let start = time.now_ms()
+    let budget = retry.new_budget()
+    loop while true
+    {
+        if cancel.is_cancelled(tok)
+        {
+            metrics.inc_errors("channel.send", result.E_CANCELLED)
+            give (ch, result.err(result.E_CANCELLED, "send cancelled", false))
+        }
+
+        let full = is_bounded(ch) && buffered(ch) >= ch.capacity
+        if !full
+        {
+            ch.queue = ch.queue.push(value)
+            ch.sent = ch.sent + 1
+            metrics.inc_ops("channel.send")
+            metrics.observe_latency("runtime", "all", time.now_ms() - start)
+            trace.append("channel.send", "id=" + str.from_i64(ch.id))
+            give (ch, check_invariants(ch))
+        }
+
+        if ch.policy == CH_POLICY_DROP
+        {
+            ch.sent = ch.sent + 1
+            ch.dropped = ch.dropped + 1
+            metrics.inc_ops("channel.send.drop")
+            give (ch, check_invariants(ch))
+        }
+
+        metrics.append_metric("channel_wait_send_total", 1, "id=" + str.from_i64(ch.id))
+        if !retry.can_retry_application(budget)
+        {
+            metrics.inc_errors("channel.send", result.E_LOCK_BUSY)
+            give (ch, result.err(result.E_LOCK_BUSY, "send retry budget exhausted", true))
+        }
+        budget = retry.consume_application(budget)
+
+        if timeout_ms > 0 && time.now_ms() - start >= timeout_ms
+        {
+            let wd = watchdog.trigger("channel.send.timeout id=" + str.from_i64(ch.id))
+            metrics.inc_errors("channel.watchdog", wd.error.code)
+            metrics.inc_errors("channel.send", result.E_RUNTIME_TIMEOUT)
+            give (ch, result.err(result.E_RUNTIME_TIMEOUT, "send timeout", true))
+        }
+
+        time.sleep_ms(1)
+    }
+
+    give (ch, result.ok("sent"))
+}
+
+proc recv(ch: Channel, timeout_ms: i64, tok: cancel.CancelToken) -> (Channel, result.RuntimeResult)
+{
+    if timeout_ms <= 0
+    {
+        timeout_ms = config.load().timeout_global_ms
+    }
+    let start = time.now_ms()
+    let budget = retry.new_budget()
+    loop while true
+    {
+        if cancel.is_cancelled(tok)
+        {
+            metrics.inc_errors("channel.recv", result.E_CANCELLED)
+            give (ch, result.err(result.E_CANCELLED, "recv cancelled", false))
+        }
+
+        if buffered(ch) > 0
+        {
+            let v = ch.queue[0]
+            let out: [string] = []
+            let i: i32 = 1
+            loop while i < ch.queue.len
+            {
+                out = out.push(ch.queue[i])
+                i = i + 1
+            }
+            ch.queue = out
+            ch.recv = ch.recv + 1
+            metrics.inc_ops("channel.recv")
+            metrics.observe_latency("runtime", "all", time.now_ms() - start)
+            trace.append("channel.recv", "id=" + str.from_i64(ch.id))
+            let inv = check_invariants(ch)
+            if !inv.ok { give (ch, inv) }
+            give (ch, result.ok(v))
+        }
+
+        metrics.append_metric("channel_wait_recv_total", 1, "id=" + str.from_i64(ch.id))
+        if !retry.can_retry_application(budget)
+        {
+            metrics.inc_errors("channel.recv", result.E_LOCK_BUSY)
+            give (ch, result.err(result.E_LOCK_BUSY, "recv retry budget exhausted", true))
+        }
+        budget = retry.consume_application(budget)
+
+        if ch.closed
+        {
+            metrics.inc_errors("channel.recv", result.E_CHANNEL_CLOSED)
+            give (ch, result.err(result.E_CHANNEL_CLOSED, "channel closed", false))
+        }
+
+        if timeout_ms > 0 && time.now_ms() - start >= timeout_ms
+        {
+            let wd = watchdog.trigger("channel.recv.timeout id=" + str.from_i64(ch.id))
+            metrics.inc_errors("channel.watchdog", wd.error.code)
+            metrics.inc_errors("channel.recv", result.E_RUNTIME_TIMEOUT)
+            give (ch, result.err(result.E_RUNTIME_TIMEOUT, "recv timeout", true))
+        }
+
+        time.sleep_ms(1)
+    }
+
+    give (ch, result.err(result.E_RUNTIME_TIMEOUT, "recv timeout", true))
+}
+
+proc close(ch: Channel) -> Channel
+{
+    ch.closed = true
+    metrics.inc_ops("channel.close")
+    give ch
+}

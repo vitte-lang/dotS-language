@@ -1,0 +1,13 @@
+space runtime/concurrency/future
+
+form Future
+{
+    id: i64
+    state: string
+    value: string
+}
+
+proc make(id: i64) -> Future
+{
+    give Future(id, "pending", "")
+}

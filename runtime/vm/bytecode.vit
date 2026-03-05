@@ -1,0 +1,6 @@
+space runtime/vm/bytecode
+
+proc encode(lines: [string]) -> [string]
+{
+    give lines
+}

@@ -1,0 +1,6 @@
+space runtime/memory/reference
+
+form Ref
+{
+    object_id: i64
+}

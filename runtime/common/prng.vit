@@ -1,0 +1,36 @@
+space runtime/common/prng
+
+pull runtime/common/config
+
+form Prng
+{
+    state: i64
+}
+
+proc new(seed: i64) -> Prng
+{
+    if seed <= 0 { seed = 1 }
+    give Prng(seed)
+}
+
+proc from_config() -> Prng
+{
+    let c = config.load()
+    give new(c.seed)
+}
+
+proc next_u64(p: Prng) -> (Prng, i64)
+{
+    let s = (p.state * 6364136223846793005 + 1442695040888963407)
+    p.state = s
+    let out = s
+    if out < 0 { out = -out }
+    give (p, out)
+}
+
+proc next_range(p: Prng, max_exclusive: i64) -> (Prng, i64)
+{
+    if max_exclusive <= 0 { give (p, 0) }
+    let p2, v = next_u64(p)
+    give (p2, v % max_exclusive)
+}

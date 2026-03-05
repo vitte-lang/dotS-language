@@ -1,0 +1,37 @@
+space runtime/common/log
+
+pull core/str
+pull core/fs
+pull core/time
+pull core/process
+pull core/security/redact
+
+proc log_file() -> string
+{
+    give ".dots/logs/runtime.log"
+}
+
+proc ensure_log_dir() -> void
+{
+    fs.mkdir_p(".dots/logs")
+}
+
+proc emit(level: string, module: string, message: string) -> void
+{
+    ensure_log_dir()
+
+    let run_id = process.env("DOTS_RUN_ID")
+    let request_id = process.env("DOTS_REQUEST_ID")
+    let safe = redact.clamp_error_message(redact.redact_secrets(message), 2048)
+
+    let line = "{" +
+        "\"ts_ms\":\"" + str.from_i64(time.now_ms()) + "\"," +
+        "\"level\":\"" + level + "\"," +
+        "\"module\":\"" + module + "\"," +
+        "\"run_id\":\"" + run_id + "\"," +
+        "\"request_id\":\"" + request_id + "\"," +
+        "\"message\":\"" + str.replace(safe, "\"", "'") + "\"" +
+    "}"
+
+    fs.append_file(log_file(), line + "\n")
+}

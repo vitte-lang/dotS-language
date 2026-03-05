@@ -1,0 +1,17 @@
+space runtime/concurrency/task
+
+const TASK_NEW: string = "new"
+const TASK_RUNNING: string = "running"
+const TASK_DONE: string = "done"
+
+form Task
+{
+    id: i64
+    name: string
+    state: string
+}
+
+proc make(id: i64, name: string) -> Task
+{
+    give Task(id, name, TASK_NEW)
+}

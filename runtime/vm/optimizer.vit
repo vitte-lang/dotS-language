@@ -1,0 +1,6 @@
+space runtime/vm/optimizer
+
+proc optimize(code: [string]) -> [string]
+{
+    give code
+}

@@ -1,0 +1,78 @@
+space runtime/concurrency/async
+
+pull core/time
+pull runtime/common/result
+pull runtime/common/cancel
+pull runtime/common/metrics
+pull runtime/common/config
+
+const AS_NEW: string = "new"
+const AS_RUNNING: string = "running"
+const AS_DONE: string = "done"
+const AS_CANCELLED: string = "cancelled"
+
+form AsyncTask
+{
+    id: i64
+    state: string
+    value: string
+    error_code: string
+    started_ms: i64
+    ended_ms: i64
+}
+
+proc task_new(id: i64) -> AsyncTask
+{
+    give AsyncTask(id, AS_NEW, "", "", 0, 0)
+}
+
+proc run(task: AsyncTask, value: string, tok: cancel.CancelToken) -> (AsyncTask, result.RuntimeResult)
+{
+    if cancel.is_cancelled(tok)
+    {
+        task.state = AS_CANCELLED
+        task.error_code = result.E_CANCELLED
+        metrics.inc_errors("async.run", result.E_CANCELLED)
+        give (task, result.err(result.E_CANCELLED, "task cancelled", false))
+    }
+
+    task.state = AS_RUNNING
+    task.started_ms = time.now_ms()
+
+    task.value = value
+    task.state = AS_DONE
+    task.ended_ms = time.now_ms()
+    metrics.inc_ops("async.run")
+    metrics.observe_latency("runtime", "all", task.ended_ms - task.started_ms)
+    give (task, result.ok(value))
+}
+
+proc await(task: AsyncTask, timeout_ms: i64, tok: cancel.CancelToken) -> result.RuntimeResult
+{
+    if timeout_ms <= 0
+    {
+        timeout_ms = config.load().timeout_global_ms
+    }
+    let start = time.now_ms()
+    loop while true
+    {
+        if cancel.is_cancelled(tok)
+        {
+            metrics.inc_errors("async.await", result.E_CANCELLED)
+            give result.err(result.E_CANCELLED, "await cancelled", false)
+        }
+
+        if task.state == AS_DONE { give result.ok(task.value) }
+        if task.state == AS_CANCELLED { give result.err(result.E_CANCELLED, "task cancelled", false) }
+
+        if timeout_ms > 0 && time.now_ms() - start >= timeout_ms
+        {
+            metrics.inc_errors("async.await", result.E_RUNTIME_TIMEOUT)
+            give result.err(result.E_RUNTIME_TIMEOUT, "await timeout", true)
+        }
+
+        time.sleep_ms(1)
+    }
+
+    give result.err(result.E_RUNTIME_TIMEOUT, "await timeout", true)
+}

@@ -1,0 +1,6 @@
+space runtime/vm/dispatcher
+
+proc dispatch(op: string) -> string
+{
+    give op
+}

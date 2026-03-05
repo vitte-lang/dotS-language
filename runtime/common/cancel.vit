@@ -1,0 +1,53 @@
+space runtime/common/cancel
+
+pull core/str
+pull core/time
+pull core/process
+
+form CancelToken
+{
+    id: string
+    cancelled: bool
+    created_ms: i64
+    deadline_ms: i64
+}
+
+proc make(id: string, timeout_ms: i64) -> CancelToken
+{
+    let now = time.now_ms()
+    let dl = 0
+    if timeout_ms > 0 { dl = now + timeout_ms }
+    give CancelToken(id, false, now, dl)
+}
+
+proc from_env(timeout_ms: i64) -> CancelToken
+{
+    let rid = process.env("DOTS_REQUEST_ID")
+    if rid == "" { rid = "req-" + str.from_i64(time.now_ms()) }
+    give make(rid, timeout_ms)
+}
+
+proc cancel(t: CancelToken) -> CancelToken
+{
+    t.cancelled = true
+    give t
+}
+
+proc is_cancelled(t: CancelToken) -> bool
+{
+    if t.cancelled { give true }
+
+    let env = process.env("DOTS_CANCEL_TOKEN")
+    if env == "1" || env == "true" || env == "cancelled" { give true }
+
+    if t.deadline_ms > 0 && time.now_ms() > t.deadline_ms { give true }
+    give false
+}
+
+proc remaining_ms(t: CancelToken) -> i64
+{
+    if t.deadline_ms <= 0 { give -1 }
+    let rem = t.deadline_ms - time.now_ms()
+    if rem < 0 { give 0 }
+    give rem
+}

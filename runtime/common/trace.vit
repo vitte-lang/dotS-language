@@ -1,0 +1,45 @@
+space runtime/common/trace
+
+pull core/str
+pull core/fs
+pull core/time
+
+proc file() -> string
+{
+    give ".dots/runtime_trace.jsonl"
+}
+
+proc ensure() -> void
+{
+    fs.mkdir_p(".dots")
+    if !fs.exists(file()) { fs.write_file(file(), "") }
+}
+
+proc append(event: string, detail: string) -> void
+{
+    ensure()
+    let line = "{" +
+        "\"schema_version\":\"1.1.0\"," +
+        "\"ts_ms\":\"" + str.from_i64(time.now_ms()) + "\"," +
+        "\"event\":\"" + event + "\"," +
+        "\"detail\":\"" + str.replace(detail, "\"", "'") + "\"" +
+    "}"
+    fs.append_file(file(), line + "\n")
+}
+
+proc replay_lines(max_n: i32) -> [string]
+{
+    let out: [string] = []
+    if !fs.exists(file()) { give out }
+    let lines = str.split(fs.read_file(file()), "\n")
+    let start = lines.len - max_n
+    if start < 0 { start = 0 }
+    let i = start
+    loop while i < lines.len
+    {
+        let l = str.trim(lines[i])
+        if l != "" { out = out.push(l) }
+        i = i + 1
+    }
+    give out
+}

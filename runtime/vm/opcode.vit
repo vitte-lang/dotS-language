@@ -1,0 +1,6 @@
+space runtime/vm/opcode
+
+const OP_NOP: string = "NOP"
+const OP_CONST: string = "CONST"
+const OP_CALL: string = "CALL"
+const OP_RET: string = "RET"

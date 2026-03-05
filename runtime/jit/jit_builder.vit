@@ -1,0 +1,197 @@
+space runtime/jit/builder
+
+pull core/str
+pull core/fs
+pull runtime/common/result
+pull runtime/common/cancel
+pull runtime/common/metrics
+pull runtime/common/log
+pull runtime/common/config
+pull runtime/common/events
+pull runtime/common/trace
+pull runtime/common/panic
+pull runtime/interpreter
+pull core/ir
+pull core/ir/node
+
+form JitCacheEntry
+{
+    key: string
+    machine_code: string
+}
+
+form JitBuilder
+{
+    target: string
+    opt_level: i32
+    cache: [JitCacheEntry]
+    strict_abi: bool
+    cache_schema_version: string
+}
+
+proc new(target: string, opt_level: i32, strict_abi: bool) -> JitBuilder
+{
+    if opt_level < 0 { opt_level = 0 }
+    if opt_level > 3 { opt_level = 3 }
+    give JitBuilder(target, opt_level, [], strict_abi, "1.1.0")
+}
+
+proc key(ir_hash: string, target: string, opt_level: i32) -> string
+{
+    give ir_hash + "|" + target + "|O" + str.from_i64(opt_level)
+}
+
+proc cache_get(b: JitBuilder, k: string) -> string?
+{
+    b = cache_load_disk(b)
+    loop e in b.cache
+    {
+        if e.key == k { give e.machine_code }
+    }
+    give null
+}
+
+proc cache_put(b: JitBuilder, k: string, mc: string) -> JitBuilder
+{
+    let replaced = false
+    let out: [JitCacheEntry] = []
+    loop e in b.cache
+    {
+        if e.key == k
+        {
+            out = out.push(JitCacheEntry(k, mc))
+            replaced = true
+        }
+        else
+        {
+            out = out.push(e)
+        }
+    }
+    if !replaced { out = out.push(JitCacheEntry(k, mc)) }
+    b.cache = out
+    cache_save_disk(b)
+    give b
+}
+
+proc cache_file(target: string, opt_level: i32) -> string
+{
+    give ".dots/jit_cache_" + target + "_O" + str.from_i64(opt_level) + ".v1.jsonl"
+}
+
+proc cache_load_disk(b: JitBuilder) -> JitBuilder
+{
+    fs.mkdir_p(".dots")
+    let f = cache_file(b.target, b.opt_level)
+    if !fs.exists(f) { give b }
+    let lines = str.split(fs.read_file(f), "\n")
+    let out: [JitCacheEntry] = []
+    loop l in lines
+    {
+        let line = str.trim(l)
+        if line == "" { continue }
+        if !str.contains(line, "|") { continue }
+        let p = str.split(line, "|")
+        if p.len < 3 { continue }
+        if p[0] != b.cache_schema_version { continue }
+        out = out.push(JitCacheEntry(p[1], p[2]))
+    }
+    b.cache = out
+    give b
+}
+
+proc cache_save_disk(b: JitBuilder) -> void
+{
+    fs.mkdir_p(".dots")
+    let f = cache_file(b.target, b.opt_level)
+    let out = ""
+    loop e in b.cache
+    {
+        out = out + b.cache_schema_version + "|" + e.key + "|" + e.machine_code + "\n"
+    }
+    fs.write_file(f, out)
+}
+
+proc abi_target_supported(target: string) -> bool
+{
+    give target == "host" || target == "wasm" || target == "arduino" || target == "kernel"
+}
+
+proc verify_snapshot_json(vr: ir.VerifyResult) -> string
+{
+    let out = ""
+    let i: i32 = 0
+    loop while i < vr.errors.len
+    {
+        if i > 0 { out = out + "," }
+        out = out + "\"" + str.replace(vr.errors[i], "\"", "'") + "\""
+        i = i + 1
+    }
+    give "{\"schema_version\":\"1.1.0\",\"ok\":\"" + str.from_bool(vr.ok) + "\",\"errors\":[" + out + "]}"
+}
+
+proc safe_point(tok: cancel.CancelToken) -> result.RuntimeResult
+{
+    if cancel.is_cancelled(tok)
+    {
+        metrics.inc_errors("jit.safe_point", result.E_CANCELLED)
+        give result.err(result.E_CANCELLED, "jit cancelled at safe point", false)
+    }
+    give result.ok("continue")
+}
+
+proc compile(b: JitBuilder, m: node.IRModule, ir_hash: string, tok: cancel.CancelToken) -> (JitBuilder, result.RuntimeResult)
+{
+    let cfg = config.load()
+    let sp = safe_point(tok)
+    if !sp.ok { give (b, sp) }
+
+    let vr = ir.verify(m)
+    if !vr.ok
+    {
+        fs.mkdir_p("tests/snapshots/runtime")
+        fs.write_file("tests/snapshots/runtime/jit_verify.snapshot.json", verify_snapshot_json(vr))
+        metrics.inc_errors("jit.compile", result.E_PANIC)
+        metrics.inc_ops("jit.compile_fail")
+        events.append("jit", "error", "IR verify failed before JIT")
+        log.emit("error", "runtime.jit", "IR verify failed before JIT")
+        give (b, result.err(result.E_PANIC, "ir verify failed", false))
+    }
+
+    let k = key(ir_hash, b.target, b.opt_level)
+    let hit = cache_get(b, k)
+    if hit != null
+    {
+        metrics.inc_ops("jit.cache_hit")
+        trace.append("jit.cache_hit", k)
+        give (b, result.ok(hit))
+    }
+    metrics.inc_ops("jit.cache_miss")
+
+    if b.strict_abi && !abi_target_supported(b.target)
+    {
+        metrics.inc_errors("jit.compile", result.E_INVALID_STATE)
+        events.append("jit", "error", "strict ABI: unsupported target=" + b.target)
+        give (b, result.err(result.E_INVALID_STATE, "strict ABI: unsupported target", false))
+    }
+
+    let code = "MC{" + k + "}"
+    b = cache_put(b, k, code)
+    metrics.inc_ops("jit.compile")
+    trace.append("jit.compile", k + ",seed=" + str.from_i64(cfg.seed))
+    give (b, result.ok(code))
+}
+
+proc compile_with_fallback(b: JitBuilder, m: node.IRModule, ir_hash: string, tok: cancel.CancelToken) -> (JitBuilder, result.RuntimeResult)
+{
+    let b2, r = compile(b, m, ir_hash, tok)
+    if r.ok { give (b2, r) }
+
+    metrics.inc_ops("jit.fallback_interpreter")
+    metrics.inc_errors("jit.fallback", r.error.code)
+    events.append("jit", "warn", "fallback interpreter used")
+    log.emit("warn", "runtime.jit", "fallback to interpreter")
+    let ir = interpreter.execute_fallback(ir_hash)
+    if ir.ok { give (b2, ir) }
+    let e = result.err(result.E_PANIC, "fallback interpreter failed", false)
+    give (b2, panic.with_panic_boundary("jit.compile_with_fallback", e))
+}

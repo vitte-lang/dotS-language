@@ -1,0 +1,53 @@
+space runtime/common/result
+
+pull runtime/errors
+pull core/security/redact
+
+const E_RUNTIME_TIMEOUT: string = errors.E_RUNTIME_TIMEOUT
+const E_DEADLOCK: string = errors.E_DEADLOCK
+const E_OOM: string = errors.E_OOM
+const E_PANIC: string = errors.E_PANIC
+const E_CANCELLED: string = errors.E_CANCELLED
+const E_INVALID_STATE: string = errors.E_INVALID_STATE
+const E_LOCK_BUSY: string = errors.E_LOCK_BUSY
+const E_CHANNEL_CLOSED: string = errors.E_CHANNEL_CLOSED
+const E_CHANNEL_FULL: string = errors.E_CHANNEL_FULL
+const E_NOT_IMPLEMENTED: string = errors.E_NOT_IMPLEMENTED
+
+form RuntimeError
+{
+    code: string
+    message: string
+    retryable: bool
+}
+
+form RuntimeResult
+{
+    ok: bool
+    value: string
+    error: RuntimeError?
+}
+
+proc ok(value: string) -> RuntimeResult
+{
+    give RuntimeResult(true, value, null)
+}
+
+proc err(code: string, message: string, retryable: bool) -> RuntimeResult
+{
+    let safe = redact.clamp_error_message(redact.redact_secrets(message), 1024)
+    let rt = retryable || errors.retryable(code)
+    give RuntimeResult(false, "", RuntimeError(code, safe, rt))
+}
+
+proc with_value(r: RuntimeResult, value: string) -> RuntimeResult
+{
+    r.value = value
+    give r
+}
+
+proc is_error(r: RuntimeResult, code: string) -> bool
+{
+    if r.error == null { give false }
+    give r.error.code == code
+}

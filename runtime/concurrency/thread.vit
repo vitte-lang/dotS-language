@@ -1,0 +1,195 @@
+space runtime/concurrency/thread
+
+pull core/str
+pull core/time
+pull runtime/common/result
+pull runtime/common/cancel
+pull runtime/common/metrics
+pull runtime/common/log
+pull runtime/common/config
+pull runtime/common/watchdog
+pull runtime/common/trace
+
+const TH_NEW: string = "new"
+const TH_RUNNING: string = "running"
+const TH_JOINED: string = "joined"
+const TH_DETACHED: string = "detached"
+const TH_CANCELLED: string = "cancelled"
+
+form ThreadHandle
+{
+    id: i64
+    owner_request_id: string
+    state: string
+    created_ms: i64
+    started_ms: i64
+    ended_ms: i64
+    detached: bool
+    join_count: i32
+}
+
+form ThreadRuntime
+{
+    next_id: i64
+    handles: [ThreadHandle]
+}
+
+proc runtime_new() -> ThreadRuntime
+{
+    give ThreadRuntime(1, [])
+}
+
+proc find_index(rt: ThreadRuntime, id: i64) -> i32
+{
+    let i: i32 = 0
+    loop while i < rt.handles.len
+    {
+        if rt.handles[i].id == id { give i }
+        i = i + 1
+    }
+    give -1
+}
+
+proc create(rt: ThreadRuntime, owner_request_id: string) -> (ThreadRuntime, ThreadHandle)
+{
+    let h = ThreadHandle(rt.next_id, owner_request_id, TH_NEW, time.now_ms(), 0, 0, false, 0)
+    rt.next_id = rt.next_id + 1
+    rt.handles = rt.handles.push(h)
+    metrics.inc_ops("thread.create")
+    log.emit("info", "runtime.thread", "thread created id=" + str.from_i64(h.id))
+    trace.append("thread.create", "id=" + str.from_i64(h.id))
+    give (rt, h)
+}
+
+proc start(rt: ThreadRuntime, id: i64, tok: cancel.CancelToken) -> (ThreadRuntime, result.RuntimeResult)
+{
+    let i = find_index(rt, id)
+    if i < 0
+    {
+        metrics.inc_errors("thread.start", result.E_INVALID_STATE)
+        give (rt, result.err(result.E_INVALID_STATE, "thread not found", false))
+    }
+
+    let h = rt.handles[i]
+    if h.state != TH_NEW
+    {
+        metrics.inc_errors("thread.start", result.E_INVALID_STATE)
+        give (rt, result.err(result.E_INVALID_STATE, "thread must be in new state", false))
+    }
+
+    if cancel.is_cancelled(tok)
+    {
+        h.state = TH_CANCELLED
+        rt.handles[i] = h
+        metrics.inc_errors("thread.start", result.E_CANCELLED)
+        give (rt, result.err(result.E_CANCELLED, "thread start cancelled", false))
+    }
+
+    h.state = TH_RUNNING
+    h.started_ms = time.now_ms()
+    rt.handles[i] = h
+    metrics.inc_ops("thread.start")
+    give (rt, result.ok("started"))
+}
+
+proc complete(rt: ThreadRuntime, id: i64) -> ThreadRuntime
+{
+    let i = find_index(rt, id)
+    if i < 0 { give rt }
+    let h = rt.handles[i]
+    h.state = TH_JOINED
+    h.ended_ms = time.now_ms()
+    rt.handles[i] = h
+    metrics.inc_ops("thread.complete")
+    give rt
+}
+
+proc detach(rt: ThreadRuntime, id: i64) -> (ThreadRuntime, result.RuntimeResult)
+{
+    let i = find_index(rt, id)
+    if i < 0 { give (rt, result.err(result.E_INVALID_STATE, "thread not found", false)) }
+
+    let h = rt.handles[i]
+    if h.state == TH_JOINED
+    {
+        metrics.inc_errors("thread.detach", result.E_INVALID_STATE)
+        give (rt, result.err(result.E_INVALID_STATE, "cannot detach joined thread", false))
+    }
+
+    h.detached = true
+    h.state = TH_DETACHED
+    rt.handles[i] = h
+    metrics.inc_ops("thread.detach")
+    give (rt, result.ok("detached"))
+}
+
+proc join(rt: ThreadRuntime, id: i64, self_id: i64, timeout_ms: i64, tok: cancel.CancelToken) -> (ThreadRuntime, result.RuntimeResult)
+{
+    if timeout_ms <= 0
+    {
+        timeout_ms = config.load().timeout_global_ms
+    }
+    let i = find_index(rt, id)
+    if i < 0
+    {
+        metrics.inc_errors("thread.join", result.E_INVALID_STATE)
+        give (rt, result.err(result.E_INVALID_STATE, "thread not found", false))
+    }
+
+    if id == self_id
+    {
+        metrics.inc_errors("thread.join", result.E_DEADLOCK)
+        give (rt, result.err(result.E_DEADLOCK, "join on self is forbidden", false))
+    }
+
+    let h = rt.handles[i]
+
+    if h.join_count > 0
+    {
+        metrics.inc_errors("thread.join", result.E_INVALID_STATE)
+        give (rt, result.err(result.E_INVALID_STATE, "double join detected", false))
+    }
+
+    if h.detached
+    {
+        metrics.inc_errors("thread.join", result.E_INVALID_STATE)
+        give (rt, result.err(result.E_INVALID_STATE, "cannot join detached thread", false))
+    }
+
+    let start = time.now_ms()
+    loop while true
+    {
+        if cancel.is_cancelled(tok)
+        {
+            metrics.inc_errors("thread.join", result.E_CANCELLED)
+            give (rt, result.err(result.E_CANCELLED, "join cancelled", false))
+        }
+
+        let now_h = rt.handles[i]
+        if now_h.state == TH_JOINED
+        {
+            now_h.join_count = now_h.join_count + 1
+            rt.handles[i] = now_h
+            metrics.observe_latency("runtime", "all", time.now_ms() - start)
+            metrics.inc_ops("thread.join")
+            give (rt, result.ok("joined"))
+        }
+
+        if timeout_ms > 0 && time.now_ms() - start >= timeout_ms
+        {
+            let wd = watchdog.trigger("thread.join.timeout id=" + str.from_i64(id))
+            metrics.inc_errors("thread.watchdog", wd.error.code)
+            metrics.inc_errors("thread.join", result.E_RUNTIME_TIMEOUT)
+            give (rt, result.err(result.E_RUNTIME_TIMEOUT, "join timeout", true))
+        }
+
+        time.sleep_ms(1)
+    }
+
+    give (rt, result.ok("joined"))
+}
+
+proc lifecycle_valid(state: string) -> bool
+{
+    give state == TH_NEW || state == TH_RUNNING || state == TH_JOINED || state == TH_DETACHED || state == TH_CANCELLED
+}

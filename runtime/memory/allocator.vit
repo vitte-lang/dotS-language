@@ -1,0 +1,50 @@
+space runtime/memory/allocator
+
+pull runtime/common/config
+pull runtime/common/metrics
+pull runtime/common/result
+
+form Quota
+{
+    heap_soft: i64
+    heap_hard: i64
+    object_soft: i64
+    object_hard: i64
+}
+
+form Allocator
+{
+    used_heap: i64
+    used_objects: i64
+    quota: Quota
+    alloc_fail_total: i64
+}
+
+proc new() -> Allocator
+{
+    let soft = config.env_i64("DOTS_HEAP_SOFT", 64 * 1024 * 1024, 1024 * 1024, 16 * 1024 * 1024 * 1024)
+    let hard = config.env_i64("DOTS_HEAP_HARD", 128 * 1024 * 1024, soft + 1024 * 1024, 32 * 1024 * 1024 * 1024)
+    let obj_soft = config.env_i64("DOTS_OBJECT_SOFT", 500000, 1, 50000000)
+    let obj_hard = config.env_i64("DOTS_OBJECT_HARD", 1000000, obj_soft + 1, 100000000)
+    give Allocator(0, 0, Quota(soft, hard, obj_soft, obj_hard), 0)
+}
+
+proc alloc(a: Allocator, bytes: i64) -> (Allocator, result.RuntimeResult)
+{
+    a.used_heap = a.used_heap + bytes
+    a.used_objects = a.used_objects + 1
+
+    if a.used_heap > a.quota.heap_hard || a.used_objects > a.quota.object_hard
+    {
+        a.alloc_fail_total = a.alloc_fail_total + 1
+        metrics.inc_errors("memory.alloc", result.E_OOM)
+        metrics.append_metric("alloc_fail_total", a.alloc_fail_total, "")
+        give (a, result.err(result.E_OOM, "hard memory quota exceeded", false))
+    }
+
+    metrics.append_metric("heap_used_bytes", a.used_heap, "")
+    metrics.append_metric("objects_used_total", a.used_objects, "")
+    let frag = a.used_heap % 4096
+    metrics.append_metric("fragmentation_bytes", frag, "")
+    give (a, result.ok("allocated"))
+}

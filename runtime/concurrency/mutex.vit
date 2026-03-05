@@ -1,0 +1,109 @@
+space runtime/concurrency/mutex
+
+pull core/str
+pull core/time
+pull runtime/common/result
+pull runtime/common/cancel
+pull runtime/common/metrics
+pull runtime/common/config
+pull runtime/common/prng
+pull runtime/common/retry
+pull runtime/common/watchdog
+
+form Mutex
+{
+    id: i64
+    owner_thread_id: i64
+    locked: bool
+    contention_total: i64
+    wait_queue_len: i64
+}
+
+proc make(id: i64) -> Mutex
+{
+    give Mutex(id, -1, false, 0, 0)
+}
+
+proc lock(m: Mutex, thread_id: i64, timeout_ms: i64, tok: cancel.CancelToken, seed: i64) -> (Mutex, result.RuntimeResult)
+{
+    if timeout_ms <= 0
+    {
+        timeout_ms = config.load().timeout_global_ms
+    }
+    let cfg = config.load()
+    let rng = prng.new(seed + cfg.seed)
+    let budget = retry.new_budget()
+    let start = time.now_ms()
+    let wait_round: i64 = 0
+
+    loop while true
+    {
+        if cancel.is_cancelled(tok)
+        {
+            metrics.inc_errors("mutex.lock", result.E_CANCELLED)
+            give (m, result.err(result.E_CANCELLED, "lock cancelled", false))
+        }
+
+        if !m.locked
+        {
+            m.locked = true
+            m.owner_thread_id = thread_id
+            m.wait_queue_len = 0
+            metrics.inc_ops("mutex.lock")
+            metrics.observe_latency("runtime", "all", time.now_ms() - start)
+            metrics.append_metric("lock_owner", thread_id, "mutex=" + str.from_i64(m.id))
+            metrics.append_metric("wait_queue_len", m.wait_queue_len, "mutex=" + str.from_i64(m.id))
+            give (m, result.ok("locked"))
+        }
+
+        m.contention_total = m.contention_total + 1
+        m.wait_queue_len = m.wait_queue_len + 1
+        metrics.inc_ops("mutex.contention")
+        metrics.append_metric("wait_queue_len", m.wait_queue_len, "mutex=" + str.from_i64(m.id))
+        if !retry.can_retry_connect(budget)
+        {
+            metrics.inc_errors("mutex.lock", result.E_LOCK_BUSY)
+            give (m, result.err(result.E_LOCK_BUSY, "retry budget exhausted", true))
+        }
+        budget = retry.consume_connect(budget)
+
+        if timeout_ms > 0 && time.now_ms() - start >= timeout_ms
+        {
+            let wd = watchdog.trigger("mutex.lock.timeout id=" + str.from_i64(m.id))
+            metrics.inc_errors("mutex.watchdog", wd.error.code)
+            metrics.inc_errors("mutex.lock", result.E_RUNTIME_TIMEOUT)
+            give (m, result.err(result.E_RUNTIME_TIMEOUT, "lock timeout", true))
+        }
+
+        let rng2, j = prng.next_range(rng, cfg.jitter_max_ms + 1)
+        rng = rng2
+        let backoff = 1 + j
+        time.sleep_ms(backoff)
+        wait_round = wait_round + 1
+    }
+
+    give (m, result.err(result.E_RUNTIME_TIMEOUT, "lock timeout", true))
+}
+
+proc unlock(m: Mutex, thread_id: i64) -> (Mutex, result.RuntimeResult)
+{
+    if !m.locked
+    {
+        metrics.inc_errors("mutex.unlock", result.E_INVALID_STATE)
+        give (m, result.err(result.E_INVALID_STATE, "mutex not locked", false))
+    }
+
+    if m.owner_thread_id != thread_id
+    {
+        metrics.inc_errors("mutex.unlock", result.E_INVALID_STATE)
+        give (m, result.err(result.E_INVALID_STATE, "unlock by non-owner", false))
+    }
+
+    m.locked = false
+    m.owner_thread_id = -1
+    m.wait_queue_len = 0
+    metrics.inc_ops("mutex.unlock")
+    metrics.append_metric("lock_owner", -1, "mutex=" + str.from_i64(m.id))
+    metrics.append_metric("wait_queue_len", m.wait_queue_len, "mutex=" + str.from_i64(m.id))
+    give (m, result.ok("unlocked"))
+}

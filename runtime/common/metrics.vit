@@ -1,0 +1,107 @@
+space runtime/common/metrics
+
+pull core/str
+pull core/fs
+pull core/time
+
+proc metrics_file() -> string
+{
+    give ".dots/runtime_metrics.v1.jsonl"
+}
+
+proc ensure() -> void
+{
+    fs.mkdir_p(".dots")
+    if !fs.exists(metrics_file())
+    {
+        fs.write_file(metrics_file(), "")
+    }
+}
+
+proc append_metric(key: string, value: i64, labels: string) -> void
+{
+    ensure()
+    let line = "{" +
+        "\"schema_version\":\"1.1.0\"," +
+        "\"ts_ms\":\"" + str.from_i64(time.now_ms()) + "\"," +
+        "\"k\":\"" + key + "\"," +
+        "\"v\":\"" + str.from_i64(value) + "\"," +
+        "\"labels\":\"" + str.replace(labels, "\"", "'") + "\"" +
+    "}"
+    fs.append_file(metrics_file(), line + "\n")
+}
+
+proc inc_ops(module: string) -> void
+{
+    append_metric("ops_total", 1, "module=" + module)
+}
+
+proc inc_errors(module: string, code: string) -> void
+{
+    append_metric("errors_total", 1, "module=" + module + ",code=" + code)
+}
+
+proc observe_latency(module: string, op: string, ms: i64) -> void
+{
+    append_metric("latency_ms", ms, "module=" + module + ",op=" + op)
+}
+
+proc p95_latency(module: string, op: string) -> i64
+{
+    if !fs.exists(metrics_file()) { give 0 }
+
+    let vals: [i64] = []
+    let lines = str.split(fs.read_file(metrics_file()), "\n")
+    loop l in lines
+    {
+        if !str.contains(l, "\"k\":\"latency_ms\"") { continue }
+        if !str.contains(l, "module=" + module) { continue }
+        if !str.contains(l, "op=" + op) { continue }
+
+        let pat = "\"v\":\""
+        if !str.contains(l, pat) { continue }
+        let p = str.split(l, pat)
+        if p.len < 2 { continue }
+        let q = str.split(p[1], "\"")
+        if q.len < 1 { continue }
+        vals = vals.push(str.to_i64(q[0]))
+    }
+
+    if vals.len == 0 { give 0 }
+
+    let i: i32 = 0
+    loop while i < vals.len
+    {
+        let j: i32 = i + 1
+        loop while j < vals.len
+        {
+            if vals[i] > vals[j]
+            {
+                let t = vals[i]
+                vals[i] = vals[j]
+                vals[j] = t
+            }
+            j = j + 1
+        }
+        i = i + 1
+    }
+
+    let idx = (vals.len * 95) / 100
+    if idx >= vals.len { idx = vals.len - 1 }
+    give vals[idx]
+}
+
+proc status_json() -> string
+{
+    let p95 = p95_latency("runtime", "all")
+    give "{" +
+        "\"schema_version\":\"1.1.0\"," +
+        "\"latency_p95_ms\":\"" + str.from_i64(p95) + "\"" +
+    "}"
+}
+
+proc status_prom() -> string
+{
+    let p95 = p95_latency("runtime", "all")
+    give "dots_runtime_latency_p95_ms " + str.from_i64(p95) + "\n"
+}

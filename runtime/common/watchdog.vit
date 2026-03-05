@@ -1,0 +1,12 @@
+space runtime/common/watchdog
+
+pull runtime/common/result
+pull runtime/common/metrics
+pull runtime/common/events
+
+proc trigger(reason: string) -> result.RuntimeResult
+{
+    metrics.append_metric("deadlock_watchdog_trigger_total", 1, "reason=" + reason)
+    events.append("watchdog", "error", "deadlock watchdog triggered: " + reason)
+    give result.err(result.E_DEADLOCK, "watchdog detected deadlock risk: " + reason, false)
+}
