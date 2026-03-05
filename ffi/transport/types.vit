@@ -1,0 +1,11 @@
+space ffi/transport/types
+
+form TransportResult
+{
+    code: i32
+    out: string
+    err: string
+    endpoint: string
+    backend_name: string
+    backend_version: string
+}

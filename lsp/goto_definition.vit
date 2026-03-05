@@ -1,0 +1,70 @@
+space lsp/goto_definition
+
+pull core/str
+pull lsp/model
+
+proc symbol_at(doc: Document, line: i32, character: i32) -> string
+{
+    give word_prefix(doc.text, line, character)
+}
+
+proc find_definition_line(doc: Document, symbol: string) -> i32
+{
+    if symbol == "" { give -1 }
+    let lines = str.split(doc.text, "\n")
+    let i: i32 = 0
+    loop while i < lines.len
+    {
+        let l = str.trim(lines[i])
+        if str.starts_with(l, "proc " + symbol + "(") { give i }
+        if str.starts_with(l, "form " + symbol + " ") || l == "form " + symbol { give i }
+        if str.starts_with(l, "const " + symbol + ":") { give i }
+        if str.starts_with(l, "space " + symbol) { give i }
+        i = i + 1
+    }
+    give -1
+}
+
+proc definition_result_json(doc: Document, line: i32, character: i32) -> string
+{
+    let s = symbol_at(doc, line, character)
+    let dl = find_definition_line(doc, s)
+    if dl < 0
+    {
+        let idx_syms = load_index_symbols(doc.uri)
+        loop x in idx_syms
+        {
+            if x == s
+            {
+                # Fallback: same file from persistent index.
+                give "{\"uri\":\"" + doc.uri + "\",\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":0,\"character\":1}}}"
+            }
+        }
+        give "null"
+    }
+    give "{\"uri\":\"" + doc.uri + "\",\"range\":{\"start\":{\"line\":" + str.from_i64(dl) + ",\"character\":0},\"end\":{\"line\":" + str.from_i64(dl) + ",\"character\":1}}}"
+}
+
+proc definition_result_json_workspace(docs: [Document], doc: Document, line: i32, character: i32) -> string
+{
+    let s = symbol_at(doc, line, character)
+    if s == "" { give "null" }
+
+    let dl = find_definition_line(doc, s)
+    if dl >= 0
+    {
+        give "{\"uri\":\"" + doc.uri + "\",\"range\":{\"start\":{\"line\":" + str.from_i64(dl) + ",\"character\":0},\"end\":{\"line\":" + str.from_i64(dl) + ",\"character\":1}}}"
+    }
+
+    loop d in docs
+    {
+        if d.uri == doc.uri { continue }
+        let ln = find_definition_line(d, s)
+        if ln >= 0
+        {
+            give "{\"uri\":\"" + d.uri + "\",\"range\":{\"start\":{\"line\":" + str.from_i64(ln) + ",\"character\":0},\"end\":{\"line\":" + str.from_i64(ln) + ",\"character\":1}}}"
+        }
+    }
+
+    give "null"
+}

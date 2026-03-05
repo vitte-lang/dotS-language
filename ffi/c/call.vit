@@ -1,0 +1,31 @@
+space ffi/c/call
+
+pull core/str
+pull ffi/c/ffi
+pull ffi/c/symbol
+
+proc parse_call_args(raw: string) -> [string]
+{
+    let out: [string] = []
+    let parts = str.split(raw, ",")
+    loop p in parts
+    {
+        let v = str.trim(p)
+        if v != "" { out = out.push(v) }
+    }
+    give out
+}
+
+proc call_symbol(handle_id: string, symbol: string, returns: string, arg_types_csv: string, args_csv: string, abi: string, backend: string, dry_run: bool, timeout_ms: i64) -> FFIResult
+{
+    let sig = signature_from_decl(returns, arg_types_csv, abi)
+    let args = parse_call_args(args_csv)
+    give ffi_call(handle_id, symbol, sig, args, backend, dry_run, timeout_ms)
+}
+
+proc invoke(path_or_name: string, base_dir: string, backend: string, symbol: string, returns: string, arg_types_csv: string, args_csv: string, abi: string, dry_run: bool, timeout_ms: i64) -> FFIResult
+{
+    let sig = signature_from_decl(returns, arg_types_csv, abi)
+    let args = parse_call_args(args_csv)
+    give ffi_sequence_load_resolve_call_unload(path_or_name, base_dir, backend, symbol, sig, args, dry_run, timeout_ms)
+}

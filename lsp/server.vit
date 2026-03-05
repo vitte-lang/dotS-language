@@ -1,0 +1,759 @@
+space lsp/server
+
+pull core/io
+pull core/fs
+pull core/str
+pull core/time
+pull core/process
+pull core/json
+
+pull lsp/model
+pull lsp/completion
+pull lsp/goto_definition
+pull lsp/hover
+pull lsp/references
+pull lsp/rename
+pull lsp/formatting
+pull lsp/diagnostics
+pull lsp/semantic_tokens
+pull lsp/symbols
+pull lsp/code_actions
+pull lsp/code_lens
+pull lsp/signature_help
+pull lsp/workspace_edit
+
+form HandlerDef
+{
+    method: string
+}
+
+proc handlers() -> [HandlerDef]
+{
+    give [
+        HandlerDef("initialize"),
+        HandlerDef("initialized"),
+        HandlerDef("shutdown"),
+        HandlerDef("exit"),
+        HandlerDef("$/cancelRequest"),
+        HandlerDef("textDocument/didOpen"),
+        HandlerDef("textDocument/didChange"),
+        HandlerDef("textDocument/didClose"),
+        HandlerDef("textDocument/didSave"),
+        HandlerDef("textDocument/completion"),
+        HandlerDef("completionItem/resolve"),
+        HandlerDef("textDocument/definition"),
+        HandlerDef("textDocument/hover"),
+        HandlerDef("textDocument/references"),
+        HandlerDef("textDocument/rename"),
+        HandlerDef("textDocument/prepareRename"),
+        HandlerDef("textDocument/formatting"),
+        HandlerDef("textDocument/rangeFormatting"),
+        HandlerDef("textDocument/semanticTokens/full"),
+        HandlerDef("textDocument/documentSymbol"),
+        HandlerDef("workspace/symbol"),
+        HandlerDef("textDocument/codeAction"),
+        HandlerDef("textDocument/codeLens"),
+        HandlerDef("textDocument/signatureHelp"),
+        HandlerDef("workspace/applyEdit"),
+        HandlerDef("workspace/didChangeWatchedFiles"),
+        HandlerDef("workspace/configuration"),
+        HandlerDef("workspace/workspaceFolders"),
+        HandlerDef("dots/debugStats")
+    ]
+}
+
+proc supports_method(method: string) -> bool
+{
+    loop h in handlers()
+    {
+        if h.method == method { give true }
+    }
+    give false
+}
+
+proc lsp_log(line: string) -> void
+{
+    let quiet = process.env("DOTS_LSP_LOG_SILENT")
+    if quiet == "1" { give }
+    fs.mkdir_p(".dots/logs")
+    fs.append_file(".dots/logs/lsp.log", line + "\n")
+}
+
+proc lsp_lang() -> string
+{
+    let l = process.env("DOTS_LSP_LANG")
+    if l == "" { l = "en" }
+    if l != "en" && l != "fr" { l = "en" }
+    give l
+}
+
+proc msg(key: string) -> string
+{
+    let fr = lsp_lang() == "fr"
+    if key == "parse_error" { if fr { give "Erreur de parsing" } give "Parse error" }
+    if key == "invalid_request" { if fr { give "Requête invalide" } give "Invalid Request" }
+    if key == "missing_method" { if fr { give "Requête invalide: méthode manquante" } give "Invalid Request: missing method" }
+    if key == "method_not_found" { if fr { give "Méthode introuvable" } give "Method not found" }
+    if key == "request_cancelled" { if fr { give "Requête annulée" } give "Request cancelled" }
+    if key == "server_shutdown" { if fr { give "Serveur en arrêt" } give "Server is shutting down" }
+    if key == "missing_uri" { if fr { give "Paramètres invalides: uri manquant" } give "Invalid params: missing uri" }
+    if key == "unknown_doc" { if fr { give "Paramètres invalides: document inconnu" } give "Invalid params: unknown document" }
+    if key == "missing_newname" { if fr { give "Paramètres invalides: newName manquant" } give "Invalid params: missing newName" }
+    if key == "rename_rejected" { if fr { give "Paramètres invalides: renommage refusé" } give "Invalid params: rename rejected" }
+    if key == "request_timeout" { if fr { give "Délai de requête dépassé" } give "Request timeout" }
+    if key == "path_traversal" { if fr { give "Paramètres invalides: traversal chemin" } give "Invalid params: path traversal" }
+    give key
+}
+
+proc log_event(method: string, request_id: string, duration_ms: i64, ok: bool, code: i32) -> void
+{
+    let json = "{\"ts_ms\":\"" + str.from_i64(time.now_ms()) + "\",\"method\":\"" + method + "\",\"request_id\":\"" + request_id + "\",\"duration_ms\":\"" + str.from_i64(duration_ms) + "\",\"ok\":\"" + str.from_bool(ok) + "\",\"code\":\"" + str.from_i64(code) + "\"}"
+    lsp_log(json)
+}
+
+proc request_id_json_value(payload: string) -> string
+{
+    give jsonrpc_id_json_value(payload)
+}
+
+proc request_id_key(payload: string) -> string
+{
+    give jsonrpc_id_key(payload)
+}
+
+proc parse_method(payload: string) -> string
+{
+    give get_string(payload, "method")
+}
+
+proc parse_uri(payload: string) -> string
+{
+    give normalize_uri(get_string(payload, "uri"))
+}
+
+proc parse_version(payload: string) -> i32
+{
+    let v = get_number_or_literal(payload, "version")
+    if v == "" { give 0 }
+    give str.to_i64(v)
+}
+
+proc parse_line(payload: string) -> i32
+{
+    give str.to_i64(get_number_or_literal(payload, "line"))
+}
+
+proc parse_character(payload: string) -> i32
+{
+    give str.to_i64(get_number_or_literal(payload, "character"))
+}
+
+proc parse_new_name(payload: string) -> string
+{
+    give get_string(payload, "newName")
+}
+
+proc parse_bool_field(raw: string, key: string, fallback: bool) -> bool
+{
+    give get_bool(raw, key, fallback)
+}
+
+proc parse_text_field(payload: string) -> string
+{
+    give get_string(payload, "text")
+}
+
+proc frame_message(json: string) -> string
+{
+    give jsonrpc_frame(json)
+}
+
+proc write_jsonrpc(json: string) -> void
+{
+    io.print(frame_message(json))
+}
+
+proc error_response(id_json: string, code: i32, message: string) -> string
+{
+    give "{\"jsonrpc\":\"2.0\",\"id\":" + id_json + ",\"error\":{\"code\":" + str.from_i64(code) + ",\"message\":\"" + str.replace(message, "\"", "\\\"") + "\"}}"
+}
+
+proc result_response(id_json: string, result_json: string) -> string
+{
+    give "{\"jsonrpc\":\"2.0\",\"id\":" + id_json + ",\"result\":" + result_json + "}"
+}
+
+proc parse_frames(raw: string) -> [string]
+{
+    give jsonrpc_parse_frames(raw)
+}
+
+proc payload_is_jsonrpc(payload: string) -> bool
+{
+    if !str.starts_with(str.trim(payload), "{") { give false }
+    give jsonrpc_is_v2(payload)
+}
+
+proc in_cancelled(cancelled: [string], id: string) -> bool
+{
+    if id == "" { give false }
+    loop c in cancelled
+    {
+        if c == id { give true }
+    }
+    give false
+}
+
+proc mark_cancelled(cancelled: [string], id: string) -> [string]
+{
+    if id == "" { give cancelled }
+    if in_cancelled(cancelled, id) { give cancelled }
+    give cancelled.push(id)
+}
+
+proc initialize_capabilities() -> string
+{
+    give "{\"capabilities\":{\"textDocumentSync\":2,\"completionProvider\":{\"triggerCharacters\":[\".\",\" \"],\"resolveProvider\":true},\"definitionProvider\":true,\"hoverProvider\":true,\"referencesProvider\":true,\"renameProvider\":{\"prepareProvider\":true},\"documentFormattingProvider\":true,\"documentRangeFormattingProvider\":true,\"semanticTokensProvider\":{\"legend\":{\"tokenTypes\":[\"keyword\",\"function\"],\"tokenModifiers\":[]},\"full\":true},\"documentSymbolProvider\":true,\"workspaceSymbolProvider\":true,\"codeActionProvider\":true,\"codeLensProvider\":{\"resolveProvider\":false},\"signatureHelpProvider\":{\"triggerCharacters\":[\"(\",\",\"]}}}"
+}
+
+proc extract_param_id_for_cancel(payload: string) -> string
+{
+    # supports {"method":"$/cancelRequest","params":{"id":"..."}}
+    let sid = get_string(payload, "id")
+    if sid != "" { give sid }
+    let nid = get_number_or_literal(payload, "id")
+    if nid != "" { give nid }
+    give ""
+}
+
+proc main() -> i32
+{
+    let raw = io.read_stdin_all()
+    let frames = parse_frames(raw)
+
+    let docs: [Document] = []
+    let diag_states: [DiagState] = []
+    let cancelled: [string] = []
+    let shutting_down = false
+    let requests_total: i64 = 0
+    let errors_total: i64 = 0
+    let latencies: [i64] = []
+    let start_ms = time.now_ms()
+
+    let debounce_ms = str.to_i64(process.env("DOTS_LSP_DEBOUNCE_MS"))
+    if debounce_ms <= 0 { debounce_ms = 80 }
+    let max_diags = str.to_i64(process.env("DOTS_LSP_MAX_DIAGNOSTICS"))
+    if max_diags <= 0 { max_diags = 200 }
+    let ttfo_budget_ms = str.to_i64(process.env("DOTS_LSP_TTFO_BUDGET_MS"))
+    if ttfo_budget_ms <= 0 { ttfo_budget_ms = 100 }
+
+    loop payload in frames
+    {
+        requests_total = requests_total + 1
+        let t0 = time.now_ms()
+        if payload == "__PARSE_ERROR__"
+        {
+            errors_total = errors_total + 1
+            write_jsonrpc(error_response("null", -32700, msg("parse_error")))
+            log_event("parse", "", time.now_ms() - t0, false, -32700)
+            continue
+        }
+        let id_json = request_id_json_value(payload)
+        let id_key = request_id_key(payload)
+        let req_timeout_ms = str.to_i64(process.env("DOTS_LSP_REQUEST_TIMEOUT_MS"))
+        if req_timeout_ms <= 0 { req_timeout_ms = 2500 }
+
+        if !payload_is_jsonrpc(payload)
+        {
+            errors_total = errors_total + 1
+            write_jsonrpc(error_response(id_json, -32600, msg("invalid_request")))
+            log_event("invalid", id_key, time.now_ms() - t0, false, -32600)
+            continue
+        }
+
+        let method = parse_method(payload)
+        if method == ""
+        {
+            errors_total = errors_total + 1
+            write_jsonrpc(error_response(id_json, -32600, msg("missing_method")))
+            log_event("invalid", id_key, time.now_ms() - t0, false, -32600)
+            continue
+        }
+
+        if method == "$/cancelRequest"
+        {
+            let cid = extract_param_id_for_cancel(payload)
+            cancelled = mark_cancelled(cancelled, cid)
+            log_event(method, cid, time.now_ms() - t0, true, 0)
+            continue
+        }
+
+        if in_cancelled(cancelled, id_key)
+        {
+            errors_total = errors_total + 1
+            write_jsonrpc(error_response(id_json, -32603, msg("request_cancelled")))
+            log_event(method, id_key, time.now_ms() - t0, false, -32603)
+            continue
+        }
+
+        if !supports_method(method)
+        {
+            errors_total = errors_total + 1
+            write_jsonrpc(error_response(id_json, -32601, msg("method_not_found")))
+            log_event(method, id_key, time.now_ms() - t0, false, -32601)
+            continue
+        }
+
+        if method == "initialize"
+        {
+            let result = initialize_capabilities()
+            write_jsonrpc(result_response(id_json, result))
+            let d = time.now_ms() - t0
+            latencies = latencies.push(d)
+            if d > ttfo_budget_ms
+            {
+                lsp_log("{\"warn\":\"ttfo_budget_exceeded\",\"budget_ms\":\"" + str.from_i64(ttfo_budget_ms) + "\",\"duration_ms\":\"" + str.from_i64(d) + "\"}")
+            }
+            log_event(method, id_key, d, true, 0)
+            continue
+        }
+
+        if method == "dots/debugStats"
+        {
+            let p95_dbg: i64 = 0
+            if latencies.len > 0
+            {
+                let s = latencies
+                let i0: i32 = 0
+                loop while i0 < s.len
+                {
+                    let j0: i32 = i0 + 1
+                    loop while j0 < s.len
+                    {
+                        if s[j0] < s[i0]
+                        {
+                            let t0 = s[i0]
+                            s[i0] = s[j0]
+                            s[j0] = t0
+                        }
+                        j0 = j0 + 1
+                    }
+                    i0 = i0 + 1
+                }
+                p95_dbg = s[(s.len - 1) * 95 / 100]
+            }
+            let metrics = "{\"requests_total\":\"" + str.from_i64(requests_total) + "\",\"errors_total\":\"" + str.from_i64(errors_total) + "\",\"latency_p95_ms\":\"" + str.from_i64(p95_dbg) + "\"}"
+            write_jsonrpc(result_response(id_json, metrics))
+            log_event(method, id_key, time.now_ms() - t0, true, 0)
+            continue
+        }
+
+        if method == "initialized"
+        {
+            log_event(method, id_key, time.now_ms() - t0, true, 0)
+            continue
+        }
+
+        if method == "shutdown"
+        {
+            shutting_down = true
+            write_jsonrpc(result_response(id_json, "null"))
+            let d = time.now_ms() - t0
+            latencies = latencies.push(d)
+            log_event(method, id_key, d, true, 0)
+            continue
+        }
+
+        if method == "exit"
+        {
+            log_event(method, id_key, time.now_ms() - t0, true, 0)
+            break
+        }
+
+        if shutting_down
+        {
+            write_jsonrpc(error_response(id_json, -32603, msg("server_shutdown")))
+            log_event(method, id_key, time.now_ms() - t0, false, -32603)
+            continue
+        }
+
+        if method == "textDocument/didOpen"
+        {
+            let uri = parse_uri(payload)
+            let version = parse_version(payload)
+            let text = parse_text_field(payload)
+            if uri == ""
+            {
+                errors_total = errors_total + 1
+                write_jsonrpc(error_response(id_json, -32602, msg("missing_uri")))
+                log_event(method, id_key, time.now_ms() - t0, false, -32602)
+                continue
+            }
+            docs = upsert_document(docs, uri, version, text)
+            let d = find_doc(docs, uri)
+            if d != null
+            {
+                let diags = analyze_incremental(d, max_diags)
+                if should_publish(diag_states, uri, diags)
+                {
+                    diag_states = diag_state_set(diag_states, uri, diagnostics_hash(diags))
+                    write_jsonrpc(publish_diagnostics_notification(uri, version, diags))
+                }
+            }
+            log_event(method, id_key, time.now_ms() - t0, true, 0)
+            continue
+        }
+
+        if method == "textDocument/didChange"
+        {
+            let uri = parse_uri(payload)
+            let version = parse_version(payload)
+            let new_text = parse_text_field(payload)
+            if uri == ""
+            {
+                errors_total = errors_total + 1
+                write_jsonrpc(error_response(id_json, -32602, msg("missing_uri")))
+                log_event(method, id_key, time.now_ms() - t0, false, -32602)
+                continue
+            }
+            let prev = find_doc(docs, uri)
+            if prev != null && new_text == ""
+            {
+                new_text = prev.text
+            }
+            if prev != null && str.contains(payload, "\"range\"")
+            {
+                # incremental placeholder: append patch text (cooperative until full delta parser).
+                new_text = prev.text + "\n" + new_text
+            }
+            docs = upsert_document(docs, uri, version, new_text)
+            let adaptive = debounce_ms
+            if new_text.len > 20000 { adaptive = 150 }
+            else if new_text.len < 2000 { adaptive = 50 }
+            time.sleep_ms(adaptive)
+            let d = find_doc(docs, uri)
+            if d != null
+            {
+                let diags = analyze_incremental(d, max_diags)
+                if should_publish(diag_states, uri, diags)
+                {
+                    diag_states = diag_state_set(diag_states, uri, diagnostics_hash(diags))
+                    write_jsonrpc(publish_diagnostics_notification(uri, version, diags))
+                }
+            }
+            log_event(method, id_key, time.now_ms() - t0, true, 0)
+            continue
+        }
+
+        if method == "textDocument/didClose"
+        {
+            let uri = parse_uri(payload)
+            if uri == ""
+            {
+                errors_total = errors_total + 1
+                write_jsonrpc(error_response(id_json, -32602, msg("missing_uri")))
+                log_event(method, id_key, time.now_ms() - t0, false, -32602)
+                continue
+            }
+            docs = remove_document(docs, uri)
+            write_jsonrpc(publish_diagnostics_notification(uri, 0, []))
+            log_event(method, id_key, time.now_ms() - t0, true, 0)
+            continue
+        }
+
+        if method == "textDocument/didSave"
+        {
+            let uri = parse_uri(payload)
+            if uri == ""
+            {
+                errors_total = errors_total + 1
+                write_jsonrpc(error_response(id_json, -32602, msg("missing_uri")))
+                log_event(method, id_key, time.now_ms() - t0, false, -32602)
+                continue
+            }
+            let d = find_doc(docs, uri)
+            if d != null
+            {
+                let diags = analyze_incremental(d, max_diags)
+                if should_publish(diag_states, uri, diags)
+                {
+                    diag_states = diag_state_set(diag_states, uri, diagnostics_hash(diags))
+                    write_jsonrpc(publish_diagnostics_notification(uri, d.version, diags))
+                }
+            }
+            log_event(method, id_key, time.now_ms() - t0, true, 0)
+            continue
+        }
+
+        if method == "completionItem/resolve"
+        {
+            let label = get_string(payload, "label")
+            let result = completion_resolve_json(label)
+            write_jsonrpc(result_response(id_json, result))
+            let d = time.now_ms() - t0
+            latencies = latencies.push(d)
+            log_event(method, id_key, d, true, 0)
+            continue
+        }
+
+        if method == "workspace/didChangeWatchedFiles"
+        {
+            log_event(method, id_key, time.now_ms() - t0, true, 0)
+            continue
+        }
+
+        if method == "workspace/configuration"
+        {
+            let result = "[{\"debounce_ms\":\"" + process.env("DOTS_LSP_DEBOUNCE_MS") + "\",\"max_diagnostics\":\"" + process.env("DOTS_LSP_MAX_DIAGNOSTICS") + "\"}]"
+            write_jsonrpc(result_response(id_json, result))
+            log_event(method, id_key, time.now_ms() - t0, true, 0)
+            continue
+        }
+
+        if method == "workspace/workspaceFolders"
+        {
+            let wd = process.env("PWD")
+            if wd == "" { wd = "." }
+            let result = "[{\"uri\":\"file://" + wd + "\",\"name\":\"workspace\"}]"
+            write_jsonrpc(result_response(id_json, result))
+            log_event(method, id_key, time.now_ms() - t0, true, 0)
+            continue
+        }
+
+        let uri = parse_uri(payload)
+        let line = parse_line(payload)
+        let ch = parse_character(payload)
+        if uri_to_path(uri) != "" && !safe_workspace_path(uri_to_path(uri))
+        {
+            errors_total = errors_total + 1
+            write_jsonrpc(error_response(id_json, -32602, msg("path_traversal")))
+            log_event(method, id_key, time.now_ms() - t0, false, -32602)
+            continue
+        }
+        let doc = find_doc(docs, uri)
+        if doc == null
+        {
+            errors_total = errors_total + 1
+            write_jsonrpc(error_response(id_json, -32602, msg("unknown_doc")))
+            log_event(method, id_key, time.now_ms() - t0, false, -32602)
+            continue
+        }
+
+        if method == "textDocument/completion"
+        {
+            if (time.now_ms() - t0) > req_timeout_ms
+            {
+                write_jsonrpc(error_response(id_json, -32603, msg("request_timeout")))
+                continue
+            }
+            let result = completion_result_json(doc, line, ch)
+            write_jsonrpc(result_response(id_json, result))
+            let d = time.now_ms() - t0
+            latencies = latencies.push(d)
+            log_event(method, id_key, d, true, 0)
+            continue
+        }
+
+        if method == "textDocument/definition"
+        {
+            let result = definition_result_json_workspace(docs, doc, line, ch)
+            write_jsonrpc(result_response(id_json, result))
+            let d = time.now_ms() - t0
+            latencies = latencies.push(d)
+            log_event(method, id_key, d, true, 0)
+            continue
+        }
+
+        if method == "textDocument/hover"
+        {
+            let result = hover_result_json(doc, line, ch)
+            write_jsonrpc(result_response(id_json, result))
+            let d = time.now_ms() - t0
+            latencies = latencies.push(d)
+            log_event(method, id_key, d, true, 0)
+            continue
+        }
+
+        if method == "textDocument/references"
+        {
+            let include_decl = parse_bool_field(payload, "includeDeclaration", true)
+            let result = references_result_json_workspace(docs, doc, line, ch, include_decl)
+            write_jsonrpc(result_response(id_json, result))
+            let d = time.now_ms() - t0
+            latencies = latencies.push(d)
+            log_event(method, id_key, d, true, 0)
+            continue
+        }
+
+        if method == "textDocument/rename"
+        {
+            let new_name = parse_new_name(payload)
+            if new_name == ""
+            {
+                errors_total = errors_total + 1
+                write_jsonrpc(error_response(id_json, -32602, msg("missing_newname")))
+                log_event(method, id_key, time.now_ms() - t0, false, -32602)
+                continue
+            }
+            let result = rename_workspace_edit_json(docs, uri, line, ch, new_name)
+            if result == "null"
+            {
+                errors_total = errors_total + 1
+                write_jsonrpc(error_response(id_json, -32602, msg("rename_rejected")))
+                log_event(method, id_key, time.now_ms() - t0, false, -32602)
+                continue
+            }
+            write_jsonrpc(result_response(id_json, result))
+            let d = time.now_ms() - t0
+            latencies = latencies.push(d)
+            log_event(method, id_key, d, true, 0)
+            continue
+        }
+
+        if method == "textDocument/prepareRename"
+        {
+            let sym = symbol_at(doc, line, ch)
+            if !is_valid_identifier(sym)
+            {
+                errors_total = errors_total + 1
+                write_jsonrpc(error_response(id_json, -32602, msg("rename_rejected")))
+                log_event(method, id_key, time.now_ms() - t0, false, -32602)
+                continue
+            }
+            let result = "{\"range\":{\"start\":{\"line\":" + str.from_i64(line) + ",\"character\":0},\"end\":{\"line\":" + str.from_i64(line) + ",\"character\":1}},\"placeholder\":\"" + sym + "\"}"
+            write_jsonrpc(result_response(id_json, result))
+            let d = time.now_ms() - t0
+            latencies = latencies.push(d)
+            log_event(method, id_key, d, true, 0)
+            continue
+        }
+
+        if method == "textDocument/formatting"
+        {
+            let result = formatting_edits_json(doc.text)
+            write_jsonrpc(result_response(id_json, result))
+            let d = time.now_ms() - t0
+            latencies = latencies.push(d)
+            log_event(method, id_key, d, true, 0)
+            continue
+        }
+
+        if method == "textDocument/rangeFormatting"
+        {
+            let start_line = get_number_or_literal(payload, "start")
+            let end_line = get_number_or_literal(payload, "end")
+            let sl = str.to_i64(start_line)
+            let el = str.to_i64(end_line)
+            let result = range_formatting_edits_json(doc.text, sl, el)
+            write_jsonrpc(result_response(id_json, result))
+            let d = time.now_ms() - t0
+            latencies = latencies.push(d)
+            log_event(method, id_key, d, true, 0)
+            continue
+        }
+
+        if method == "textDocument/semanticTokens/full"
+        {
+            let result = semantic_tokens_full_json(doc)
+            write_jsonrpc(result_response(id_json, result))
+            let d = time.now_ms() - t0
+            latencies = latencies.push(d)
+            log_event(method, id_key, d, true, 0)
+            continue
+        }
+
+        if method == "textDocument/documentSymbol"
+        {
+            let result = doc_symbols_json(doc)
+            write_jsonrpc(result_response(id_json, result))
+            let d = time.now_ms() - t0
+            latencies = latencies.push(d)
+            log_event(method, id_key, d, true, 0)
+            continue
+        }
+
+        if method == "workspace/symbol"
+        {
+            let q = get_string(payload, "query")
+            let result = workspace_symbols_json(docs, q)
+            write_jsonrpc(result_response(id_json, result))
+            let d = time.now_ms() - t0
+            latencies = latencies.push(d)
+            log_event(method, id_key, d, true, 0)
+            continue
+        }
+
+        if method == "textDocument/codeAction"
+        {
+            let diags = analyze_incremental(doc, max_diags)
+            let result = code_actions_json(doc.uri, diags)
+            write_jsonrpc(result_response(id_json, result))
+            let d = time.now_ms() - t0
+            latencies = latencies.push(d)
+            log_event(method, id_key, d, true, 0)
+            continue
+        }
+
+        if method == "textDocument/codeLens"
+        {
+            let result = code_lens_json(doc)
+            write_jsonrpc(result_response(id_json, result))
+            let d = time.now_ms() - t0
+            latencies = latencies.push(d)
+            log_event(method, id_key, d, true, 0)
+            continue
+        }
+
+        if method == "textDocument/signatureHelp"
+        {
+            let result = signature_help_json(doc, line, ch)
+            write_jsonrpc(result_response(id_json, result))
+            let d = time.now_ms() - t0
+            latencies = latencies.push(d)
+            log_event(method, id_key, d, true, 0)
+            continue
+        }
+
+        if method == "workspace/applyEdit"
+        {
+            let edits = get_string(payload, "documentChanges")
+            let result = apply_edit_preview_json(edits)
+            write_jsonrpc(result_response(id_json, result))
+            let d = time.now_ms() - t0
+            latencies = latencies.push(d)
+            log_event(method, id_key, d, true, 0)
+            continue
+        }
+    }
+
+    let total_ms = time.now_ms() - start_ms
+    let p95: i64 = 0
+    if latencies.len > 0
+    {
+        let sorted = latencies
+        let i: i32 = 0
+        loop while i < sorted.len
+        {
+            let j: i32 = i + 1
+            loop while j < sorted.len
+            {
+                if sorted[j] < sorted[i]
+                {
+                    let t = sorted[i]
+                    sorted[i] = sorted[j]
+                    sorted[j] = t
+                }
+                j = j + 1
+            }
+            i = i + 1
+        }
+        p95 = sorted[(sorted.len - 1) * 95 / 100]
+    }
+    lsp_log("{\"summary\":true,\"requests_total\":\"" + str.from_i64(requests_total) + "\",\"errors_total\":\"" + str.from_i64(errors_total) + "\",\"latency_p95_ms\":\"" + str.from_i64(p95) + "\",\"runtime_ms\":\"" + str.from_i64(total_ms) + "\"}")
+    give 0
+}
+
+entry at lsp/server
+{
+    give main()
+}

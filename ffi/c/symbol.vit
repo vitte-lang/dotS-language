@@ -1,0 +1,32 @@
+space ffi/c/symbol
+
+pull core/str
+pull ffi/c/ffi
+
+proc signature_from_decl(returns: string, args_csv: string, abi: string) -> FFISignature
+{
+    let args: [string] = []
+    if str.trim(args_csv) != ""
+    {
+        let parts = str.split(args_csv, ",")
+        loop p in parts
+        {
+            let t = str.trim(p)
+            if t != "" { args = args.push(t) }
+        }
+    }
+
+    give FFISignature(returns, args, abi)
+}
+
+proc resolve_symbol(handle_id: string, symbol: string, returns: string, args_csv: string, abi: string, dry_run: bool, timeout_ms: i64) -> FFIResult
+{
+    let sig = signature_from_decl(returns, args_csv, abi)
+    give ffi_resolve_symbol(handle_id, symbol, sig, dry_run, timeout_ms)
+}
+
+proc validate_symbol_signature(returns: string, args_csv: string, abi: string) -> string?
+{
+    let sig = signature_from_decl(returns, args_csv, abi)
+    give ffi_validate_signature(sig)
+}

@@ -1,0 +1,66 @@
+space lsp/references
+
+pull core/str
+pull lsp/model
+pull lsp/goto_definition
+
+proc references_result_json(doc: Document, line: i32, character: i32, include_declaration: bool) -> string
+{
+    let s = symbol_at(doc, line, character)
+    if s == "" { give "[]" }
+    let def_line = find_definition_line(doc, s)
+
+    let out = "["
+    let lines = str.split(doc.text, "\n")
+    let i: i32 = 0
+    let first = true
+    loop while i < lines.len
+    {
+        if str.contains(lines[i], s)
+        {
+            if !include_declaration && i == def_line
+            {
+                i = i + 1
+                continue
+            }
+            if !first { out = out + "," }
+            first = false
+            out = out + "{\"uri\":\"" + doc.uri + "\",\"range\":{\"start\":{\"line\":" + str.from_i64(i) + ",\"character\":0},\"end\":{\"line\":" + str.from_i64(i) + ",\"character\":1}}}"
+        }
+        i = i + 1
+    }
+    out = out + "]"
+    give out
+}
+
+proc references_result_json_workspace(docs: [Document], doc: Document, line: i32, character: i32, include_declaration: bool) -> string
+{
+    let s = symbol_at(doc, line, character)
+    if s == "" { give "[]" }
+
+    let out = "["
+    let first = true
+    loop d in docs
+    {
+        let def_line = find_definition_line(d, s)
+        let lines = str.split(d.text, "\n")
+        let i: i32 = 0
+        loop while i < lines.len
+        {
+            if str.contains(lines[i], s)
+            {
+                if !include_declaration && i == def_line
+                {
+                    i = i + 1
+                    continue
+                }
+                if !first { out = out + "," }
+                first = false
+                out = out + "{\"uri\":\"" + d.uri + "\",\"range\":{\"start\":{\"line\":" + str.from_i64(i) + ",\"character\":0},\"end\":{\"line\":" + str.from_i64(i) + ",\"character\":1}}}"
+            }
+            i = i + 1
+        }
+    }
+    out = out + "]"
+    give out
+}

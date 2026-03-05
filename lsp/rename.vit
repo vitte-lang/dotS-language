@@ -1,0 +1,62 @@
+space lsp/rename
+
+pull core/str
+pull lsp/model
+pull lsp/goto_definition
+
+proc is_valid_identifier(name: string) -> bool
+{
+    if name == "" { give false }
+    if str.contains(name, " ") { give false }
+    if str.contains(name, ".") { give false }
+    if str.contains(name, "/") { give false }
+    if str.contains(name, "\\") { give false }
+    if str.contains(name, "\"") { give false }
+    if str.contains(name, "'") { give false }
+    give true
+}
+
+proc rename_line_safe(line: string, old_name: string, new_name: string) -> string
+{
+    if str.starts_with(str.trim(line), "#") { give line }
+    # conservative: skip lines containing quotes to avoid string edits.
+    if str.contains(line, "\"") || str.contains(line, "'") { give line }
+    give str.replace(line, old_name, new_name)
+}
+
+proc rename_text_safe(text: string, old_name: string, new_name: string) -> string
+{
+    let lines = str.split(text, "\n")
+    let out = ""
+    loop l in lines
+    {
+        out = out + rename_line_safe(l, old_name, new_name) + "\n"
+    }
+    give out
+}
+
+proc rename_workspace_edit_json(docs: [Document], target_uri: string, line: i32, character: i32, new_name: string) -> string
+{
+    if !is_valid_identifier(new_name)
+    {
+        give "null"
+    }
+    let doc = find_doc(docs, target_uri)
+    if doc == null { give "null" }
+    let old = symbol_at(doc, line, character)
+    if old == "" || old == new_name { give "null" }
+
+    let out = "{\"documentChanges\":["
+    let first = true
+    loop d in docs
+    {
+        let next = rename_text_safe(d.text, old, new_name)
+        if !first { out = out + "," }
+        first = false
+        let escaped = str.replace(str.replace(next, "\\", "\\\\"), "\"", "\\\"")
+        escaped = str.replace(escaped, "\n", "\\n")
+        out = out + "{\"textDocument\":{\"uri\":\"" + d.uri + "\",\"version\":" + str.from_i64(d.version) + "},\"edits\":[{\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":2147483647,\"character\":0}},\"newText\":\"" + escaped + "\"}]}"
+    }
+    out = out + "]}"
+    give out
+}

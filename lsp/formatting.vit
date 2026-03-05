@@ -1,0 +1,35 @@
+space lsp/formatting
+
+pull core/str
+pull dots/cmd/fmt
+
+proc formatting_edits_json(text: string) -> string
+{
+    let out = format_source(text)
+    let escaped = str.replace(str.replace(out, "\\", "\\\\"), "\"", "\\\"")
+    escaped = str.replace(escaped, "\n", "\\n")
+    give "[{\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":2147483647,\"character\":0}},\"newText\":\"" + escaped + "\"}]"
+}
+
+proc range_formatting_edits_json(text: string, start_line: i32, end_line: i32) -> string
+{
+    let lines = str.split(text, "\n")
+    let out = ""
+    let i: i32 = 0
+    loop while i < lines.len
+    {
+        let line = lines[i]
+        if i >= start_line && i <= end_line
+        {
+            out = out + format_source(line) + "\n"
+        }
+        else
+        {
+            out = out + line + "\n"
+        }
+        i = i + 1
+    }
+    let escaped = str.replace(str.replace(out, "\\", "\\\\"), "\"", "\\\"")
+    escaped = str.replace(escaped, "\n", "\\n")
+    give "[{\"range\":{\"start\":{\"line\":" + str.from_i64(start_line) + ",\"character\":0},\"end\":{\"line\":" + str.from_i64(end_line) + ",\"character\":2147483647}},\"newText\":\"" + escaped + "\"}]"
+}

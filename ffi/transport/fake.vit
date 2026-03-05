@@ -1,0 +1,30 @@
+space ffi/transport/fake
+
+pull core/process
+pull ffi/transport/types
+
+proc transport_fake(backend: string, symbol: string, handle_id: string, args_csv: string, request_deadline_ms: i64, cancel_token: string) -> TransportResult
+{
+    if process.env("DOTS_FFI_CHAOS") == "1" && process.env("DOTS_BACKEND_SEED") == "13"
+    {
+        give TransportResult(1, "{\"protocol_version\":\"1.1\",\"backend_name\":\"" + backend + "\",\"backend_version\":\"chaos\",\"error_type\":\"TIMEOUT\",\"error_message\":\"chaos timeout\",\"error_category\":\"application\",\"retryable\":true,\"retry_after_ms\":1,\"endpoint\":\"fake://" + backend + "\"}", "", "fake://" + backend, backend, "chaos")
+    }
+    if process.env("DOTS_FFI_FAKE_FAIL") == "1"
+    {
+        give TransportResult(1, "{\"protocol_version\":\"1.1\",\"backend_name\":\"" + backend + "\",\"backend_version\":\"fake-1\",\"error_type\":\"CALL_FAILED\",\"error_message\":\"fake failure\",\"error_category\":\"application\",\"retryable\":true,\"retry_after_ms\":10,\"endpoint\":\"fake://" + backend + "\"}", "", "fake://" + backend, backend, "fake-1")
+    }
+
+    let out = "{\"protocol_version\":\"1.1\",\"backend_name\":\"" + backend + "\",\"backend_version\":\"fake-1\",\"value\":\"ok\",\"count\":1,\"endpoint\":\"fake://" + backend + "\"}"
+    if symbol == "missing_symbol"
+    {
+        out = "{\"protocol_version\":\"1.1\",\"backend_name\":\"" + backend + "\",\"backend_version\":\"fake-1\",\"error_type\":\"SYMBOL_NOT_FOUND\",\"error_message\":\"missing symbol\",\"error_category\":\"resolve\",\"retryable\":false,\"retry_after_ms\":0,\"endpoint\":\"fake://" + backend + "\"}"
+        give TransportResult(2, out, "", "fake://" + backend, backend, "fake-1")
+    }
+
+    if process.env("DOTS_FFI_FAKE_PROTOCOL_BAD") == "1"
+    {
+        out = "{\"protocol_version\":\"1.2\",\"backend_name\":\"" + backend + "\",\"backend_version\":\"fake-1\",\"value\":\"ok\",\"count\":1,\"endpoint\":\"fake://" + backend + "\"}"
+    }
+
+    give TransportResult(0, out, "", "fake://" + backend, backend, "fake-1")
+}

@@ -1,0 +1,51 @@
+space lsp/hover
+
+pull core/str
+pull lsp/model
+pull lsp/goto_definition
+
+proc inferred_type_from_line(def_line: string) -> string
+{
+    if str.contains(def_line, "->")
+    {
+        let p = str.split(def_line, "->")
+        if p.len >= 2 { give str.trim(str.replace(p[1], "{", "")) }
+    }
+    if str.starts_with(str.trim(def_line), "form ") { give "type" }
+    if str.starts_with(str.trim(def_line), "const ") { give "const" }
+    give "unknown"
+}
+
+proc hover_markdown(doc: Document, line: i32, character: i32) -> string
+{
+    let sym = symbol_at(doc, line, character)
+    if sym == "" { give "" }
+
+    let def_line_no = find_definition_line(doc, sym)
+    let def_raw = ""
+    if def_line_no >= 0
+    {
+        def_raw = str.trim(line_at(doc.text, def_line_no))
+    }
+
+    let inferred = inferred_type_from_line(def_raw)
+    let src = uri_to_path(doc.uri)
+    let provenance = "local-index"
+    if load_index_symbols(doc.uri).len > 0 { provenance = "persistent-index" }
+
+    let md = "### " + sym + "\\n\\n"
+    md = md + "#### Signature\\n"
+    if def_raw != "" { md = md + "```vit\\n" + str.replace(def_raw, "\"", "\\\"") + "\\n```\\n" }
+    else { md = md + "_definition not found_\\n" }
+    md = md + "\\n#### Type\\n`" + inferred + "`\\n"
+    md = md + "\\n#### Provenance\\n`" + provenance + "`\\n"
+    md = md + "\\n#### Location\\n`" + src + ":" + str.from_i64(def_line_no + 1) + "`\\n"
+    give md
+}
+
+proc hover_result_json(doc: Document, line: i32, character: i32) -> string
+{
+    let md = hover_markdown(doc, line, character)
+    if md == "" { give "null" }
+    give "{\"contents\":{\"kind\":\"markdown\",\"value\":\"" + md + "\"}}"
+}

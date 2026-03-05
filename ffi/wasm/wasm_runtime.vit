@@ -1,0 +1,48 @@
+space ffi/wasm/wasm_runtime
+
+pull core/str
+pull core/process
+pull ffi/c/ffi
+pull ffi/c/call
+pull ffi/c/symbol
+
+proc wasm_memory_limit_pages() -> i64
+{
+    let raw = process.env("DOTS_WASM_MEMORY_PAGES")
+    if raw == "" { give 256 }
+    let v = str.to_i64(raw)
+    if v <= 0 { give 256 }
+    give v
+}
+
+proc wasm_fuel_limit() -> i64
+{
+    let raw = process.env("DOTS_WASM_FUEL")
+    if raw == "" { give 1000000 }
+    let v = str.to_i64(raw)
+    if v <= 0 { give 1000000 }
+    give v
+}
+
+proc wasm_interruptible() -> bool
+{
+    let raw = process.env("DOTS_WASM_INTERRUPTIBLE")
+    if raw == "" { give true }
+    give raw == "1" || raw == "true"
+}
+
+proc wasm_call(handle_id: string, export_name: string, returns: string, arg_types_csv: string, args_csv: string, dry_run: bool, timeout_ms: i64) -> FFIResult
+{
+    if timeout_ms <= 0
+    {
+        timeout_ms = ffi_env_i64("DOTS_FFI_TIMEOUT_MS", 2000)
+    }
+    let sig = signature_from_decl(returns, arg_types_csv, "system")
+    let args = parse_call_args(args_csv)
+    ffi_event("wasm_runtime", "info", "fuel=" + str.from_i64(wasm_fuel_limit()) + " pages=" + str.from_i64(wasm_memory_limit_pages()), export_name)
+    if wasm_interruptible() && timeout_ms <= 5
+    {
+        give ffi_err(E_TIMEOUT, "wasm_runtime", "cooperative timeout before invocation", true, timeout_ms, export_name)
+    }
+    give ffi_call(handle_id, export_name, sig, args, "wasm", dry_run, timeout_ms)
+}

@@ -1,0 +1,30 @@
+space ffi/cpp/wrapper
+
+pull ffi/c/ffi
+pull ffi/c/call
+
+form CppHandle
+{
+    handle_id: string
+    owner: string
+}
+
+proc cpp_wrap_library(path_or_name: string, base_dir: string, owner: string, dry_run: bool, timeout_ms: i64) -> FFIResult
+{
+    give ffi_load_library(path_or_name, base_dir, "cpp", "c", dry_run, timeout_ms)
+}
+
+proc cpp_make_handle(handle_id: string, owner: string) -> CppHandle
+{
+    give CppHandle(handle_id, owner)
+}
+
+proc cpp_call(h: CppHandle, symbol: string, returns: string, arg_types_csv: string, args_csv: string, dry_run: bool, timeout_ms: i64) -> FFIResult
+{
+    give call_symbol(h.handle_id, symbol, returns, arg_types_csv, args_csv, "c", "cpp", dry_run, timeout_ms)
+}
+
+proc cpp_release(h: CppHandle) -> FFIResult
+{
+    give ffi_unload(h.handle_id)
+}

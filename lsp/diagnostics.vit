@@ -1,0 +1,73 @@
+space lsp/diagnostics
+
+pull core/str
+pull lsp/model
+
+const SEV_ERROR: i32 = 1
+const SEV_WARNING: i32 = 2
+const SEV_INFO: i32 = 3
+const SEV_HINT: i32 = 4
+
+proc analyze_incremental(doc: Document, limit: i32) -> [Diagnostic]
+{
+    let out: [Diagnostic] = []
+    let lines = str.split(doc.text, "\n")
+    let i: i32 = 0
+    loop while i < lines.len
+    {
+        let l = lines[i]
+        if str.contains(l, "TODO")
+        {
+            out = out.push(Diagnostic("DOTS001", SEV_HINT, i, 0, "TODO marker", doc.uri, i, 0))
+        }
+        if str.contains(l, "process.exec(\"bash\"")
+        {
+            out = out.push(Diagnostic("DOTS002", SEV_WARNING, i, 0, "avoid shell bash exec", doc.uri, i, 0))
+        }
+        if str.contains(l, "thread..")
+        {
+            out = out.push(Diagnostic("DOTS003", SEV_ERROR, i, 0, "invalid dotted operation", doc.uri, i, 0))
+        }
+        if out.len >= limit { give out }
+        i = i + 1
+    }
+    give out
+}
+
+proc diagnostics_hash(diags: [Diagnostic]) -> string
+{
+    let raw = ""
+    loop d in diags
+    {
+        raw = raw + d.code + "|" + str.from_i64(d.line) + "|" + str.from_i64(d.character) + "\n"
+    }
+    give simple_hash(raw)
+}
+
+proc should_publish(prev_states: [DiagState], uri: string, diags: [Diagnostic]) -> bool
+{
+    let prev = diag_state_get(prev_states, uri)
+    let now = diagnostics_hash(diags)
+    give prev != now
+}
+
+proc diagnostics_json_array(diags: [Diagnostic]) -> string
+{
+    let out = "["
+    let i: i32 = 0
+    loop while i < diags.len
+    {
+        let d = diags[i]
+        if i > 0 { out = out + "," }
+        out = out + "{\"code\":\"" + d.code + "\",\"severity\":" + str.from_i64(d.severity) + ",\"source\":\"dots-lsp\",\"range\":{\"start\":{\"line\":" + str.from_i64(d.line) + ",\"character\":" + str.from_i64(d.character) + "},\"end\":{\"line\":" + str.from_i64(d.line) + ",\"character\":" + str.from_i64(d.character + 1) + "}},\"message\":\"" + str.replace(d.message, "\"", "\\\"") + "\",\"data\":{\"quickFix\":\"see docs/grammar.md#" + d.code + "\"},\"relatedInformation\":[{\"location\":{\"uri\":\"" + d.related_uri + "\",\"range\":{\"start\":{\"line\":" + str.from_i64(d.related_line) + ",\"character\":" + str.from_i64(d.related_character) + "},\"end\":{\"line\":" + str.from_i64(d.related_line) + ",\"character\":" + str.from_i64(d.related_character + 1) + "}}},\"message\":\"related\"}]}"
+        i = i + 1
+    }
+    out = out + "]"
+    give out
+}
+
+proc publish_diagnostics_notification(uri: string, version: i32, diags: [Diagnostic]) -> string
+{
+    let arr = diagnostics_json_array(diags)
+    give "{\"jsonrpc\":\"2.0\",\"method\":\"textDocument/publishDiagnostics\",\"params\":{\"uri\":\"" + normalize_uri(uri) + "\",\"version\":" + str.from_i64(version) + ",\"diagnostics\":" + arr + "}}"
+}

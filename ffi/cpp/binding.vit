@@ -1,0 +1,28 @@
+space ffi/cpp/binding
+
+pull core/str
+pull core/process
+pull ffi/c/ffi
+pull ffi/c/symbol
+
+proc cpp_default_abi() -> string
+{
+    let abi = process.env("DOTS_FFI_CPP_ABI")
+    if abi == "" { abi = "c" }
+    give abi
+}
+
+proc cpp_symbol_name(name: string) -> string
+{
+    # Keep deterministic mangling policy: explicit override or canonical "cpp::<name>".
+    let override = process.env("DOTS_FFI_CPP_SYMBOL")
+    if override != "" { give override }
+    give "cpp::" + name
+}
+
+proc cpp_bind(handle_id: string, exported_name: string, returns: string, args_csv: string, dry_run: bool, timeout_ms: i64) -> FFIResult
+{
+    let symbol = cpp_symbol_name(exported_name)
+    let sig = signature_from_decl(returns, args_csv, cpp_default_abi())
+    give ffi_resolve_symbol(handle_id, symbol, sig, dry_run, timeout_ms)
+}

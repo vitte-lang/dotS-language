@@ -1,0 +1,56 @@
+space lsp/symbols
+
+pull core/str
+pull lsp/model
+
+proc kind_for_symbol(sym: string) -> i32
+{
+    if str.starts_with(sym, "space:") { give 2 }   # Module
+    if str.starts_with(sym, "proc:") { give 12 }   # Function
+    if str.starts_with(sym, "form:") { give 23 }   # Struct
+    if str.starts_with(sym, "const:") { give 14 }  # Constant
+    give 13
+}
+
+proc symbol_name(sym: string) -> string
+{
+    let p = str.split(sym, ":")
+    if p.len >= 2 { give p[1] }
+    give sym
+}
+
+proc doc_symbols_json(doc: Document) -> string
+{
+    let out = "["
+    let first = true
+    loop s in doc.symbols
+    {
+        if !first { out = out + "," }
+        first = false
+        let k = kind_for_symbol(s)
+        let name = symbol_name(s)
+        out = out + "{\"name\":\"" + name + "\",\"kind\":" + str.from_i64(k) + ",\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":0,\"character\":1}},\"selectionRange\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":0,\"character\":1}}}"
+    }
+    out = out + "]"
+    give out
+}
+
+proc workspace_symbols_json(docs: [Document], query: string) -> string
+{
+    let out = "["
+    let first = true
+    loop d in docs
+    {
+        loop s in d.symbols
+        {
+            let name = symbol_name(s)
+            if query != "" && !str.contains(name, query) { continue }
+            if !first { out = out + "," }
+            first = false
+            let k = kind_for_symbol(s)
+            out = out + "{\"name\":\"" + name + "\",\"kind\":" + str.from_i64(k) + ",\"location\":{\"uri\":\"" + d.uri + "\",\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":0,\"character\":1}}}}"
+        }
+    }
+    out = out + "]"
+    give out
+}

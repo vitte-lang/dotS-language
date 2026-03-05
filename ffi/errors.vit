@@ -1,0 +1,21 @@
+space ffi/errors
+
+const E_PROTOCOL_PARSE: string = "E_PROTOCOL_PARSE"
+const E_PROTOCOL_FIELD_MISSING: string = "E_PROTOCOL_FIELD_MISSING"
+const E_BACKEND_UNAVAILABLE: string = "E_BACKEND_UNAVAILABLE"
+const E_OUTPUT_TOO_LARGE: string = "E_OUTPUT_TOO_LARGE"
+
+proc normalize_error_category(category: string) -> string
+{
+    if category == "parse" { give "parse_error" }
+    if category == "protocol" { give "protocol_error" }
+    if category == "parse_error" || category == "protocol_error" { give category }
+    if category == "" { give "protocol_error" }
+    give category
+}
+
+proc normalize_error_type(code: string) -> string
+{
+    if code == "" { give E_PROTOCOL_PARSE }
+    give code
+}

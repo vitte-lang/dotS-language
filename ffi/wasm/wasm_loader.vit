@@ -1,0 +1,56 @@
+space ffi/wasm/wasm_loader
+
+pull core/fs
+pull core/str
+pull ffi/c/ffi
+
+proc wasm_validate_file(path: string) -> string?
+{
+    if !str.ends_with(path, ".wasm") { give "wasm file must end with .wasm" }
+    if !fs.exists(path) { give "wasm file not found: " + path }
+    if !fs.is_file(path) { give "wasm path is not a file: " + path }
+    give null
+}
+
+proc wasm_validate_exports(exports_csv: string) -> string?
+{
+    let parts = str.split(exports_csv, ",")
+    loop p in parts
+    {
+        let name = str.trim(p)
+        if name == "" { continue }
+        if str.contains(name, " ")
+        {
+            give "invalid export name: " + name
+        }
+    }
+    give null
+}
+
+proc wasm_load(path_or_name: string, base_dir: string, exports_csv: string, dry_run: bool, timeout_ms: i64) -> FFIResult
+{
+    let file = path_or_name
+    if !str.starts_with(path_or_name, "/")
+    {
+        let joined = ffi_secure_library_path(base_dir, path_or_name)
+        if joined == null
+        {
+            give ffi_err(E_FFI_ERROR, "path", "path traversal rejected", false, timeout_ms, path_or_name)
+        }
+        file = joined
+    }
+
+    let err = wasm_validate_file(file)
+    if err != null
+    {
+        give ffi_err(E_FFI_ERROR, "wasm_loader", err, false, timeout_ms, file)
+    }
+
+    let exp_err = wasm_validate_exports(exports_csv)
+    if exp_err != null
+    {
+        give ffi_err(E_SYMBOL_NOT_FOUND, "wasm_loader", exp_err, false, timeout_ms, file)
+    }
+
+    give ffi_load_library(file, base_dir, "wasm", "system", dry_run, timeout_ms)
+}

@@ -1,0 +1,19 @@
+space lsp/code_actions
+
+pull core/str
+pull lsp/model
+
+proc code_actions_json(uri: string, diags: [Diagnostic]) -> string
+{
+    let out = "["
+    let first = true
+    loop d in diags
+    {
+        if d.code != "DOTS001" { continue }
+        if !first { out = out + "," }
+        first = false
+        out = out + "{\"title\":\"Remove TODO marker\",\"kind\":\"quickfix\",\"diagnostics\":[{\"code\":\"" + d.code + "\"}],\"edit\":{\"changes\":{\"" + uri + "\":[{\"range\":{\"start\":{\"line\":" + str.from_i64(d.line) + ",\"character\":0},\"end\":{\"line\":" + str.from_i64(d.line) + ",\"character\":4}},\"newText\":\"\"}]}}}"
+    }
+    out = out + "]"
+    give out
+}

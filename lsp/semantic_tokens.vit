@@ -1,0 +1,37 @@
+space lsp/semantic_tokens
+
+pull core/str
+pull lsp/model
+
+proc semantic_tokens_full_json(doc: Document) -> string
+{
+    let lines = str.split(doc.text, "\n")
+    let data = "["
+    let first = true
+    let i: i32 = 0
+    loop while i < lines.len
+    {
+        let l = str.trim(lines[i])
+        let kind = ""
+        if str.starts_with(l, "proc ") { kind = "proc" }
+        else if str.starts_with(l, "form ") { kind = "form" }
+        else if str.starts_with(l, "const ") { kind = "const" }
+        else if str.starts_with(l, "space ") { kind = "space" }
+        if kind != ""
+        {
+            if !first { data = data + "," }
+            first = false
+            # deltaLine, deltaStart, length, tokenType, tokenModifiers
+            data = data + str.from_i64(i) + ",0,4,0,0"
+        }
+        if str.contains(l, ".") && str.contains(l, "(")
+        {
+            if !first { data = data + "," }
+            first = false
+            data = data + str.from_i64(i) + ",0,3,1,0"
+        }
+        i = i + 1
+    }
+    data = data + "]"
+    give "{\"data\":" + data + "}"
+}

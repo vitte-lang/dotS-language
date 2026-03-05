@@ -1,0 +1,22 @@
+space lsp/signature_help
+
+pull core/str
+pull lsp/model
+pull lsp/goto_definition
+
+proc signature_help_json(doc: Document, line: i32, character: i32) -> string
+{
+    let sym = symbol_at(doc, line, character)
+    if sym == "" { give "{\"signatures\":[],\"activeSignature\":0,\"activeParameter\":0}" }
+    let def_line = find_definition_line(doc, sym)
+    let label = sym + "(...)"
+    if def_line >= 0
+    {
+        let raw = str.trim(line_at(doc.text, def_line))
+        if str.starts_with(raw, "proc ")
+        {
+            label = str.replace(raw, "{", "")
+        }
+    }
+    give "{\"signatures\":[{\"label\":\"" + str.replace(label, "\"", "\\\"") + "\",\"documentation\":{\"kind\":\"markdown\",\"value\":\"DotS procedure signature\"},\"parameters\":[]}],\"activeSignature\":0,\"activeParameter\":0}"
+}

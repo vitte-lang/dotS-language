@@ -1,0 +1,10 @@
+space lsp/workspace_edit
+
+pull core/str
+
+proc apply_edit_preview_json(edit_json: string) -> string
+{
+    let changes = 0
+    if str.contains(edit_json, "\"newText\"") { changes = 1 }
+    give "{\"applied\":false,\"failureReason\":\"preview-only\",\"failedChange\":0,\"changes_count\":" + str.from_i64(changes) + "}"
+}

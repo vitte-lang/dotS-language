@@ -1,0 +1,46 @@
+space ffi/python/py_bridge
+
+pull core/process
+pull ffi/c/ffi
+pull ffi/c/call
+
+proc py_runtime_bin() -> string
+{
+    let b = process.env("DOTS_PYTHON_BIN")
+    if b == "" { b = "python3" }
+    give b
+}
+
+proc py_gil_policy() -> string
+{
+    let p = process.env("DOTS_FFI_PY_GIL")
+    if p == "" { p = "required" }
+    if p != "required" && p != "single-thread" && p != "none"
+    {
+        p = "required"
+    }
+    give p
+}
+
+proc py_init_runtime() -> FFIResult
+{
+    let p = process.exec(py_runtime_bin(), ["-V"])
+    if p.code != 0
+    {
+        give ffi_err(E_FFI_ERROR, "runtime", "python runtime unavailable", false, 0, py_runtime_bin())
+    }
+    ffi_event("py_runtime", "info", "python runtime detected with gil=" + py_gil_policy(), "")
+    give ffi_ok("python_runtime_ready", 0)
+}
+
+proc py_load_module(path_or_name: string, base_dir: string, dry_run: bool, timeout_ms: i64) -> FFIResult
+{
+    let init = py_init_runtime()
+    if !init.ok { give init }
+    give ffi_load_library(path_or_name, base_dir, "python", "c", dry_run, timeout_ms)
+}
+
+proc py_call(handle_id: string, symbol: string, returns: string, arg_types_csv: string, args_csv: string, dry_run: bool, timeout_ms: i64) -> FFIResult
+{
+    give call_symbol(handle_id, symbol, returns, arg_types_csv, args_csv, "c", "python", dry_run, timeout_ms)
+}

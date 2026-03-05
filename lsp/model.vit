@@ -1,0 +1,311 @@
+space lsp/model
+
+pull core/str
+pull core/time
+pull core/fs
+
+form Document
+{
+    uri: string
+    version: i32
+    text: string
+    ast: string
+    symbols: [string]
+    last_parse_ms: i64
+    deps_pull: [string]
+    deps_space: [string]
+}
+
+form Diagnostic
+{
+    code: string
+    severity: i32
+    line: i32
+    character: i32
+    message: string
+    related_uri: string
+    related_line: i32
+    related_character: i32
+}
+
+form DiagState
+{
+    uri: string
+    hash: string
+}
+
+proc normalize_uri(uri: string) -> string
+{
+    let u = str.trim(uri)
+    if u == "" { give "" }
+    u = str.replace(u, "%20", " ")
+    u = str.replace(u, "%3A", ":")
+    u = str.replace(u, "%2F", "/")
+    if str.starts_with(u, "file://")
+    {
+        if str.starts_with(u, "file:///") && str.contains(u, ":/")
+        {
+            # keep windows style: file:///C:/...
+            give u
+        }
+        give u
+    }
+    if str.starts_with(u, "/")
+    {
+        give "file://" + u
+    }
+    give "file:///" + u
+}
+
+proc uri_to_path(uri: string) -> string
+{
+    let u = normalize_uri(uri)
+    if str.starts_with(u, "file:///")
+    {
+        give str.replace(u, "file://", "")
+    }
+    if str.starts_with(u, "file://")
+    {
+        give str.replace(u, "file://", "")
+    }
+    give u
+}
+
+proc safe_workspace_path(path: string) -> bool
+{
+    if str.contains(path, "../") { give false }
+    if str.contains(path, "..\\") { give false }
+    give true
+}
+
+proc index_file() -> string
+{
+    give ".dots/lsp/index.v1.jsonl"
+}
+
+proc simple_hash(raw: string) -> string
+{
+    let sum: i64 = 0
+    let i: i32 = 0
+    loop while i < raw.len
+    {
+        sum = sum + str.to_i64(str.from_i64(raw[i]))
+        i = i + 1
+    }
+    give str.from_i64(sum) + ":" + str.from_i64(raw.len)
+}
+
+proc find_doc_index(docs: [Document], uri: string) -> i32
+{
+    let u = normalize_uri(uri)
+    let i: i32 = 0
+    loop while i < docs.len
+    {
+        if docs[i].uri == u { give i }
+        i = i + 1
+    }
+    give -1
+}
+
+proc extract_symbols(text: string) -> [string]
+{
+    let out: [string] = []
+    let lines = str.split(text, "\n")
+    loop l in lines
+    {
+        let line = str.trim(l)
+        if str.starts_with(line, "space ")
+        {
+            let p = str.split(line, " ")
+            if p.len >= 2 { out = out.push(p[1]) }
+        }
+        if str.starts_with(line, "proc ")
+        {
+            let rest = str.replace(line, "proc ", "")
+            let p = str.split(rest, "(")
+            if p.len >= 1 { out = out.push(str.trim(p[0])) }
+        }
+        if str.starts_with(line, "form ")
+        {
+            let rest = str.replace(line, "form ", "")
+            let p = str.split(rest, " ")
+            if p.len >= 1 { out = out.push(str.trim(p[0])) }
+        }
+        if str.starts_with(line, "const ")
+        {
+            let rest = str.replace(line, "const ", "")
+            let p = str.split(rest, ":")
+            if p.len >= 1 { out = out.push(str.trim(p[0])) }
+        }
+    }
+    give out
+}
+
+proc extract_deps_pull(text: string) -> [string]
+{
+    let out: [string] = []
+    let lines = str.split(text, "\n")
+    loop l in lines
+    {
+        let line = str.trim(l)
+        if !str.starts_with(line, "pull ") { continue }
+        let p = str.split(line, " ")
+        if p.len >= 2
+        {
+            out = out.push(str.trim(p[1]))
+        }
+    }
+    give out
+}
+
+proc extract_deps_space(text: string) -> [string]
+{
+    let out: [string] = []
+    let lines = str.split(text, "\n")
+    loop l in lines
+    {
+        let line = str.trim(l)
+        if !str.starts_with(line, "space ") { continue }
+        let p = str.split(line, " ")
+        if p.len >= 2
+        {
+            out = out.push(str.trim(p[1]))
+        }
+    }
+    give out
+}
+
+proc parse_ast_summary(text: string) -> string
+{
+    let s = str.from_i64(str.split(text, "\n").len)
+    let syms = str.from_i64(extract_symbols(text).len)
+    give "ast(lines=" + s + ",symbols=" + syms + ")"
+}
+
+proc upsert_document(docs: [Document], uri: string, version: i32, text: string) -> [Document]
+{
+    let u = normalize_uri(uri)
+    let next = docs
+    let idx = find_doc_index(next, u)
+    let d = Document(u, version, text, parse_ast_summary(text), extract_symbols(text), time.now_ms(), extract_deps_pull(text), extract_deps_space(text))
+    if idx < 0
+    {
+        next = next.push(d)
+        persist_index(next)
+        give next
+    }
+    next[idx] = d
+    persist_index(next)
+    give next
+}
+
+proc remove_document(docs: [Document], uri: string) -> [Document]
+{
+    let u = normalize_uri(uri)
+    let out: [Document] = []
+    loop d in docs
+    {
+        if d.uri == u { continue }
+        out = out.push(d)
+    }
+    persist_index(out)
+    give out
+}
+
+proc find_doc(docs: [Document], uri: string) -> Document?
+{
+    let idx = find_doc_index(docs, uri)
+    if idx < 0 { give null }
+    give docs[idx]
+}
+
+proc line_at(text: string, line: i32) -> string
+{
+    let lines = str.split(text, "\n")
+    if line < 0 || line >= lines.len { give "" }
+    give lines[line]
+}
+
+proc word_prefix(text: string, line: i32, character: i32) -> string
+{
+    let l = line_at(text, line)
+    if l == "" { give "" }
+    let x = str.replace(l, "(", " ")
+    x = str.replace(x, ")", " ")
+    x = str.replace(x, ".", " ")
+    x = str.replace(x, ",", " ")
+    x = str.replace(x, ":", " ")
+    x = str.replace(x, "\t", " ")
+    let parts = str.split(x, " ")
+    let out = ""
+    loop p in parts
+    {
+        if str.trim(p) != "" { out = str.trim(p) }
+    }
+    give out
+}
+
+proc diag_state_get(states: [DiagState], uri: string) -> string
+{
+    let u = normalize_uri(uri)
+    loop s in states
+    {
+        if s.uri == u { give s.hash }
+    }
+    give ""
+}
+
+proc diag_state_set(states: [DiagState], uri: string, hash: string) -> [DiagState]
+{
+    let u = normalize_uri(uri)
+    let out = states
+    let i: i32 = 0
+    loop while i < out.len
+    {
+        if out[i].uri == u
+        {
+            out[i] = DiagState(u, hash)
+            give out
+        }
+        i = i + 1
+    }
+    out = out.push(DiagState(u, hash))
+    give out
+}
+
+proc persist_index(docs: [Document]) -> void
+{
+    fs.mkdir_p(".dots/lsp")
+    let out = ""
+    loop d in docs
+    {
+        let symbols = str.join(d.symbols, ",")
+        let pulls = str.join(d.deps_pull, ",")
+        let spaces = str.join(d.deps_space, ",")
+        out = out + "{\"uri\":\"" + d.uri + "\",\"version\":\"" + str.from_i64(d.version) + "\",\"symbols\":\"" + str.replace(symbols, "\"", "'") + "\",\"deps_pull\":\"" + str.replace(pulls, "\"", "'") + "\",\"deps_space\":\"" + str.replace(spaces, "\"", "'") + "\"}\n"
+    }
+    fs.write_file(index_file(), out)
+}
+
+proc load_index_symbols(uri: string) -> [string]
+{
+    let out: [string] = []
+    if !fs.exists(index_file()) { give out }
+    let lines = str.split(fs.read_file(index_file()), "\n")
+    loop l in lines
+    {
+        let line = str.trim(l)
+        if line == "" { continue }
+        if !str.contains(line, "\"uri\":\"" + normalize_uri(uri) + "\"") { continue }
+        let pat = "\"symbols\":\""
+        if !str.contains(line, pat) { continue }
+        let p = str.split(line, pat)
+        if p.len < 2 { continue }
+        let q = str.split(p[1], "\"")
+        if q.len < 1 { continue }
+        let raw = q[0]
+        if raw == "" { give out }
+        give str.split(raw, ",")
+    }
+    give out
+}

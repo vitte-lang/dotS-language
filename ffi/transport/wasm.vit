@@ -1,0 +1,28 @@
+space ffi/transport/wasm
+
+pull core/process
+pull core/str
+pull ffi/transport/types
+
+proc transport_wasm(symbol: string, handle_id: string, args_csv: string, timeout_ms: i64, request_deadline_ms: i64, cancel_token: string) -> TransportResult
+{
+    let bin = process.env("DOTS_FFI_WASM_BIN")
+    if bin == "" { bin = "dots-ffi-wasm" }
+    let argv: [string] = [
+        "--symbol", symbol,
+        "--handle", handle_id,
+        "--args", args_csv,
+        "--protocol-version", "1.1",
+        "--request-deadline-ms", str.from_i64(request_deadline_ms),
+        "--cancel-token", cancel_token,
+        "--fuel", process.env("DOTS_WASM_FUEL"),
+        "--memory-pages", process.env("DOTS_WASM_MEMORY_PAGES")
+    ]
+    if timeout_ms > 0
+    {
+        argv = argv.push("--timeout-ms")
+        argv = argv.push(str.from_i64(timeout_ms))
+    }
+    let p = process.exec(bin, argv)
+    give TransportResult(p.code, p.out, p.err, "wasm://" + bin, "wasm", "1.1.0")
+}
