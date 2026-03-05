@@ -1,0 +1,9 @@
+[VIT]
+runtime_module=space runtime/${module:name}\n\npull runtime/common/result\n\nproc ${name:run}() -> result.RuntimeResult\n{\n    ${cursor}\n    give result.ok("ok")\n}\n
+runtime_test=.test.runtime.${suite:name}.${case_name:case}.\n.begin.\n.assert.contains."${expected}".\n.ret.\n.end.\n
+runtime_status_json=dots runtime status --json\n
+runtime_status_prom=dots runtime status --prom\n
+runtime_doctor_strict=dots runtime doctor --strict\n
+runtime_events=dots runtime events --lines 100\n
+runtime_trace=dots runtime trace\n
+json_110=print_json_response_ex("1.1.0", "${command}", "${status:ok}", "${error_type}", "${error_message}", [${keys}], [${values}])\n

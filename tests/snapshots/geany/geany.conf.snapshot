@@ -17,7 +17,7 @@ auto_indent=true
 detect_indent=true
 detect_indent_width=true
 close_comments=true
-autoclose_chars=([{'"`"
+autoclose_chars=([{"'`"
 auto_close_xml_tags=false
 
 [files]
@@ -28,7 +28,7 @@ disk_check_timeout=3000
 cmdline_new_files=true
 
 [tools]
-terminal_cmd=env DOTS_CLI_STRICT=1 bash -lc "%c"
+terminal_cmd=env DOTS_CLI_STRICT=1 DOTS_RUNTIME_STRICT=1 DOTS_RUNTIME_SEED=424242 DOTS_REGISTRY_MODE=fake bash -lc "%c"
 
 [build-menu]
 save_all_before_build=true
@@ -38,4 +38,3 @@ use_regexp=true
 
 [printing]
 print_line_numbers=false
-

@@ -1,0 +1,8 @@
+.test.runtime.${suite:name}.${case_name:case}.
+.begin.
+.assert.contains."${expected:ok}".
+.ret.
+.end.
+
+# snapshot target:
+# tests/snapshots/runtime/${suite:name}_${case_name:case}.snapshot.json
