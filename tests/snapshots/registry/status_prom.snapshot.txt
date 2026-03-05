@@ -1,0 +1,4 @@
+dots_registry_success_total{workspace=".dots/fake_registry",mode="fake"} 0
+dots_registry_failure_total{workspace=".dots/fake_registry",mode="fake"} 0
+dots_registry_mode{workspace=".dots/fake_registry",mode="fake"} 1
+dots_backend_latency_ms_bucket{workspace=".dots/fake_registry",mode="fake",phase="load",le="50"} 0

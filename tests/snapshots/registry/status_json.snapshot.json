@@ -1,0 +1,1 @@
+{"schema_version":"1.1.0","command":"registry.status","status":"ok","state":{"mode":"fake","strict_mode":"false"},"lock":{"status":"false"},"cb":{"state":"closed"},"policy":{"jitter":"equal","budget":"4"},"metrics":{"success_total":"0","failure_total":"0","latency_p95_ms":"0"}}

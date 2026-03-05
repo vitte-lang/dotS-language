@@ -1,0 +1,13 @@
+.test.registry.status.snapshot.json.shape.
+.begin.
+.sys.exec.capture."bash -lc 'test -f tests/snapshots/registry/status_json.snapshot.json && rg -n \"schema_version|state|lock|cb|policy|metrics\" tests/snapshots/registry/status_json.snapshot.json && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.registry.status.snapshot.prom.shape.
+.begin.
+.sys.exec.capture."bash -lc 'test -f tests/snapshots/registry/status_prom.snapshot.txt && rg -n \"dots_registry_|dots_backend_latency_ms_bucket\" tests/snapshots/registry/status_prom.snapshot.txt && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
