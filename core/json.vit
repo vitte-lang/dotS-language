@@ -1,0 +1,123 @@
+space core/json
+
+pull core/str
+
+proc normalize_escapes(raw: string) -> string
+{
+    let t = raw
+    t = str.replace(t, "\\n", "\n")
+    t = str.replace(t, "\\t", "\t")
+    t = str.replace(t, "\\r", "\r")
+    t = str.replace(t, "\\\"", "\"")
+    t = str.replace(t, "\\\\", "\\")
+    give t
+}
+
+proc get_string(raw: string, key: string) -> string
+{
+    let pat = "\"" + key + "\":\""
+    if !str.contains(raw, pat) { give "" }
+    let p = str.split(raw, pat)
+    if p.len < 2 { give "" }
+    let q = str.split(p[1], "\"")
+    if q.len < 1 { give "" }
+    give normalize_escapes(q[0])
+}
+
+proc get_number_or_literal(raw: string, key: string) -> string
+{
+    let pat = "\"" + key + "\":"
+    if !str.contains(raw, pat) { give "" }
+    let p = str.split(raw, pat)
+    if p.len < 2 { give "" }
+    let q = str.split(p[1], ",")
+    if q.len < 1
+    {
+        q = str.split(p[1], "}")
+        if q.len < 1 { give "" }
+    }
+    let token = str.trim(str.replace(str.replace(q[0], "\"", ""), "\n", ""))
+    token = str.replace(token, "\r", "")
+    give token
+}
+
+proc get_bool(raw: string, key: string, fallback: bool) -> bool
+{
+    let t = get_number_or_literal(raw, key)
+    if t == "true" || t == "1" { give true }
+    if t == "false" || t == "0" { give false }
+    give fallback
+}
+
+proc jsonrpc_id_json_value(raw: string) -> string
+{
+    let sid = get_string(raw, "id")
+    if sid != "" { give "\"" + sid + "\"" }
+    let nid = get_number_or_literal(raw, "id")
+    if nid != "" { give nid }
+    give "null"
+}
+
+proc jsonrpc_id_key(raw: string) -> string
+{
+    let sid = get_string(raw, "id")
+    if sid != "" { give sid }
+    let nid = get_number_or_literal(raw, "id")
+    if nid != "" { give nid }
+    give ""
+}
+
+proc jsonrpc_is_v2(raw: string) -> bool
+{
+    give get_string(raw, "jsonrpc") == "2.0"
+}
+
+proc jsonrpc_frame(payload: string) -> string
+{
+    give "Content-Length: " + str.from_i64(payload.len) + "\r\n\r\n" + payload
+}
+
+proc jsonrpc_parse_frames(raw: string) -> [string]
+{
+    let out: [string] = []
+    if raw == "" { give out }
+    let chunks = str.split(raw, "Content-Length:")
+    loop c in chunks
+    {
+        let chunk = str.trim(c)
+        if chunk == "" { continue }
+        let parts = str.split(chunk, "\r\n\r\n")
+        if parts.len < 2
+        {
+            out = out.push("__PARSE_ERROR__")
+            continue
+        }
+        let first_header = str.split(parts[0], "\r\n")[0]
+        let n = str.to_i64(str.trim(first_header))
+        if n <= 0
+        {
+            out = out.push("__PARSE_ERROR__")
+            continue
+        }
+        let body = parts[1]
+        if body == ""
+        {
+            out = out.push("__PARSE_ERROR__")
+            continue
+        }
+        let exact = ""
+        let i: i32 = 0
+        loop while i < body.len && i < n
+        {
+            exact = exact + str.from_i64(body[i])
+            i = i + 1
+        }
+        if exact.len != n
+        {
+            out = out.push("__PARSE_ERROR__")
+            continue
+        }
+        out = out.push(exact)
+    }
+    give out
+}
