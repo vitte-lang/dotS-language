@@ -1,0 +1,12 @@
+.module.examples.bench_runner.
+.bench.begin."runner".
+.set.$warmup.1.
+.set.$runs.5.
+.loop.$warmup.
+.call.bench.warmup.
+.end.
+.loop.$runs.
+.call.bench.run.
+.end.
+.bench.summary.json.
+.ret.0.

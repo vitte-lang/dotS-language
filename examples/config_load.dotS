@@ -1,0 +1,13 @@
+.module.examples.config_load.
+.set.$mode."dev".
+.set.$timeout_ms.1000.
+.sys.env.get."DOTS_MODE".$mode_env.
+.sys.env.get."DOTS_TIMEOUT_MS".$timeout_env.
+.if.$mode_env.
+.set.$mode.$mode_env.
+.end.
+.if.$timeout_env.
+.set.$timeout_ms.$timeout_env.
+.end.
+.call.config.validate.$mode.$timeout_ms.
+.ret.0.

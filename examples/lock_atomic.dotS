@@ -1,0 +1,11 @@
+.module.examples.lock_atomic.
+.set.$stale_ms.30000.
+.set.$wait_budget_ms.500.
+.lock.acquire.$stale_ms.$wait_budget_ms.
+.if.$lock_ok.
+.lock.heartbeat.
+.lock.release.
+.else.
+.call.io.print.
+.end.
+.ret.0.

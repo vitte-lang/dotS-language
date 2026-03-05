@@ -1,0 +1,6 @@
+.module.examples.error_contract.
+.set.$schema."1.1.0".
+.sys.env.get."DOTS_RUN_ID".$run_id.
+.sys.env.get."DOTS_REQUEST_ID".$request_id.
+.error.emit.$schema."EXAMPLE_ERROR"."something went wrong".$run_id.$request_id.
+.ret.1.

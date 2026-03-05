@@ -1,0 +1,6 @@
+.module.examples.lsp_min_server.
+.set.$init."{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\"}".
+.lsp.parse.$init.
+.lsp.result.1."initialize".
+.lsp.result.1."shutdown".
+.ret.0.

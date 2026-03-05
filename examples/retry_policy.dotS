@@ -1,0 +1,9 @@
+.module.examples.retry_policy.
+.set.$retry_total.5.
+.set.$retry_connect.2.
+.set.$retry_application.3.
+.set.$seed.12345.
+.retry.policy.init.$retry_total.$retry_connect.$retry_application.
+.retry.jitter.seed.$seed.
+.call.transport.request.
+.ret.0.

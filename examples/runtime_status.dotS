@@ -1,0 +1,12 @@
+.module.examples.runtime_status.
+.set.$format."json".
+.sys.env.get."DOTS_STATUS_FORMAT".$format_env.
+.if.$format_env.
+.set.$format.$format_env.
+.end.
+.if.$format.
+.runtime.status.$format.
+.else.
+.runtime.status.json.
+.end.
+.ret.0.

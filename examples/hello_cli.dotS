@@ -1,0 +1,9 @@
+.module.examples.hello_cli.
+.sys.env.get."DOTS_OUTPUT".$output.
+.set.$name."world".
+.if.$output.
+.call.io.print.
+.else.
+.call.io.print.
+.end.
+.ret.0.

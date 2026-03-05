@@ -1,0 +1,10 @@
+.module.examples.runtime_cancel_timeout.
+.set.$timeout_ms.200.
+.cancel.token.make.$token.$timeout_ms.
+.loop.5.
+.if.$token.
+.call.runtime.cancel.check.$token.
+.end.
+.call.runtime.step.
+.end.
+.ret.0.

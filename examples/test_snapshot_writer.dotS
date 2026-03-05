@@ -1,0 +1,9 @@
+.module.examples.test_snapshot_writer.
+.set.$schema."1.1.0".
+.sys.env.get."DOTS_RUNTIME_SEED".$seed.
+.if.$seed.
+.snapshot.write."tests/snapshots/examples/snapshot_writer.json".$schema.$seed.
+.else.
+.snapshot.write."tests/snapshots/examples/snapshot_writer.json".$schema."12345".
+.end.
+.ret.0.

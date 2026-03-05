@@ -1,0 +1,6 @@
+.module.examples.ffi_protocol_parse.
+.set.$payload_ok."protocol_version=1.1.0".
+.set.$payload_err."error_type=CALL_FAILED".
+.ffi.protocol.parse.$payload_ok.
+.ffi.protocol.parse.$payload_err.
+.ret.0.

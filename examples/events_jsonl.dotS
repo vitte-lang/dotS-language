@@ -1,0 +1,6 @@
+.module.examples.events_jsonl.
+.events.append."1.1.0"."core"."info"."example started".
+.events.append."1.1.0"."core"."warn"."token=abc".
+.events.append."1.1.0"."transport"."error"."bearer xyz".
+.events.tail.10.
+.ret.0.
