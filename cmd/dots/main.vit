@@ -18,6 +18,9 @@ pull dots/cmd/common/tty
 pull dots/cmd/common/progress
 pull modules/package/backend
 pull ffi/c/ffi
+pull runtime/status
+pull runtime/common/events
+pull runtime/common/trace
 
 proc audit_log(ctx: CommandContext, action: string, detail: string) -> void
 {
@@ -775,6 +778,96 @@ proc builtin_lsp(args: [string], ctx: CommandContext) -> i32
     give p2.code
 }
 
+proc builtin_runtime(args: [string], ctx: CommandContext) -> i32
+{
+    if args.len == 0
+    {
+        io.print("usage: dots runtime <status|doctor|events|trace> [--json|--prom|--table] [--fix] [--strict] [--lines <n>]")
+        give EXIT_USAGE
+    }
+
+    let sub = args[0]
+    if sub == "status"
+    {
+        if list.contains(args, "--prom")
+        {
+            io.print(runtime_status_prom())
+            give EXIT_OK
+        }
+        if ctx.globals.json_out || list.contains(args, "--json")
+        {
+            io.print(runtime_status_json())
+            give EXIT_OK
+        }
+        io.print(runtime_status_table())
+        give EXIT_OK
+    }
+
+    if sub == "doctor"
+    {
+        let out = runtime_doctor()
+        if list.contains(args, "--fix")
+        {
+            rotate_if_needed(2 * 1024 * 1024, 7 * 24 * 3600 * 1000)
+        }
+        if ctx.globals.json_out || list.contains(args, "--json")
+        {
+            let st = "ok"
+            if str.contains(out, "failed") { st = "error" }
+            print_json_response_ex("1.1.0", "runtime.doctor", st, "", "", ["message"], [out])
+        }
+        else
+        {
+            io.print(out)
+        }
+        if list.contains(args, "--strict") && str.contains(out, "failed")
+        {
+            give EXIT_RUNTIME
+        }
+        give EXIT_OK
+    }
+
+    if sub == "events"
+    {
+        let n: i32 = 20
+        let i: i32 = 1
+        loop while i < args.len
+        {
+            if args[i] == "--lines" && i + 1 < args.len
+            {
+                n = str.to_i64(args[i + 1])
+                i = i + 2
+                continue
+            }
+            if str.starts_with(args[i], "--lines=")
+            {
+                n = str.to_i64(str.replace(args[i], "--lines=", ""))
+            }
+            i = i + 1
+        }
+        let out = tail(n)
+        if ctx.globals.json_out || list.contains(args, "--json")
+        {
+            io.print("{\"schema_version\":\"1.1.0\",\"events\":\"" + str.replace(str.replace(out, "\"", "'"), "\n", "\\n") + "\"}")
+        }
+        else
+        {
+            io.print(out)
+        }
+        give EXIT_OK
+    }
+
+    if sub == "trace"
+    {
+        let lines = replay_lines(100)
+        loop l in lines { io.print(l) }
+        give EXIT_OK
+    }
+
+    err("unknown runtime subcommand")
+    give EXIT_USAGE
+}
+
 proc forward_command(ctx: CommandContext, command: string, args: [string]) -> i32
 {
     let c = find_command(command)
@@ -879,6 +972,10 @@ proc route_command(ctx: CommandContext, command: string, args: [string]) -> i32
     if command == "lsp"
     {
         give builtin_lsp(args, ctx)
+    }
+    if command == "runtime"
+    {
+        give builtin_runtime(args, ctx)
     }
 
     let confirm = ensure_confirmation(ctx, command)

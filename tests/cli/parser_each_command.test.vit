@@ -29,6 +29,7 @@
 .assert.parse.ok."dots registry --help".
 .assert.parse.ok."dots repl --help".
 .assert.parse.ok."dots run --help".
+.assert.parse.ok."dots runtime --help".
 .assert.parse.ok."dots search --help".
 .assert.parse.ok."dots self --help".
 .assert.parse.ok."dots status --help".
@@ -101,6 +102,8 @@
 .assert.parse.ok."dots repl --json --help".
 .assert.parse.ok."dots --json run --help".
 .assert.parse.ok."dots run --json --help".
+.assert.parse.ok."dots --json runtime --help".
+.assert.parse.ok."dots runtime --json --help".
 .assert.parse.ok."dots --json search --help".
 .assert.parse.ok."dots search --json --help".
 .assert.parse.ok."dots --json self --help".
