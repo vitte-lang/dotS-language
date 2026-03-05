@@ -1,0 +1,187 @@
+space dots/cmd/common/network
+
+pull core/io
+pull core/fs
+pull core/str
+pull core/time
+pull core/process
+
+form NetworkPolicy
+{
+    offline: bool
+    mirror: string
+    retries: i32
+    base_delay_ms: i64
+    jitter_ms: i64
+    cb_threshold: i32
+    cb_cooldown_ms: i64
+}
+
+proc net_state_file() -> string
+{
+    give ".dots/network_cb.state"
+}
+
+proc state_get(key: string) -> i64
+{
+    if !fs.exists(net_state_file())
+    {
+        give 0
+    }
+
+    let lines = str.split(fs.read_file(net_state_file()), "\n")
+    loop l in lines
+    {
+        let line = str.trim(l)
+        if line == "" { continue }
+        let kv = str.split(line, "=")
+        if kv.len < 2 { continue }
+        if str.trim(kv[0]) == key
+        {
+            give str.to_i64(str.trim(kv[1]))
+        }
+    }
+
+    give 0
+}
+
+proc state_set(fail_count: i64, opened_at_ms: i64) -> void
+{
+    fs.mkdir_p(".dots")
+    fs.write_file(net_state_file(), "fail_count=" + str.from_i64(fail_count) + "\nopened_at_ms=" + str.from_i64(opened_at_ms) + "\n")
+}
+
+proc cb_open(p: NetworkPolicy) -> bool
+{
+    let fail_count = state_get("fail_count")
+    let opened_at = state_get("opened_at_ms")
+
+    if fail_count < p.cb_threshold
+    {
+        give false
+    }
+
+    if opened_at == 0
+    {
+        state_set(fail_count, time.now_ms())
+        give true
+    }
+
+    if time.now_ms() - opened_at < p.cb_cooldown_ms
+    {
+        give true
+    }
+
+    state_set(0, 0)
+    give false
+}
+
+proc cb_mark_success() -> void
+{
+    state_set(0, 0)
+}
+
+proc cb_mark_failure(p: NetworkPolicy) -> void
+{
+    let fail_count = state_get("fail_count") + 1
+    let opened_at = state_get("opened_at_ms")
+
+    if fail_count >= p.cb_threshold && opened_at == 0
+    {
+        opened_at = time.now_ms()
+    }
+
+    state_set(fail_count, opened_at)
+}
+
+proc net_jitter_ms(base: i64, jitter: i64) -> i64
+{
+    if jitter <= 0
+    {
+        give base
+    }
+
+    let j = time.now_ms() % jitter
+    give base + j
+}
+
+proc net_endpoints(mirror: string) -> [string]
+{
+    if mirror == ""
+    {
+        give ["https://registry.dots.dev"]
+    }
+
+    let parts = str.split(mirror, ",")
+    let out: [string] = []
+    loop p in parts
+    {
+        let v = str.trim(p)
+        if v != ""
+        {
+            out = out.push(v)
+        }
+    }
+
+    if out.len == 0
+    {
+        give ["https://registry.dots.dev"]
+    }
+
+    give out
+}
+
+proc net_attempt(endpoint: string) -> i32
+{
+    if process.env("DOTS_CLI_SIMULATE_NET_FAIL") == "1"
+    {
+        give 1
+    }
+
+    let cmd = "curl -Is --max-time 2 \"" + endpoint + "\" >/dev/null 2>&1"
+    let p = process.exec("bash", ["-lc", cmd])
+    give p.code
+}
+
+proc net_request(op: string, p: NetworkPolicy) -> i32
+{
+    if p.offline
+    {
+        io.print("dots: offline mode blocks network op: " + op)
+        give 2
+    }
+
+    if cb_open(p)
+    {
+        io.print("dots: network circuit breaker open")
+        give 5
+    }
+
+    let eps = net_endpoints(p.mirror)
+
+    let attempt: i32 = 0
+    loop while attempt <= p.retries
+    {
+        loop ep in eps
+        {
+            let code = net_attempt(ep)
+            if code == 0
+            {
+                cb_mark_success()
+                give 0
+            }
+        }
+
+        cb_mark_failure(p)
+
+        if attempt < p.retries
+        {
+            let sleep_ms = net_jitter_ms(p.base_delay_ms * (attempt + 1), p.jitter_ms)
+            time.sleep_ms(sleep_ms)
+        }
+
+        attempt = attempt + 1
+    }
+
+    give 1
+}

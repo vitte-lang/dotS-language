@@ -1,0 +1,52 @@
+space dots/cmd/common/base_command
+
+pull core/io
+pull dots/cmd/registry
+
+proc print_usage_for(command: string) -> void
+{
+    let c = find_command(command)
+
+    if c == null
+    {
+        io.print("usage: dots " + command)
+        give
+    }
+
+    io.print("usage: " + c.usage)
+    io.print("examples:")
+    loop ex in c.examples
+    {
+        io.print("  " + ex)
+    }
+
+    io.print("options:")
+    if c.options.len == 0
+    {
+        io.print("  (none)")
+    }
+    else
+    {
+        loop o in c.options
+        {
+            io.print("  " + o)
+        }
+    }
+}
+
+proc require_help(argv: [string]) -> bool
+{
+    let i: i32 = 0
+
+    loop while i < argv.len
+    {
+        let a = argv[i]
+        if a == "--help" || a == "-h"
+        {
+            give true
+        }
+        i = i + 1
+    }
+
+    give false
+}

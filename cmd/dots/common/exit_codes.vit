@@ -1,0 +1,10 @@
+space dots/cmd/common/exit_codes
+
+const EXIT_OK: i32 = 0
+const EXIT_USAGE: i32 = 2
+const EXIT_INVALID_ARGS: i32 = 3
+const EXIT_UNKNOWN_COMMAND: i32 = 4
+const EXIT_RUNTIME: i32 = 5
+const EXIT_INTERRUPTED: i32 = 130
+const EXIT_CANCELLED: i32 = 131
+const EXIT_SECURITY: i32 = 132

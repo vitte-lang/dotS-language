@@ -1,0 +1,56 @@
+space dots/cmd/common/path
+
+pull core/str
+pull core/process
+
+proc normalize_path(raw: string) -> string
+{
+    if raw == ""
+    {
+        give ""
+    }
+
+    if str.starts_with(raw, "/")
+    {
+        give raw
+    }
+
+    let cwd = process.cwd()
+
+    if str.ends_with(cwd, "/")
+    {
+        give cwd + raw
+    }
+
+    give cwd + "/" + raw
+}
+
+proc secure_join(base: string, name: string) -> string?
+{
+    if str.contains(name, "..")
+    {
+        give null
+    }
+
+    if str.starts_with(name, "/")
+    {
+        give null
+    }
+
+    if str.ends_with(base, "/")
+    {
+        give base + name
+    }
+
+    give base + "/" + name
+}
+
+proc is_safe_subpath(path: string) -> bool
+{
+    if str.contains(path, "../")
+    {
+        give false
+    }
+
+    give true
+}

@@ -1,0 +1,17 @@
+space dots/cmd/common/progress
+
+pull core/io
+pull core/str
+
+proc spinner(step: i32) -> string
+{
+    let frames = ["-", "\\", "|", "/"]
+    let idx = step % 4
+    give frames[idx]
+}
+
+proc show_progress(prefix: string, current: i32, total: i32) -> void
+{
+    let pct = (current * 100) / total
+    io.print(prefix + " " + str.from_i32(pct) + "%")
+}

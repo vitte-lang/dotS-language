@@ -1,0 +1,56 @@
+space dots/cmd/common/context
+
+pull core/time
+pull core/str
+
+form GlobalOptions
+{
+    config_file: string
+    cwd: string
+    json_out: bool
+    quiet: bool
+    verbose: bool
+    trace: bool
+    timeout_ms: i64
+    profile: string
+    color: string
+    yes: bool
+    force: bool
+    dry_run: bool
+    includes: [string]
+}
+
+form CommandContext
+{
+    globals: GlobalOptions
+    run_id: string
+    started_at_ms: i64
+    cancelled: bool
+}
+
+proc default_globals() -> GlobalOptions
+{
+    give GlobalOptions(
+        "",
+        ".",
+        false,
+        false,
+        false,
+        false,
+        30000,
+        "default",
+        "auto",
+        false,
+        false,
+        false,
+        []
+    )
+}
+
+proc new_context(globals: GlobalOptions) -> CommandContext
+{
+    let ts = time.now_ms()
+    let run_id = str.from_i64(ts)
+
+    give CommandContext(globals, run_id, ts, false)
+}

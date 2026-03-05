@@ -1,0 +1,18 @@
+space dots/cmd/common/result
+
+form Result
+{
+    ok: bool
+    value: string
+    error: string
+}
+
+proc ok(value: string) -> Result
+{
+    give Result(true, value, "")
+}
+
+proc err(message: string) -> Result
+{
+    give Result(false, "", message)
+}

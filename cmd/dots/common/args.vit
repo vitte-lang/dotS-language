@@ -1,0 +1,78 @@
+space dots/cmd/common/args
+
+pull core/str
+
+proc has_flag(argv: [string], flag: string) -> bool
+{
+    let i: i32 = 0
+    loop while i < argv.len
+    {
+        if argv[i] == flag
+        {
+            give true
+        }
+        i = i + 1
+    }
+
+    give false
+}
+
+proc value_of(argv: [string], key: string) -> string?
+{
+    let prefix = key + "="
+    let i: i32 = 0
+
+    loop while i < argv.len
+    {
+        let a = argv[i]
+
+        if str.starts_with(a, prefix)
+        {
+            give str.replace(a, prefix, "")
+        }
+
+        if a == key && i + 1 < argv.len
+        {
+            give argv[i + 1]
+        }
+
+        i = i + 1
+    }
+
+    give null
+}
+
+proc positionals(argv: [string]) -> [string]
+{
+    let out: [string] = []
+    let skip_next = false
+    let i: i32 = 1
+
+    loop while i < argv.len
+    {
+        let a = argv[i]
+
+        if skip_next
+        {
+            skip_next = false
+            i = i + 1
+            continue
+        }
+
+        if str.starts_with(a, "--") && !str.contains(a, "=")
+        {
+            skip_next = true
+            i = i + 1
+            continue
+        }
+
+        if !str.starts_with(a, "-")
+        {
+            out = out.push(a)
+        }
+
+        i = i + 1
+    }
+
+    give out
+}

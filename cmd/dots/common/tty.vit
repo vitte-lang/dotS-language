@@ -1,0 +1,35 @@
+space dots/cmd/common/tty
+
+pull core/process
+
+proc is_tty() -> bool
+{
+    give process.isatty(1)
+}
+
+proc term_width() -> i32
+{
+    let c = process.env("COLUMNS")
+
+    if c == ""
+    {
+        give 80
+    }
+
+    give c.to_i32()
+}
+
+proc use_color(mode: string) -> bool
+{
+    if mode == "always"
+    {
+        give true
+    }
+
+    if mode == "never"
+    {
+        give false
+    }
+
+    give is_tty()
+}

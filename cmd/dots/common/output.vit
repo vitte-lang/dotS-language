@@ -1,0 +1,95 @@
+space dots/cmd/common/output
+
+pull core/io
+pull core/str
+pull core/time
+pull core/process
+
+proc print_human(title: string, lines: [string]) -> void
+{
+    io.print(title)
+    loop l in lines
+    {
+        io.print(l)
+    }
+}
+
+proc json_escape(raw: string) -> string
+{
+    let out = raw
+    out = str.replace(out, "\\", "\\\\")
+    out = str.replace(out, "\"", "\\\"")
+    out = str.replace(out, "\n", "\\n")
+    out = str.replace(out, "\r", "")
+    give out
+}
+
+proc run_id() -> string
+{
+    let r = process.env("DOTS_RUN_ID")
+    if r != "" { give r }
+    give "run-" + str.from_i64(time.now_ms())
+}
+
+proc request_id() -> string
+{
+    let r = process.env("DOTS_REQUEST_ID")
+    if r != "" { give r }
+    give "req-" + str.from_i64(time.now_ms())
+}
+
+proc print_json_map(keys: [string], values: [string]) -> void
+{
+    let out = "{"
+    let i: i32 = 0
+
+    loop while i < keys.len
+    {
+        if i > 0
+        {
+            out = out + ","
+        }
+
+        out = out + "\"" + json_escape(keys[i]) + "\":\"" + json_escape(values[i]) + "\""
+        i = i + 1
+    }
+
+    out = out + "}"
+    io.print(out)
+}
+
+proc print_json_response_ex(schema_version: string, command: string, status: string, error_type: string, error_message: string, keys: [string], values: [string]) -> void
+{
+    let out = "{"
+    out = out + "\"schema_version\":\"" + json_escape(schema_version) + "\""
+    out = out + ",\"command\":\"" + json_escape(command) + "\""
+    out = out + ",\"status\":\"" + json_escape(status) + "\""
+    out = out + ",\"error_type\":\"" + json_escape(error_type) + "\""
+    out = out + ",\"error_message\":\"" + json_escape(error_message) + "\""
+    out = out + ",\"run_id\":\"" + json_escape(run_id()) + "\""
+    out = out + ",\"request_id\":\"" + json_escape(request_id()) + "\""
+
+    let i: i32 = 0
+    loop while i < keys.len
+    {
+        out = out + ",\"" + json_escape(keys[i]) + "\":\"" + json_escape(values[i]) + "\""
+        i = i + 1
+    }
+
+    out = out + "}"
+    io.print(out)
+}
+
+proc print_json_response(command: string, status: string, keys: [string], values: [string]) -> void
+{
+    print_json_response_ex("1.0.0", command, status, "", "", keys, values)
+}
+
+proc print_table(headers: [string], rows: [[string]]) -> void
+{
+    io.print(str.join(headers, " | "))
+    loop r in rows
+    {
+        io.print(str.join(r, " | "))
+    }
+}
