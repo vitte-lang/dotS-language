@@ -1,8 +1,6 @@
 name: Snapshots Auto Update (optional)
 
 on:
-  push:
-    branches: [ main, master ]
   workflow_dispatch:
 
 concurrency:
