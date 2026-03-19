@@ -1,6 +1,6 @@
 .test.core.lexer.tokens.strict.with_span_trivia.
 .begin.
-.assert.lex.ok."space x".
+.assert.lex.ok."set.$x.1".
 .assert.token.kind."keyword".
 .assert.token.span.present.
 .assert.token.trivia.present.
@@ -15,6 +15,20 @@
 .end.
 
 .test.core.lexer.incremental.relex.window.
+.begin.
+.assert.relex.window.ok.
+.assert.relex.tokens_total.gt0.
+.ret.
+.end.
+
+.test.core.lexer.comment.newline.preserved.
+.begin.
+.assert.lex.ok."let.$x.1 # keep newline\nlet.$y.2".
+.assert.token.kind."newline".
+.ret.
+.end.
+
+.test.core.lexer.window.slice.text.
 .begin.
 .assert.relex.window.ok.
 .assert.relex.tokens_total.gt0.

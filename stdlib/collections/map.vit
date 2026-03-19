@@ -1,0 +1,52 @@
+space stdlib/collections/map
+
+form Entry
+{
+    key: string
+    value: string
+}
+
+form Map
+{
+    entries: [Entry]
+}
+
+proc new() -> Map
+{
+    give Map([])
+}
+
+proc set(m: Map, key: string, value: string) -> Map
+{
+    let out: [Entry] = []
+    let replaced = false
+    loop e in m.entries
+    {
+        if e.key == key
+        {
+            out = out.push(Entry(key, value))
+            replaced = true
+        }
+        else
+        {
+            out = out.push(e)
+        }
+    }
+    if !replaced { out = out.push(Entry(key, value)) }
+    m.entries = out
+    give m
+}
+
+proc get(m: Map, key: string) -> string
+{
+    loop e in m.entries
+    {
+        if e.key == key { give e.value }
+    }
+    give ""
+}
+
+proc size(m: Map) -> i64
+{
+    give m.entries.len
+}

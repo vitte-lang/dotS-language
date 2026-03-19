@@ -5,6 +5,8 @@ const TK_IDENT: string = "ident"
 const TK_KEYWORD: string = "keyword"
 const TK_NUMBER: string = "number"
 const TK_STRING: string = "string"
+const TK_DOT: string = "dot"
+const TK_DOLLAR: string = "dollar"
 const TK_DOT_CALL: string = "dot_call"
 const TK_LPAREN: string = "lparen"
 const TK_RPAREN: string = "rparen"
@@ -17,3 +19,18 @@ const TK_NEWLINE: string = "newline"
 const TK_COMMENT: string = "comment"
 const TK_DOC_COMMENT: string = "doc_comment"
 const TK_UNKNOWN: string = "unknown"
+
+proc is_terminal(kind: string) -> bool
+{
+    give kind == TK_EOF || kind == TK_NEWLINE
+}
+
+proc is_value_start(kind: string) -> bool
+{
+    give kind == TK_IDENT || kind == TK_KEYWORD || kind == TK_NUMBER || kind == TK_STRING || kind == TK_DOLLAR
+}
+
+proc is_punct(kind: string) -> bool
+{
+    give kind == TK_DOT || kind == TK_DOLLAR || kind == TK_LPAREN || kind == TK_RPAREN || kind == TK_LBRACE || kind == TK_RBRACE || kind == TK_COMMA || kind == TK_COLON || kind == TK_EQUAL
+}

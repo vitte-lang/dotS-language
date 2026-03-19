@@ -1,0 +1,35 @@
+space runtime/exception/handler
+
+pull runtime/common/result
+pull runtime/common/log
+pull runtime/common/events
+pull runtime/exception/exception
+pull runtime/exception/stacktrace
+
+form Handler
+{
+    scope: string
+    strict: bool
+}
+
+proc new(scope: string, strict: bool) -> Handler
+{
+    if scope == "" { scope = "runtime" }
+    give Handler(scope, strict)
+}
+
+proc capture(h: Handler, ex: exception.Exception, st: stacktrace.StackTrace) -> result.RuntimeResult
+{
+    let msg = exception.summary(ex)
+    if stacktrace.top(st) != ""
+    {
+        msg = msg + " top=" + stacktrace.top(st)
+    }
+    log.emit("error", "runtime.exception", msg)
+    events.append("exception", "error", h.scope + ":" + ex.code)
+    if h.strict && ex.code == result.E_PANIC
+    {
+        give result.err(ex.code, msg, false)
+    }
+    give result.err(ex.code, msg, ex.retryable)
+}

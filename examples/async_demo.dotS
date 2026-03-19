@@ -1,0 +1,7 @@
+module.async_demo
+fn.main.$task
+set.$delay_ms.50
+call.async.spawn.$task
+call.async.sleep.$delay_ms
+call.async.await.$task
+ret.true

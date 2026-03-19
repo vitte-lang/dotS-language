@@ -1,5 +1,6 @@
 space modules/package/backend
 
+pull core/str
 pull modules/package/backend/types
 pull modules/package/backend/core
 pull modules/package/backend/state
@@ -42,4 +43,49 @@ proc backend_events_tail_json_array(lines_count: i32, component: string) -> stri
 proc backend_events_query_json_array(lines_count: i32, component: string, severity: string, since_ms: i64, until_ms: i64) -> string
 {
     give events_query_json_array(lines_count, component, severity, since_ms, until_ms)
+}
+
+proc backend_status_json() -> string
+{
+    let pairs = backend_status_pairs_core()
+    let out = ""
+    let i: i32 = 0
+    loop while i < pairs.len
+    {
+        let kv = str.split(pairs[i], "=")
+        if kv.len >= 2
+        {
+            if out != "" { out = out + "," }
+            out = out + "\"" + kv[0] + "\":\"" + str.replace(kv[1], "\"", "'") + "\""
+        }
+        i = i + 1
+    }
+    give "{\"schema_version\":\"1.1.0\",\"status\":{" + out + "}}"
+}
+
+proc backend_status_prom() -> string
+{
+    let pairs = backend_status_pairs_core()
+    let out = ""
+    loop p in pairs
+    {
+        let kv = str.split(p, "=")
+        if kv.len < 2 { continue }
+        out = out + "dots_backend_status{key=\"" + kv[0] + "\"} " + kv[1] + "\n"
+    }
+    give out
+}
+
+proc backend_doctor_json() -> string
+{
+    let checks = state_doctor_checks()
+    let out = ""
+    let i: i32 = 0
+    loop while i < checks.len
+    {
+        if i > 0 { out = out + "," }
+        out = out + "\"" + str.replace(checks[i], "\"", "'") + "\""
+        i = i + 1
+    }
+    give "{\"schema_version\":\"1.1.0\",\"checks\":[" + out + "]}"
 }

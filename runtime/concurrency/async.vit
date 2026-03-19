@@ -5,6 +5,7 @@ pull runtime/common/result
 pull runtime/common/cancel
 pull runtime/common/metrics
 pull runtime/common/config
+pull runtime/concurrency/future
 
 const AS_NEW: string = "new"
 const AS_RUNNING: string = "running"
@@ -47,6 +48,20 @@ proc run(task: AsyncTask, value: string, tok: cancel.CancelToken) -> (AsyncTask,
     give (task, result.ok(value))
 }
 
+proc to_future(task: AsyncTask) -> future.Future
+{
+    let f = future.make(task.id)
+    if task.state == AS_DONE
+    {
+        give future.resolve(f, task.value)
+    }
+    if task.state == AS_CANCELLED
+    {
+        give future.reject(f, task.error_code)
+    }
+    give f
+}
+
 proc await(task: AsyncTask, timeout_ms: i64, tok: cancel.CancelToken) -> result.RuntimeResult
 {
     if timeout_ms <= 0
@@ -75,4 +90,9 @@ proc await(task: AsyncTask, timeout_ms: i64, tok: cancel.CancelToken) -> result.
     }
 
     give result.err(result.E_RUNTIME_TIMEOUT, "await timeout", true)
+}
+
+proc summary(task: AsyncTask) -> string
+{
+    give "async#" + future.summary(to_future(task))
 }

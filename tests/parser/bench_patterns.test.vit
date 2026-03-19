@@ -2,10 +2,10 @@
 
 .test.parser.qualified_identifier.
 .begin.
-.assert.parse.ok.".thread.pool.create.$pool.$workers.".
-.assert.parse.ok.".chan.create.$chan.int.$size.".
-.assert.parse.ok.".json.set.$obj.\"bench\".true.".
-.assert.parse.fail.".module..http.".
-.assert.parse.fail.".set.iterations.1000.".
+.assert.parse.ok."call.thread.pool.create.$pool.$workers".
+.assert.parse.ok."call.chan.create.$chan.int.$size".
+.assert.parse.ok."call.json.set.$obj.\"bench\".true".
+.assert.parse.fail."module..http".
+.assert.parse.fail."set.iterations.1000".
 .ret.
 .end.

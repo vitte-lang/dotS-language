@@ -1,6 +1,25 @@
 space runtime/vm/optimizer
 
+pull runtime/vm/opcode
+
 proc optimize(code: [string]) -> [string]
 {
-    give code
+    let out: [string] = []
+    let prev = ""
+    loop op in code
+    {
+        let n = opcode.normalize(op)
+        if n == opcode.OP_NOP && prev == opcode.OP_NOP
+        {
+            continue
+        }
+        out = out.push(n)
+        prev = n
+    }
+    give out
+}
+
+proc stats(before: [string], after: [string]) -> string
+{
+    give "before=" + before.len + " after=" + after.len
 }

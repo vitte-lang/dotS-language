@@ -1,0 +1,18 @@
+space runtime/interpreter/evaluator
+
+pull runtime/common/result
+pull runtime/interpreter/frame
+pull runtime/interpreter/dispatch
+
+proc evaluate(route: dispatch.Dispatch, fr: frame.Frame) -> result.RuntimeResult
+{
+    if route.op == "panic"
+    {
+        give result.err(result.E_PANIC, "interpreter panic route", false)
+    }
+    if frame.lookup(fr, "ir_hash") == ""
+    {
+        give result.err(result.E_INVALID_STATE, "missing ir hash in frame", false)
+    }
+    give result.ok(route.op + ":" + route.payload)
+}

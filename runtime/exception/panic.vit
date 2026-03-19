@@ -1,0 +1,22 @@
+space runtime/exception/panic
+
+pull runtime/common/result
+pull runtime/common/panic
+pull runtime/exception/exception
+pull runtime/exception/handler
+pull runtime/exception/stacktrace
+
+proc raise(scope: string, message: string) -> result.RuntimeResult
+{
+    let h = handler.new(scope, true)
+    let ex = exception.new(result.E_PANIC, message, scope, false)
+    let st = stacktrace.push(stacktrace.new(), scope, "panic")
+    let r = handler.capture(h, ex, st)
+    give panic.with_panic_boundary(scope, r)
+}
+
+proc rethrow(scope: string, r: result.RuntimeResult) -> result.RuntimeResult
+{
+    if r.ok { give r }
+    give panic.with_panic_boundary(scope, r)
+}

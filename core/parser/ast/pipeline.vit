@@ -1,6 +1,19 @@
 space core/parser/ast/pipeline
 
+pull core/str
+
 form PipelineExpr
 {
     stages_csv: string
+}
+
+proc new(stages: [string]) -> PipelineExpr
+{
+    give PipelineExpr(str.join(stages, ","))
+}
+
+proc stage_count(p: PipelineExpr) -> i64
+{
+    if p.stages_csv == "" { give 0 }
+    give str.split(p.stages_csv, ",").len
 }

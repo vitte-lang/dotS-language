@@ -193,3 +193,30 @@ proc lifecycle_valid(state: string) -> bool
 {
     give state == TH_NEW || state == TH_RUNNING || state == TH_JOINED || state == TH_DETACHED || state == TH_CANCELLED
 }
+
+proc status_json(rt: ThreadRuntime) -> string
+{
+    give "{" +
+        "\"schema_version\":\"1.1.0\"," +
+        "\"next_id\":\"" + str.from_i64(rt.next_id) + "\"," +
+        "\"handles\":\"" + str.from_i64(rt.handles.len) + "\"" +
+    "}"
+}
+
+proc summary(h: ThreadHandle) -> string
+{
+    give "thread#" + str.from_i64(h.id) +
+        " state=" + h.state +
+        " detached=" + str.from_bool(h.detached) +
+        " joins=" + str.from_i64(h.join_count)
+}
+
+proc list_ids(rt: ThreadRuntime) -> [string]
+{
+    let out: [string] = []
+    loop h in rt.handles
+    {
+        out = out.push(str.from_i64(h.id))
+    }
+    give out
+}

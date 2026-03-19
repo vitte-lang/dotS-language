@@ -1,0 +1,33 @@
+space stdlib/io/logger
+
+pull core/fs
+pull core/io
+pull core/str
+
+proc log_file() -> string
+{
+    give ".dots/logs/stdlib.log"
+}
+
+proc ensure_dir() -> void
+{
+    fs.mkdir_p(".dots/logs")
+}
+
+proc info(message: string) -> void
+{
+    ensure_dir()
+    fs.append_file(log_file(), "INFO " + message + "\n")
+}
+
+proc error(message: string) -> void
+{
+    ensure_dir()
+    fs.append_file(log_file(), "ERROR " + message + "\n")
+}
+
+proc print_and_log(message: string) -> void
+{
+    io.print(message)
+    info(message)
+}

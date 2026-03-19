@@ -1,0 +1,8 @@
+module.cli_tool
+fn.main.$argv
+set.$cmd."status"
+call.cli.parse.$argv
+if.$argv
+set.$cmd.$argv
+call.cli.dispatch.$cmd
+ret.true

@@ -67,3 +67,37 @@ proc error_next_steps(code: string) -> string
     if code == E_REAL_BACKEND_ERROR { give "Verify DOTS_REGISTRY_REAL_BIN and backend availability." }
     give "Inspect dots registry status --json for details."
 }
+
+proc error_json(err: BackendError) -> string
+{
+    give "{" +
+        "\"code\":\"" + err.code + "\"," +
+        "\"category\":\"" + err.category + "\"," +
+        "\"message\":\"" + str.replace(err.message, "\"", "'") + "\"," +
+        "\"retryable\":\"" + str.from_bool(err.retryable) + "\"," +
+        "\"http_status\":\"" + str.from_i64(err.http_status) + "\"," +
+        "\"retry_after_ms\":\"" + str.from_i64(err.retry_after_ms) + "\"," +
+        "\"endpoint\":\"" + str.replace(err.endpoint, "\"", "'") + "\"" +
+    "}"
+}
+
+proc result_json(res: BackendResult) -> string
+{
+    give "{" +
+        "\"ok\":\"" + str.from_bool(res.ok) + "\"," +
+        "\"value\":\"" + str.replace(res.value, "\"", "'") + "\"," +
+        "\"count\":\"" + str.from_i64(res.count) + "\"," +
+        "\"endpoint\":\"" + str.replace(res.endpoint, "\"", "'") + "\"," +
+        "\"latency_ms\":\"" + str.from_i64(res.latency_ms) + "\"," +
+        "\"error\":" + error_json(res.error) +
+    "}"
+}
+
+proc summary(res: BackendResult) -> string
+{
+    if res.ok
+    {
+        give "ok endpoint=" + res.endpoint + " count=" + str.from_i64(res.count) + " latency_ms=" + str.from_i64(res.latency_ms)
+    }
+    give "error code=" + res.error.code + " category=" + res.error.category + " retryable=" + str.from_bool(res.error.retryable)
+}

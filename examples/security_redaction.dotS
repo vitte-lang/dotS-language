@@ -1,5 +1,6 @@
-.module.examples.security_redaction.
-.set.$raw."Authorization: Bearer token=abc jwt=aaa.bbb.ccc".
-.security.redact.$raw.
-.call.io.print.
-.ret.0.
+module.security_redaction
+fn.main.$raw
+set.$raw."Authorization: Bearer token=abc jwt=aaa.bbb.ccc"
+call.security.redact.$raw.$clean
+call.io.print.$clean
+ret.true

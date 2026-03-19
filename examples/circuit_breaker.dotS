@@ -1,8 +1,9 @@
-.module.examples.circuit_breaker.
-.set.$threshold.2.
-.set.$cooldown_ms.100.
-.cb.mark.failure.$threshold.
-.cb.mark.failure.$threshold.
-.cb.is.open.$threshold.$cooldown_ms.
-.cb.mark.success.
-.ret.0.
+module.circuit_breaker
+fn.main.$service
+set.$threshold.2
+set.$cooldown_ms.100
+call.cb.mark.failure.$service.$threshold
+call.cb.mark.failure.$service.$threshold
+call.cb.is.open.$service.$cooldown_ms
+call.cb.mark.success.$service
+ret.true

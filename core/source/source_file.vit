@@ -52,3 +52,31 @@ proc snippet(sf: SourceFile, line: i32, ctx: i32) -> string
     }
     give out
 }
+
+proc line_text(sf: SourceFile, line: i32) -> string
+{
+    let lines = str.split(sf.text, "\n")
+    if line <= 0 || line > lines.len { give "" }
+    give lines[line - 1]
+}
+
+proc slice(sf: SourceFile, start_off: i64, end_off: i64) -> string
+{
+    if start_off < 0 { start_off = 0 }
+    if end_off > sf.text.len { end_off = sf.text.len }
+    if end_off < start_off { end_off = start_off }
+    let out = ""
+    let i = start_off
+    loop while i < end_off
+    {
+        out = out + str.from_i64(sf.text[i])
+        i = i + 1
+    }
+    give out
+}
+
+proc offset_span(sf: SourceFile, start_off: i64, end_off: i64) -> string
+{
+    let sp = location.span_from_offsets(start_off, end_off, sf.line_starts, sf.text.len)
+    give location.normalize_uri(sf.uri) + ":" + str.from_i64(sp.start_pos.line) + ":" + str.from_i64(sp.start_pos.col)
+}

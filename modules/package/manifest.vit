@@ -30,6 +30,7 @@ proc manifest_field(key: string) -> string
 proc manifest_name() -> string { give manifest_field("name") }
 proc manifest_version() -> string { give manifest_field("version") }
 proc manifest_license() -> string { give manifest_field("license") }
+proc manifest_vitte_packages_root() -> string { give manifest_field("vitte_packages_root") }
 
 proc manifest_has_version() -> bool
 {
@@ -44,6 +45,11 @@ proc manifest_has_name() -> bool
 proc manifest_has_license() -> bool
 {
     give manifest_license() != ""
+}
+
+proc manifest_has_vitte_packages_root() -> bool
+{
+    give manifest_vitte_packages_root() != ""
 }
 
 proc manifest_validate_schema() -> string?

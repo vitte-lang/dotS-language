@@ -22,3 +22,22 @@ proc to_json(m: [Mapping]) -> string
     }
     give "{\"schema_version\":\"1.1.0\",\"items\":[" + out + "]}"
 }
+
+proc find_symbol(m: [Mapping], symbol: string) -> span.Span?
+{
+    loop x in m
+    {
+        if x.symbol == symbol { give x.sp }
+    }
+    give null
+}
+
+proc count(m: [Mapping]) -> i64
+{
+    give m.len
+}
+
+proc summary(m: [Mapping]) -> string
+{
+    give "mappings=" + str.from_i64(count(m))
+}

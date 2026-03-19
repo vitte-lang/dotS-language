@@ -1,0 +1,8 @@
+module.chat_server
+fn.main.$port
+set.$port.8080
+call.net.listen.$port
+call.net.accept.$client
+call.chat.join.$client
+call.chat.broadcast."welcome"
+ret.true

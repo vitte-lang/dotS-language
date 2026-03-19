@@ -1,8 +1,66 @@
 space runtime/interpreter
 
+pull core/str
+pull runtime/common/metrics
+pull runtime/common/log
+pull runtime/common/trace
 pull runtime/common/result
+pull runtime/interpreter/frame
+pull runtime/interpreter/environment
+pull runtime/interpreter/closure
+pull runtime/interpreter/dispatch
+pull runtime/interpreter/evaluator
+
+form Interpreter
+{
+    mode: string
+    eval_total: i64
+    last_ir_hash: string
+}
+
+proc new() -> Interpreter
+{
+    give Interpreter("fallback", 0, "")
+}
 
 proc execute_fallback(ir_hash: string) -> result.RuntimeResult
 {
-    give result.ok("interpreted:" + ir_hash)
+    let it = new()
+    let env = environment.new()
+    let fr = frame.new("fallback:" + ir_hash, env)
+    let it2, r = execute(it, fr, ir_hash)
+    if !r.ok
+    {
+        give r
+    }
+    give result.with_value(r, "interpreted:" + it2.last_ir_hash)
+}
+
+proc execute(it: Interpreter, fr: frame.Frame, ir_hash: string) -> (Interpreter, result.RuntimeResult)
+{
+    let seed = closure.new("main", ir_hash)
+    let fr2 = frame.bind(fr, "ir_hash", ir_hash)
+    let fr3 = frame.bind(fr2, "closure_label", closure.label(seed))
+    let route = dispatch.route("exec", ir_hash)
+    let r = evaluator.evaluate(route, fr3)
+    it.eval_total = it.eval_total + 1
+    it.last_ir_hash = ir_hash
+    metrics.inc_ops("interpreter.execute")
+    trace.append("interpreter.execute", route)
+    if !r.ok
+    {
+        log.emit("error", "runtime.interpreter", "execute failed for " + ir_hash)
+        give (it, r)
+    }
+    give (it, result.with_value(r, "interpreted:" + ir_hash))
+}
+
+proc status_json(it: Interpreter) -> string
+{
+    give "{" +
+        "\"schema_version\":\"1.1.0\"," +
+        "\"mode\":\"" + it.mode + "\"," +
+        "\"eval_total\":\"" + str.from_i64(it.eval_total) + "\"," +
+        "\"last_ir_hash\":\"" + it.last_ir_hash + "\"" +
+    "}"
 }

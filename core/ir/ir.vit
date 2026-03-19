@@ -1,5 +1,6 @@
 space core/ir
 
+pull core/str
 pull core/ir/node
 
 form VerifyResult
@@ -58,4 +59,15 @@ proc verify(m: node.IRModule) -> VerifyResult
     }
 
     give VerifyResult(errs.len == 0, errs)
+}
+
+proc summary(m: node.IRModule) -> string
+{
+    let blocks = m.blocks.len
+    let instrs: i64 = 0
+    loop b in m.blocks
+    {
+        instrs = instrs + b.instrs.len
+    }
+    give "module=" + m.name + " blocks=" + str.from_i64(blocks) + " instrs=" + str.from_i64(instrs)
 }

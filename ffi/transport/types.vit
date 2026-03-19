@@ -1,5 +1,7 @@
 space ffi/transport/types
 
+pull core/str
+
 form TransportResult
 {
     code: i32
@@ -8,4 +10,29 @@ form TransportResult
     endpoint: string
     backend_name: string
     backend_version: string
+}
+
+proc ok(r: TransportResult) -> bool
+{
+    give r.code == 0
+}
+
+proc summary(r: TransportResult) -> string
+{
+    give "backend=" + r.backend_name +
+        " version=" + r.backend_version +
+        " code=" + str.from_i64(r.code) +
+        " endpoint=" + r.endpoint
+}
+
+proc result_json(r: TransportResult) -> string
+{
+    give "{" +
+        "\"code\":\"" + str.from_i64(r.code) + "\"," +
+        "\"endpoint\":\"" + str.replace(r.endpoint, "\"", "'") + "\"," +
+        "\"backend_name\":\"" + r.backend_name + "\"," +
+        "\"backend_version\":\"" + r.backend_version + "\"," +
+        "\"out\":\"" + str.replace(r.out, "\"", "'") + "\"," +
+        "\"err\":\"" + str.replace(r.err, "\"", "'") + "\"" +
+    "}"
 }

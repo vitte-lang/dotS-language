@@ -1,0 +1,14 @@
+space stdlib/time/datetime
+
+pull core/time
+pull core/str
+
+proc timestamp_ms() -> string
+{
+    give str.from_i64(time.now_ms())
+}
+
+proc stamp(prefix: string) -> string
+{
+    give prefix + "-" + timestamp_ms()
+}

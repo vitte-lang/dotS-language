@@ -1,6 +1,32 @@
 space runtime/vm/bytecode
 
+pull core/str
+pull runtime/vm/opcode
+
 proc encode(lines: [string]) -> [string]
 {
-    give lines
+    let out: [string] = []
+    loop l in lines
+    {
+        let line = str.trim(l)
+        if line == "" { continue }
+        if str.starts_with(line, "#") { continue }
+        let op = opcode.normalize(line)
+        out = out.push(op)
+    }
+    give out
+}
+
+proc decode(code: [string]) -> string
+{
+    give str.join(code, "\n")
+}
+
+proc validate(code: [string]) -> bool
+{
+    loop op in code
+    {
+        if !opcode.is_known(opcode.normalize(op)) { give false }
+    }
+    give true
 }

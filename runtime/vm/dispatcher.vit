@@ -1,6 +1,26 @@
 space runtime/vm/dispatcher
 
+pull runtime/common/result
+pull runtime/vm/opcode
+
 proc dispatch(op: string) -> string
 {
-    give op
+    let n = opcode.normalize(op)
+    if n == opcode.OP_TRAP { give "trap" }
+    if n == opcode.OP_NOP { give "continue" }
+    if n == opcode.OP_CONST { give "stack.push" }
+    if n == opcode.OP_CALL { give "call.invoke" }
+    if n == opcode.OP_RET { give "frame.return" }
+    if n == opcode.OP_JUMP { give "pc.jump" }
+    give "trap"
+}
+
+proc execute(op: string) -> result.RuntimeResult
+{
+    let route = dispatch(op)
+    if route == "trap"
+    {
+        give result.err(result.E_PANIC, "unknown opcode", false)
+    }
+    give result.ok(route)
 }

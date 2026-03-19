@@ -4,3 +4,8 @@ form ModuleDecl
 {
     name: string
 }
+
+proc new(name: string) -> ModuleDecl
+{
+    give ModuleDecl(name)
+}

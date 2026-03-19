@@ -1,0 +1,22 @@
+space stdlib/fs/walk
+
+pull core/fs
+pull stdlib/fs/path
+
+proc files(root: string) -> [string]
+{
+    if !fs.exists(root) { give [] }
+    if fs.is_file(root) { give [root] }
+
+    let out: [string] = []
+    let names = fs.read_dir(root)
+    loop n in names
+    {
+        let p = path.join(root, n)
+        if fs.is_file(p)
+        {
+            out = out.push(p)
+        }
+    }
+    give out
+}

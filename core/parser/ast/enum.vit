@@ -4,3 +4,8 @@ form EnumDecl
 {
     name: string
 }
+
+proc new(name: string) -> EnumDecl
+{
+    give EnumDecl(name)
+}

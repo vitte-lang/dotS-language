@@ -1,0 +1,38 @@
+space stdlib/collections/list
+
+pull core/str
+
+proc empty() -> [string]
+{
+    give []
+}
+
+proc push(items: [string], value: string) -> [string]
+{
+    give items.push(value)
+}
+
+proc len(items: [string]) -> i64
+{
+    give items.len
+}
+
+proc join(items: [string], sep: string) -> string
+{
+    give str.join(items, sep)
+}
+
+proc contains(items: [string], value: string) -> bool
+{
+    loop x in items
+    {
+        if x == value { give true }
+    }
+    give false
+}
+
+proc first(items: [string]) -> string
+{
+    if items.len == 0 { give "" }
+    give items[0]
+}

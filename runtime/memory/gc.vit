@@ -4,6 +4,8 @@ pull core/time
 pull core/str
 pull runtime/common/config
 pull runtime/common/metrics
+pull runtime/memory/gc_mark
+pull runtime/memory/gc_sweep
 
 form GcState
 {
@@ -24,13 +26,13 @@ proc collect(g: GcState, live_bytes: i64) -> GcState
     let cfg = config.load()
     let start = time.now_ms()
     let mark_start = time.now_ms()
-    # mark phase placeholder
+    let mark = gc_mark.plan(live_bytes)
     g.mark_ms_last = time.now_ms() - mark_start
     let sweep_start = time.now_ms()
-    # sweep phase placeholder
+    let sweep = gc_sweep.plan(live_bytes)
     g.sweep_ms_last = time.now_ms() - sweep_start
     g.collections_total = g.collections_total + 1
-    g.live_bytes = live_bytes
+    g.live_bytes = sweep.survivors
     g.pause_ms_last = time.now_ms() - start
 
     if g.pause_ms_last > cfg.gc_stw_timeout_ms
@@ -46,6 +48,10 @@ proc collect(g: GcState, live_bytes: i64) -> GcState
     metrics.append_metric("gc_pause_ms_bucket", g.pause_ms_last, "le=10")
     metrics.append_metric("gc_pause_ms_bucket", g.pause_ms_last, "le=50")
     metrics.append_metric("gc_pause_ms_bucket", g.pause_ms_last, "le=200")
+    metrics.append_metric("gc_roots_scanned", mark.roots_scanned, "")
+    metrics.append_metric("gc_objects_marked", mark.objects_marked, "")
+    metrics.append_metric("gc_released_bytes", sweep.released_bytes, "")
+    metrics.append_metric("gc_sweep_candidates", sweep.candidates, "")
     give g
 }
 
@@ -67,4 +73,11 @@ proc status_json(g: GcState) -> string
         "\"sweep_ms\":\"" + str.from_i64(g.sweep_ms_last) + "\"," +
         "\"live_bytes\":\"" + str.from_i64(g.live_bytes) + "\"" +
     "}"
+}
+
+proc cycle_summary(live_bytes: i64) -> string
+{
+    let mark = gc_mark.plan(live_bytes)
+    let sweep = gc_sweep.plan(live_bytes)
+    give gc_mark.summary(mark) + " " + gc_sweep.summary(sweep)
 }

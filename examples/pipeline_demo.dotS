@@ -1,0 +1,7 @@
+module.pipeline_demo
+fn.main.$input
+set.$input."dotS"
+call.text.trim.$input.$v1
+call.text.upper.$v1.$v2
+call.text.concat.$v2."_OK".$v3
+ret.$v3

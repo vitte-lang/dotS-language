@@ -6,12 +6,56 @@ pull core/parser
 pull core/semantic/scope
 pull core/semantic/resolver
 pull core/semantic/symbol_table
+pull modules/loader/resolver
 
 form AnalysisResult
 {
     ok: bool
     symbols: symbol_table.SymbolTable
     diagnostics: [diagnostics.Diagnostic]
+}
+
+proc last_qualified_segment(raw: string) -> string
+{
+    if !str.contains(raw, ".") { give raw }
+    let parts = str.split(raw, ".")
+    if parts.len == 0 { give raw }
+    give parts[parts.len - 1]
+}
+
+proc symbol_exists(sym: symbol_table.SymbolTable, name: string) -> bool
+{
+    if name == "" { give false }
+    if symbol_table.find_any(sym, name) != null { give true }
+    let tail = last_qualified_segment(name)
+    if tail != name && symbol_table.find_any(sym, tail) != null { give true }
+    give false
+}
+
+proc collect_undeclared_calls(n: parser.AstNode, sym: symbol_table.SymbolTable, file: string) -> [diagnostics.Diagnostic]
+{
+    let out: [diagnostics.Diagnostic] = []
+
+    if n.kind == "function_call"
+    {
+        let called = n.value
+        if called != "" && !symbol_exists(sym, called)
+        {
+            let d = diagnostics.make("DOTS0003", "undeclared symbol: " + called, file, n.line, n.col, n.line, n.col + called.len, "semantic")
+            let d2 = diagnostics.with_quick_fix(d, "define", "Add missing function", "fn." + last_qualified_segment(called))
+            out = out.push(d2)
+        }
+    }
+
+    loop child in n.children
+    {
+        loop d3 in collect_undeclared_calls(child, sym, file)
+        {
+            out = out.push(d3)
+        }
+    }
+
+    give out
 }
 
 proc check_duplicates(sym: symbol_table.SymbolTable) -> [diagnostics.Diagnostic]
@@ -43,19 +87,51 @@ proc check_undeclared_calls(root: parser.AstNode, sym: symbol_table.SymbolTable,
     let out: [diagnostics.Diagnostic] = []
     loop n in root.children
     {
-        if n.kind == "stmt_expr" && n.children.len > 0
+        loop d in collect_undeclared_calls(n, sym, file)
         {
-            let e = n.children[0]
-            if e.kind == "dot_call"
+            out = out.push(d)
+        }
+    }
+    give out
+}
+
+proc check_package_imports(root: parser.AstNode, file: string) -> [diagnostics.Diagnostic]
+{
+    let out: [diagnostics.Diagnostic] = []
+    loop n in root.children
+    {
+        if n.kind == "use_stmt" || n.kind == "import_stmt"
+        {
+            let pkg = n.value
+            if !resolver.has_package(pkg, "")
             {
-                let called = str.replace(str.replace(e.value, ".", ""), " ", "")
-                if symbol_table.find_any(sym, called) == null
-                {
-                    let d = diagnostics.make("DOTS0003", "undeclared symbol: " + called, file, e.line, e.col, e.line, e.col + called.len, "semantic")
-                    let d2 = diagnostics.with_quick_fix(d, "import", "Add missing pull", "pull " + called)
-                    out = out.push(d2)
-                }
+                let d = diagnostics.make("DOTS0003", "missing package: " + pkg, file, n.line, n.col, n.line, n.col + pkg.len, "semantic")
+                let d2 = diagnostics.with_quick_fix(d, "manifest", "Set vitte package root", "\"vitte_packages_root\":\"../vitte/src/vitte/packages\"")
+                out = out.push(d2)
             }
+        }
+    }
+    give out
+}
+
+proc check_control_flow(root: parser.AstNode, file: string) -> [diagnostics.Diagnostic]
+{
+    let out: [diagnostics.Diagnostic] = []
+    let has_fn = false
+    loop n in root.children
+    {
+        if n.kind == "function_def" { has_fn = true }
+        if n.kind == "return_stmt" && !has_fn
+        {
+            let d = diagnostics.make("DOTS0003", "return outside function", file, n.line, n.col, n.line, n.col + 3, "semantic")
+            let d2 = diagnostics.with_quick_fix(d, "wrap", "Declare function", "fn.main")
+            out = out.push(d2)
+        }
+        if n.kind == "throw_stmt" && n.children.len == 0
+        {
+            let d3 = diagnostics.make("DOTS0003", "throw requires expression", file, n.line, n.col, n.line, n.col + 5, "semantic")
+            let d4 = diagnostics.with_quick_fix(d3, "insert", "Add throw value", "throw.\"error\"")
+            out = out.push(d4)
         }
     }
     give out
@@ -75,6 +151,14 @@ proc analyze(text: string, file: string) -> AnalysisResult
     loop d2 in check_undeclared_calls(parsed.root, symbols, file)
     {
         diags = diags.push(d2)
+    }
+    loop d3 in check_package_imports(parsed.root, file)
+    {
+        diags = diags.push(d3)
+    }
+    loop d4 in check_control_flow(parsed.root, file)
+    {
+        diags = diags.push(d4)
     }
 
     give AnalysisResult(diags.len == 0, symbols, diags)

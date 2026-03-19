@@ -1,0 +1,8 @@
+module.http_server
+fn.main.$port
+set.$port.8080
+call.http.listen.$port
+call.http.route.get."/health"."health_handler"
+call.http.route.post."/items"."create_item"
+call.http.serve
+ret.true

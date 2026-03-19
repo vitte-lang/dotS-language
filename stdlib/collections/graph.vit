@@ -1,0 +1,51 @@
+space stdlib/collections/graph
+
+form Edge
+{
+    from: string
+    to: string
+}
+
+form Graph
+{
+    nodes: [string]
+    edges: [Edge]
+}
+
+proc new() -> Graph
+{
+    give Graph([], [])
+}
+
+proc add_node(g: Graph, node: string) -> Graph
+{
+    loop n in g.nodes
+    {
+        if n == node { give g }
+    }
+    g.nodes = g.nodes.push(node)
+    give g
+}
+
+proc add_edge(g: Graph, from: string, to: string) -> Graph
+{
+    g = add_node(g, from)
+    g = add_node(g, to)
+    g.edges = g.edges.push(Edge(from, to))
+    give g
+}
+
+proc neighbors(g: Graph, from: string) -> [string]
+{
+    let out: [string] = []
+    loop e in g.edges
+    {
+        if e.from == from { out = out.push(e.to) }
+    }
+    give out
+}
+
+proc edge_count(g: Graph) -> i64
+{
+    give g.edges.len
+}

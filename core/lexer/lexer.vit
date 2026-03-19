@@ -16,6 +16,18 @@ form LexResult
     lex_ms: i64
 }
 
+proc slice_text(text: string, start_off: i64, end_off: i64) -> string
+{
+    let out = ""
+    let i = start_off
+    loop while i < end_off
+    {
+        out = out + str.from_i64(text[i])
+        i = i + 1
+    }
+    give out
+}
+
 proc lex(text: string) -> LexResult
 {
     let start = time.now_ms()
@@ -50,13 +62,5 @@ proc relex_window(text: string, start_off: i64, end_off: i64) -> LexResult
     if end_off > text.len { end_off = text.len }
     if end_off < start_off { end_off = start_off }
 
-    let window = ""
-    let i = start_off
-    loop while i < end_off
-    {
-        window = window + str.from_i64(text[i])
-        i = i + 1
-    }
-
-    give lex(window)
+    give lex(slice_text(text, start_off, end_off))
 }

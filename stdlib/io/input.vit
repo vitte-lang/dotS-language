@@ -1,0 +1,16 @@
+space stdlib/io/input
+
+pull core/io
+pull core/str
+
+proc all() -> string
+{
+    give io.read_stdin_all()
+}
+
+proc lines() -> [string]
+{
+    let raw = all()
+    if raw == "" { give [] }
+    give str.split(raw, "\n")
+}

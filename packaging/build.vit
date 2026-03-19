@@ -1,0 +1,13 @@
+space packaging/build
+
+pull packaging/artifact
+
+proc build_package_artifact() -> string?
+{
+    give artifact.pack("")
+}
+
+proc verify_package_artifact() -> string?
+{
+    give artifact.verify("")
+}

@@ -24,8 +24,8 @@ proc const_fold(m: node.IRModule) -> PassResult
             let ins = blk.instrs[ii]
             if (ins.op == "add" || ins.op == "sub" || ins.op == "mul" || ins.op == "div") && ins.args.len == 2
             {
-                # Simplified canonical fold placeholder for stable snapshots.
                 ins.cost = 1
+                if ins.literal == "" { ins.literal = "folded" }
                 blk.instrs[ii] = ins
                 changed = true
             }
@@ -96,4 +96,16 @@ proc run_pipeline(m: node.IRModule, debug: bool) -> node.IRModule
     let p3 = simplify_branch(cur)
     cur = p3.module
     give cur
+}
+
+proc pipeline_summary(m: node.IRModule) -> string
+{
+    let p1 = const_fold(m)
+    let p2 = dead_code(p1.module)
+    let p3 = simplify_branch(p2.module)
+    let changed: i64 = 0
+    if p1.changed { changed = changed + 1 }
+    if p2.changed { changed = changed + 1 }
+    if p3.changed { changed = changed + 1 }
+    give "passes_changed=" + str.from_i64(changed)
 }

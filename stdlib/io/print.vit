@@ -1,0 +1,16 @@
+space stdlib/io/print
+
+pull core/io
+
+proc line(message: string) -> void
+{
+    io.print(message)
+}
+
+proc lines(items: [string]) -> void
+{
+    loop item in items
+    {
+        io.print(item)
+    }
+}

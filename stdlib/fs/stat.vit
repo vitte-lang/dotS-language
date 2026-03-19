@@ -1,0 +1,18 @@
+space stdlib/fs/stat
+
+pull core/fs
+
+form FileStat
+{
+    path: string
+    exists: bool
+    is_file: bool
+    mtime_ms: i64
+}
+
+proc get(path: string) -> FileStat
+{
+    let ex = fs.exists(path)
+    if !ex { give FileStat(path, false, false, 0) }
+    give FileStat(path, true, fs.is_file(path), fs.mtime_ms(path))
+}

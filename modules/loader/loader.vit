@@ -1,0 +1,24 @@
+space modules/loader/loader
+
+pull modules/loader/resolver
+pull modules/loader/importer
+
+proc available_packages(root_override: string) -> [string]
+{
+    give resolver.discover_packages(root_override)
+}
+
+proc load_package(name: string, root_override: string) -> importer.ImportedPackage?
+{
+    give importer.import_package(name, root_override)
+}
+
+proc load_package_source(name: string, root_override: string) -> string
+{
+    give importer.import_package_source(name, root_override)
+}
+
+proc load_package_info(name: string, root_override: string) -> string
+{
+    give importer.import_package_info(name, root_override)
+}

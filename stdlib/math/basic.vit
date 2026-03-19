@@ -1,0 +1,42 @@
+space stdlib/math/basic
+
+proc abs(v: i64) -> i64
+{
+    if v < 0 { give -v }
+    give v
+}
+
+proc min(a: i64, b: i64) -> i64
+{
+    if a < b { give a }
+    give b
+}
+
+proc max(a: i64, b: i64) -> i64
+{
+    if a > b { give a }
+    give b
+}
+
+proc clamp(v: i64, lo: i64, hi: i64) -> i64
+{
+    if v < lo { give lo }
+    if v > hi { give hi }
+    give v
+}
+
+proc sum(items: [i64]) -> i64
+{
+    let out: i64 = 0
+    loop x in items
+    {
+        out = out + x
+    }
+    give out
+}
+
+proc avg(items: [i64]) -> i64
+{
+    if items.len == 0 { give 0 }
+    give sum(items) / items.len
+}

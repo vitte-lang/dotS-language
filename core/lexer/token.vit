@@ -1,5 +1,6 @@
 space core/lexer/token
 
+pull core/str
 pull core/source/span
 pull core/lexer/trivia
 
@@ -14,4 +15,19 @@ form Token
 proc make(kind: string, lexeme: string, sp: span.Span, tr: trivia.Trivia) -> Token
 {
     give Token(kind, lexeme, sp, tr)
+}
+
+proc debug(t: Token) -> string
+{
+    give t.kind + ":" + t.lexeme + "@" + str.from_i64(t.sp.start_pos.line) + ":" + str.from_i64(t.sp.start_pos.col)
+}
+
+proc stable_json(t: Token) -> string
+{
+    give "{" +
+        "\"kind\":\"" + str.replace(t.kind, "\"", "'") + "\"," +
+        "\"lexeme\":\"" + str.replace(t.lexeme, "\"", "'") + "\"," +
+        "\"line\":\"" + str.from_i64(t.sp.start_pos.line) + "\"," +
+        "\"col\":\"" + str.from_i64(t.sp.start_pos.col) + "\"" +
+    "}"
 }

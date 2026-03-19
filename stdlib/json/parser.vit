@@ -1,0 +1,24 @@
+space stdlib/json/parser
+
+pull core/str
+
+proc is_object(raw: string) -> bool
+{
+    let v = str.trim(raw)
+    if !str.starts_with(v, "{") { give false }
+    if !str.ends_with(v, "}") { give false }
+    give true
+}
+
+proc is_array(raw: string) -> bool
+{
+    let v = str.trim(raw)
+    if !str.starts_with(v, "[") { give false }
+    if !str.ends_with(v, "]") { give false }
+    give true
+}
+
+proc is_json(raw: string) -> bool
+{
+    give is_object(raw) || is_array(raw)
+}

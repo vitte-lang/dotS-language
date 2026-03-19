@@ -1,0 +1,49 @@
+space stdlib/regex/regex
+
+pull core/str
+
+proc is_match(pattern: string, raw: string) -> bool
+{
+    if pattern == "" { give raw == "" }
+    if pattern == ".*" { give true }
+    if str.starts_with(pattern, "^") && str.ends_with(pattern, "$")
+    {
+        let body = str.replace(str.replace(pattern, "^", ""), "$", "")
+        give raw == body
+    }
+    if str.starts_with(pattern, "^")
+    {
+        let body = str.replace(pattern, "^", "")
+        give str.starts_with(raw, body)
+    }
+    if str.ends_with(pattern, "$")
+    {
+        let body = str.replace(pattern, "$", "")
+        give str.ends_with(raw, body)
+    }
+    give str.contains(raw, pattern)
+}
+
+proc first(pattern: string, raw: string) -> string
+{
+    if is_match(pattern, raw) { give raw }
+    if str.contains(raw, pattern) { give pattern }
+    give ""
+}
+
+proc replace_all(pattern: string, repl: string, raw: string) -> string
+{
+    if pattern == ".*" { give repl }
+    let clean = str.replace(str.replace(pattern, "^", ""), "$", "")
+    if clean == "" { give raw }
+    give str.replace(raw, clean, repl)
+}
+
+proc explain(pattern: string) -> string
+{
+    if pattern == ".*" { give "wildcard" }
+    if str.starts_with(pattern, "^") && str.ends_with(pattern, "$") { give "exact" }
+    if str.starts_with(pattern, "^") { give "prefix" }
+    if str.ends_with(pattern, "$") { give "suffix" }
+    give "contains"
+}

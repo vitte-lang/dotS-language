@@ -1,8 +1,21 @@
 space core/parser/ast/function
 
+pull core/str
+
 form FunctionDecl
 {
     name: string
     params_csv: string
     return_type: string
+}
+
+proc new(name: string, params: [string], return_type: string) -> FunctionDecl
+{
+    give FunctionDecl(name, str.join(params, ","), return_type)
+}
+
+proc arity(f: FunctionDecl) -> i64
+{
+    if f.params_csv == "" { give 0 }
+    give str.split(f.params_csv, ",").len
 }

@@ -1,0 +1,27 @@
+space stdlib/math/random
+
+pull runtime/common/prng
+
+proc seed(seed: i64) -> prng.Prng
+{
+    give prng.new(seed)
+}
+
+proc int(max_exclusive: i64) -> i64
+{
+    let p = prng.from_config()
+    let p2, v = prng.next_range(p, max_exclusive)
+    give v + (p2.state % 1) - (p2.state % 1)
+}
+
+proc between(min_inclusive: i64, max_inclusive: i64) -> i64
+{
+    if max_inclusive <= min_inclusive { give min_inclusive }
+    let span = (max_inclusive - min_inclusive) + 1
+    give min_inclusive + int(span)
+}
+
+proc bool() -> bool
+{
+    give int(2) == 1
+}

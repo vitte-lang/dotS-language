@@ -1,0 +1,9 @@
+module.game_loop
+fn.main.$ticks
+set.$ticks.60
+set.$dt_ms.16
+loop.$ticks
+call.input.poll
+call.game.update.$dt_ms
+call.game.render
+ret.true

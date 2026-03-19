@@ -11,6 +11,9 @@ pull runtime/common/config
 pull runtime/common/events
 pull runtime/common/trace
 pull runtime/common/panic
+pull runtime/vm/bytecode
+pull runtime/vm/dispatcher
+pull runtime/vm/optimizer
 
 form VM
 {
@@ -41,16 +44,23 @@ proc safe_point(vm: VM, tok: cancel.CancelToken) -> (VM, result.RuntimeResult)
     give (vm, result.ok("continue"))
 }
 
-proc execute(vm: VM, bytecode: [string], tok: cancel.CancelToken, timeout_ms: i64) -> (VM, result.RuntimeResult)
+proc execute(vm: VM, code_in: [string], tok: cancel.CancelToken, timeout_ms: i64) -> (VM, result.RuntimeResult)
 {
     if timeout_ms <= 0
     {
         timeout_ms = config.load().timeout_global_ms
     }
     let start = time.now_ms()
+    let code = optimizer.optimize(bytecode.encode(code_in))
+    if !bytecode.validate(code)
+    {
+        metrics.inc_errors("vm.execute", result.E_PANIC)
+        events.append("vm", "error", "invalid bytecode")
+        give (vm, result.err(result.E_PANIC, "invalid bytecode", false))
+    }
     let i: i32 = 0
 
-    loop while i < bytecode.len
+    loop while i < code.len
     {
         vm.instruction_budget = vm.instruction_budget - 1
         if vm.instruction_budget <= 0
@@ -78,10 +88,17 @@ proc execute(vm: VM, bytecode: [string], tok: cancel.CancelToken, timeout_ms: i6
             give (vm, result.err(result.E_RUNTIME_TIMEOUT, "vm timeout", true))
         }
 
-        let op = bytecode[i]
+        let op = code[i]
+        let step = dispatcher.execute(op)
+        if !step.ok
+        {
+            metrics.inc_errors("vm.dispatch", step.error.code)
+            events.append("vm", "error", "dispatch trap")
+            give (vm, step)
+        }
         metrics.append_metric("opcode_exec_total", 1, "op=" + op)
         vm.opcode_exec_total = vm.opcode_exec_total + 1
-        trace.append("vm.op", op)
+        trace.append("vm.op", op + ":" + step.value)
         i = i + 1
     }
 
@@ -122,4 +139,9 @@ proc doctor(vm: VM) -> result.RuntimeResult
         log.emit("warn", "runtime.vm", "strict mode + interruptions detected")
     }
     give result.ok("runtime doctor ok")
+}
+
+proc execute_lines(vm: VM, lines: [string], tok: cancel.CancelToken, timeout_ms: i64) -> (VM, result.RuntimeResult)
+{
+    give execute(vm, bytecode.encode(lines), tok, timeout_ms)
 }

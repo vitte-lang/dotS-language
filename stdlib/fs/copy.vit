@@ -1,0 +1,12 @@
+space stdlib/fs/copy
+
+pull core/fs
+pull stdlib/fs/read
+pull stdlib/fs/write
+
+proc file(src: string, dst: string) -> bool
+{
+    if !read.exists(src) { give false }
+    write.text(dst, read.text(src))
+    give true
+}

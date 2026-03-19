@@ -1,6 +1,18 @@
 space core/parser/ast/program
 
+pull core/str
+
 form Program
 {
     nodes_json: string
+}
+
+proc new(nodes_json: string) -> Program
+{
+    give Program(nodes_json)
+}
+
+proc summary(p: Program) -> string
+{
+    give "program bytes=" + str.from_i64(p.nodes_json.len)
 }

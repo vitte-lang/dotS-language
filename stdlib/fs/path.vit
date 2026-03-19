@@ -1,0 +1,22 @@
+space stdlib/fs/path
+
+pull core/fs
+pull core/str
+
+proc base(path: string) -> string
+{
+    give fs.base_name(path)
+}
+
+proc dir(path: string) -> string
+{
+    give fs.dir_name(path)
+}
+
+proc join(a: string, b: string) -> string
+{
+    if a == "" { give b }
+    if b == "" { give a }
+    if str.ends_with(a, "/") { give a + b }
+    give a + "/" + b
+}

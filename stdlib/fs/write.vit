@@ -1,0 +1,23 @@
+space stdlib/fs/write
+
+pull core/fs
+pull core/str
+
+proc text(path: string, content: string) -> void
+{
+    let dir = fs.dir_name(path)
+    if dir != "" { fs.mkdir_p(dir) }
+    fs.write_file(path, content)
+}
+
+proc lines(path: string, items: [string]) -> void
+{
+    text(path, str.join(items, "\n") + "\n")
+}
+
+proc append(path: string, content: string) -> void
+{
+    let dir = fs.dir_name(path)
+    if dir != "" { fs.mkdir_p(dir) }
+    fs.append_file(path, content)
+}

@@ -21,3 +21,8 @@ proc transport_c(symbol: string, handle_id: string, args_csv: string, timeout_ms
     let p = process.exec(bin, argv)
     give TransportResult(p.code, p.out, p.err, "c://" + bin, "c", "1.1.0")
 }
+
+proc transport_c_status(symbol: string, handle_id: string, args_csv: string, timeout_ms: i64, request_deadline_ms: i64, cancel_token: string) -> string
+{
+    give summary(transport_c(symbol, handle_id, args_csv, timeout_ms, request_deadline_ms, cancel_token))
+}

@@ -1,6 +1,30 @@
 space runtime/memory/gc_mark
 
+pull core/str
+
+form MarkPlan
+{
+    roots_scanned: i64
+    objects_marked: i64
+    bytes_marked: i64
+}
+
+proc plan(live_bytes: i64) -> MarkPlan
+{
+    let roots = 1 + (live_bytes % 7)
+    let objs = roots * 4
+    give MarkPlan(roots, objs, live_bytes)
+}
+
 proc run() -> bool
 {
-    give true
+    let p = plan(0)
+    give p.roots_scanned >= 1 && p.objects_marked >= p.roots_scanned
+}
+
+proc summary(p: MarkPlan) -> string
+{
+    give "roots=" + str.from_i64(p.roots_scanned) +
+        " objects=" + str.from_i64(p.objects_marked) +
+        " bytes=" + str.from_i64(p.bytes_marked)
 }

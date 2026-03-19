@@ -1,6 +1,7 @@
-.module.examples.lsp_min_server.
-.set.$init."{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\"}".
-.lsp.parse.$init.
-.lsp.result.1."initialize".
-.lsp.result.1."shutdown".
-.ret.0.
+module.lsp_min_server
+fn.main.$stdin
+set.$init."{jsonrpc:2.0,id:1,method:initialize}"
+call.lsp.parse.$init
+call.lsp.result.1."initialize"
+call.lsp.result.1."shutdown"
+ret.true

@@ -28,3 +28,8 @@ proc transport_fake(backend: string, symbol: string, handle_id: string, args_csv
 
     give TransportResult(0, out, "", "fake://" + backend, backend, "fake-1")
 }
+
+proc transport_fake_status(backend: string, symbol: string, handle_id: string, args_csv: string, request_deadline_ms: i64, cancel_token: string) -> string
+{
+    give summary(transport_fake(backend, symbol, handle_id, args_csv, request_deadline_ms, cancel_token))
+}

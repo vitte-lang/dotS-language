@@ -1,9 +1,9 @@
 .test.parser.bench.negative.more.
 .begin.
-.assert.parse.fail.".thread..pool.create.$pool.$workers.".
-.assert.parse.fail.".set.$duration.10".
-.assert.parse.fail.".json.set.$obj.\"flag\".\"false\".".
-.assert.parse.fail.".chan.create.$chan.integer.$size.".
-.assert.parse.fail.".if..end.".
+.assert.parse.fail."call.thread..pool.create.$pool.$workers".
+.assert.parse.fail."set$duration.10".
+.assert.parse.fail."call.json.set.$obj.\"flag\".\"false\"".
+.assert.parse.fail."call.chan.create.$chan.integer.$size..".
+.assert.parse.fail."if..end".
 .ret.
 .end.

@@ -1,0 +1,37 @@
+space stdlib/collections/queue
+
+form Queue
+{
+    items: [string]
+}
+
+proc new() -> Queue
+{
+    give Queue([])
+}
+
+proc enqueue(q: Queue, value: string) -> Queue
+{
+    q.items = q.items.push(value)
+    give q
+}
+
+proc dequeue(q: Queue) -> (Queue, string)
+{
+    if q.items.len == 0 { give (q, "") }
+    let head = q.items[0]
+    let out: [string] = []
+    let i: i32 = 1
+    loop while i < q.items.len
+    {
+        out = out.push(q.items[i])
+        i = i + 1
+    }
+    q.items = out
+    give (q, head)
+}
+
+proc size(q: Queue) -> i64
+{
+    give q.items.len
+}

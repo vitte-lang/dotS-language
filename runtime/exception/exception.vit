@@ -1,0 +1,33 @@
+space runtime/exception/exception
+
+pull core/str
+
+form Exception
+{
+    code: string
+    message: string
+    origin: string
+    retryable: bool
+}
+
+proc new(code: string, message: string, origin: string, retryable: bool) -> Exception
+{
+    if code == "" { code = "PANIC" }
+    if origin == "" { origin = "runtime" }
+    give Exception(code, message, origin, retryable)
+}
+
+proc summary(ex: Exception) -> string
+{
+    give ex.code + "@" + ex.origin + ":" + ex.message
+}
+
+proc to_json(ex: Exception) -> string
+{
+    give "{" +
+        "\"code\":\"" + ex.code + "\"," +
+        "\"origin\":\"" + ex.origin + "\"," +
+        "\"retryable\":\"" + str.from_bool(ex.retryable) + "\"," +
+        "\"message\":\"" + str.replace(ex.message, "\"", "'") + "\"" +
+    "}"
+}

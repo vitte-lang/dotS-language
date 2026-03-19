@@ -35,3 +35,30 @@ proc get_last_by_uri(uri: string) -> string
     }
     give last
 }
+
+proc contains(uri: string) -> bool
+{
+    give get_last_by_uri(uri) != ""
+}
+
+proc last_hash(uri: string) -> string
+{
+    let raw = get_last_by_uri(uri)
+    if raw == "" { give "" }
+    let p = str.split(raw, "\"hash\":\"")
+    if p.len < 2 { give "" }
+    let q = str.split(p[1], "\"")
+    if q.len < 1 { give "" }
+    give q[0]
+}
+
+proc last_version(uri: string) -> i32
+{
+    let raw = get_last_by_uri(uri)
+    if raw == "" { give 0 }
+    let p = str.split(raw, "\"version\":")
+    if p.len < 2 { give 0 }
+    let q = str.split(p[1], ",")
+    if q.len < 1 { give 0 }
+    give str.to_i64(str.trim(q[0]))
+}

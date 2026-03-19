@@ -1,0 +1,53 @@
+space runtime/interpreter/environment
+
+form Binding
+{
+    key: string
+    value: string
+}
+
+form Environment
+{
+    bindings: [Binding]
+}
+
+proc new() -> Environment
+{
+    give Environment([])
+}
+
+proc set(env: Environment, key: string, value: string) -> Environment
+{
+    let out: [Binding] = []
+    let replaced = false
+    loop b in env.bindings
+    {
+        if b.key == key
+        {
+            out = out.push(Binding(key, value))
+            replaced = true
+        }
+        else
+        {
+            out = out.push(b)
+        }
+    }
+    if !replaced
+    {
+        out = out.push(Binding(key, value))
+    }
+    env.bindings = out
+    give env
+}
+
+proc get(env: Environment, key: string) -> string
+{
+    loop b in env.bindings
+    {
+        if b.key == key
+        {
+            give b.value
+        }
+    }
+    give ""
+}

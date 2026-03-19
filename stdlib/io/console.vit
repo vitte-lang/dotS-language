@@ -1,0 +1,14 @@
+space stdlib/io/console
+
+pull stdlib/io/print
+pull stdlib/io/input
+
+proc echo(message: string) -> void
+{
+    print.line(message)
+}
+
+proc read_all() -> string
+{
+    give input.all()
+}

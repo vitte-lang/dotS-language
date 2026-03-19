@@ -1,0 +1,9 @@
+module.web_framework
+fn.main.$port
+set.$port.3000
+call.web.app.create.$app
+call.web.use.$app."logger"
+call.web.route.get.$app."/"."home_handler"
+call.web.route.get.$app."/health"."health_handler"
+call.web.listen.$app.$port
+ret.true

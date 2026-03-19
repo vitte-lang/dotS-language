@@ -1,5 +1,7 @@
 space core/ir/node
 
+pull core/str
+
 form SourceSpan
 {
     file: string
@@ -45,4 +47,44 @@ form IRModule
     schema_version: string
     name: string
     blocks: [IRBlock]
+}
+
+proc span(file: string, line: i32, col: i32) -> SourceSpan
+{
+    give SourceSpan(file, line, col)
+}
+
+proc value(id: i64, typ: string, name: string) -> IRValue
+{
+    give IRValue(id, typ, name)
+}
+
+proc instr(id: i64, op: string, dst: IRValue?, args: [IRValue], literal: string, source: SourceSpan, cost: i32) -> IRInstr
+{
+    give IRInstr(id, op, dst, args, literal, source, cost)
+}
+
+proc block(name: string, instrs: [IRInstr], term: IRTerminator) -> IRBlock
+{
+    give IRBlock(name, instrs, term)
+}
+
+proc module(name: string, blocks: [IRBlock]) -> IRModule
+{
+    give IRModule("1.1.0", name, blocks)
+}
+
+proc term_ret() -> IRTerminator
+{
+    give IRTerminator("ret", null, "", "")
+}
+
+proc term_jump(target: string) -> IRTerminator
+{
+    give IRTerminator("jump", null, target, "")
+}
+
+proc term_branch(cond: IRValue, then_block: string, else_block: string) -> IRTerminator
+{
+    give IRTerminator("branch", cond, then_block, else_block)
 }

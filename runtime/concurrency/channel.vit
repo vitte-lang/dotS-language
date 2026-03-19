@@ -42,6 +42,12 @@ proc buffered(ch: Channel) -> i64
     give ch.queue.len
 }
 
+proc peek(ch: Channel) -> string
+{
+    if buffered(ch) == 0 { give "" }
+    give ch.queue[0]
+}
+
 proc check_invariants(ch: Channel) -> result.RuntimeResult
 {
     let lhs = ch.sent
@@ -186,4 +192,32 @@ proc close(ch: Channel) -> Channel
     ch.closed = true
     metrics.inc_ops("channel.close")
     give ch
+}
+
+proc drain(ch: Channel) -> (Channel, [string])
+{
+    let out = ch.queue
+    ch.recv = ch.recv + ch.queue.len
+    ch.queue = []
+    let inv = check_invariants(ch)
+    if !inv.ok
+    {
+        trace.append("channel.drain.error", "id=" + str.from_i64(ch.id))
+    }
+    give (ch, out)
+}
+
+proc status_json(ch: Channel) -> string
+{
+    give "{" +
+        "\"schema_version\":\"1.1.0\"," +
+        "\"id\":\"" + str.from_i64(ch.id) + "\"," +
+        "\"capacity\":\"" + str.from_i64(ch.capacity) + "\"," +
+        "\"policy\":\"" + ch.policy + "\"," +
+        "\"buffered\":\"" + str.from_i64(buffered(ch)) + "\"," +
+        "\"sent\":\"" + str.from_i64(ch.sent) + "\"," +
+        "\"recv\":\"" + str.from_i64(ch.recv) + "\"," +
+        "\"dropped\":\"" + str.from_i64(ch.dropped) + "\"," +
+        "\"closed\":\"" + str.from_bool(ch.closed) + "\"" +
+    "}"
 }

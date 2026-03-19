@@ -1,0 +1,10 @@
+space packaging/publish
+
+pull packaging/artifact
+
+proc publish_ready_artifact() -> string?
+{
+    let err = artifact.pack("")
+    if err != null { give err }
+    give artifact.verify("")
+}

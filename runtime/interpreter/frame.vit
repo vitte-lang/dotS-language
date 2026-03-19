@@ -1,0 +1,26 @@
+space runtime/interpreter/frame
+
+pull runtime/interpreter/environment
+
+form Frame
+{
+    name: string
+    env: environment.Environment
+}
+
+proc new(name: string, env: environment.Environment) -> Frame
+{
+    if name == "" { name = "anonymous" }
+    give Frame(name, env)
+}
+
+proc bind(fr: Frame, key: string, value: string) -> Frame
+{
+    fr.env = environment.set(fr.env, key, value)
+    give fr
+}
+
+proc lookup(fr: Frame, key: string) -> string
+{
+    give environment.get(fr.env, key)
+}

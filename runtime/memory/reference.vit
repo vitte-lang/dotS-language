@@ -1,6 +1,23 @@
 space runtime/memory/reference
 
+pull core/str
+
 form Ref
 {
     object_id: i64
+}
+
+proc new(object_id: i64) -> Ref
+{
+    give Ref(object_id)
+}
+
+proc is_nil(r: Ref) -> bool
+{
+    give r.object_id < 0
+}
+
+proc debug(r: Ref) -> string
+{
+    give "ref(" + str.from_i64(r.object_id) + ")"
 }

@@ -4,6 +4,7 @@ pull core/str
 pull core/time
 pull runtime/common/metrics
 pull runtime/common/config
+pull runtime/concurrency/task
 
 form SchedTask
 {
@@ -44,6 +45,11 @@ proc add_task(s: Scheduler, id: i64) -> Scheduler
 {
     s.tasks = s.tasks.push(SchedTask(id, true, 0, 0))
     give s
+}
+
+proc add_runtime_task(s: Scheduler, t: task.Task) -> Scheduler
+{
+    give add_task(s, t.id)
 }
 
 proc pick_next(s: Scheduler) -> i64
@@ -99,4 +105,26 @@ proc fairness_score(s: Scheduler) -> i64
     let score = 100 - spread
     if score < 0 { score = 0 }
     give score
+}
+
+proc status_json(s: Scheduler) -> string
+{
+    give "{" +
+        "\"schema_version\":\"1.1.0\"," +
+        "\"timeslice_ms\":\"" + str.from_i64(s.timeslice_ms) + "\"," +
+        "\"fairness_quota\":\"" + str.from_i64(s.fairness_quota) + "\"," +
+        "\"starvation_ms\":\"" + str.from_i64(s.starvation_ms) + "\"," +
+        "\"tasks\":\"" + str.from_i64(s.tasks.len) + "\"," +
+        "\"fairness_score\":\"" + str.from_i64(fairness_score(s)) + "\"" +
+    "}"
+}
+
+proc runnable_total(s: Scheduler) -> i64
+{
+    let out: i64 = 0
+    loop t in s.tasks
+    {
+        if t.runnable { out = out + 1 }
+    }
+    give out
 }

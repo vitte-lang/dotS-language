@@ -67,3 +67,19 @@ proc normalize_uri(uri: string) -> string
     if str.starts_with(x, "/") { give "file://" + x }
     give x
 }
+
+proc safe_offset(offset: i64, text_len: i64) -> i64
+{
+    if offset < 0 { give 0 }
+    if offset > text_len { give text_len }
+    give offset
+}
+
+proc span_from_offsets(start: i64, end: i64, line_starts: [i64], text_len: i64) -> span.Span
+{
+    let s = safe_offset(start, text_len)
+    let e = safe_offset(end, text_len)
+    let sp = offset_to_position(s, line_starts)
+    let ep = offset_to_position(e, line_starts)
+    give span.make(s, e, sp.line, sp.col, ep.line, ep.col)
+}

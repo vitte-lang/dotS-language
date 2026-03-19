@@ -1,0 +1,42 @@
+space stdlib/json/encode
+
+pull core/str
+
+proc escape(raw: string) -> string
+{
+    let out = raw
+    out = str.replace(out, "\\", "\\\\")
+    out = str.replace(out, "\"", "\\\"")
+    out = str.replace(out, "\n", "\\n")
+    out = str.replace(out, "\r", "\\r")
+    give out
+}
+
+proc string(raw: string) -> string
+{
+    give "\"" + escape(raw) + "\""
+}
+
+proc bool(value: bool) -> string
+{
+    give str.from_bool(value)
+}
+
+proc int(value: i64) -> string
+{
+    give str.from_i64(value)
+}
+
+proc object(keys: [string], values: [string]) -> string
+{
+    let out = "{"
+    let i: i32 = 0
+    loop while i < keys.len
+    {
+        if i > 0 { out = out + "," }
+        out = out + string(keys[i]) + ":" + string(values[i])
+        i = i + 1
+    }
+    out = out + "}"
+    give out
+}

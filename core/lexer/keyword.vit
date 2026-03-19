@@ -2,7 +2,28 @@ space core/lexer/keyword
 
 proc table() -> [string]
 {
-    give ["space", "pull", "form", "proc", "const", "let", "give", "loop", "if", "else", "entry", "at"]
+    give [
+        "set",
+        "let",
+        "const",
+        "fn",
+        "call",
+        "ret",
+        "if",
+        "elif",
+        "else",
+        "loop",
+        "while",
+        "for",
+        "break",
+        "continue",
+        "try",
+        "catch",
+        "throw",
+        "module",
+        "use",
+        "import"
+    ]
 }
 
 proc is_keyword(raw: string) -> bool

@@ -1,0 +1,18 @@
+space stdlib/system/process
+
+pull core/process
+
+proc args() -> [string]
+{
+    give process.args()
+}
+
+proc cwd() -> string
+{
+    give process.cwd()
+}
+
+proc exec(bin: string, argv: [string]) -> i32
+{
+    give process.exec(bin, argv).code
+}

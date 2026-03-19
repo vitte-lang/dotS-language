@@ -1,0 +1,29 @@
+space stdlib/compression/zip
+
+pull core/str
+
+proc pack(name: string, content: string) -> string
+{
+    give "ZIP[" + name + "]:" + str.replace(content, "\n", "\\n")
+}
+
+proc unpack(blob: string) -> string
+{
+    if !str.starts_with(blob, "ZIP[") { give "" }
+    let parts = str.split(blob, ":")
+    if parts.len < 2 { give "" }
+    give str.replace(parts[1], "\\n", "\n")
+}
+
+proc is_zip(blob: string) -> bool
+{
+    give str.starts_with(blob, "ZIP[") && str.contains(blob, "]:")
+}
+
+proc entry_name(blob: string) -> string
+{
+    if !str.starts_with(blob, "ZIP[") { give "" }
+    let p = str.split(blob, "]:")
+    if p.len < 1 { give "" }
+    give str.replace(str.replace(p[0], "ZIP[", ""), "]", "")
+}

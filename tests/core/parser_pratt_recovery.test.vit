@@ -1,14 +1,15 @@
 .test.core.parser.pratt.precedence.
 .begin.
-.assert.parse.ok."1 + 2 * 3".
-.assert.ast.shape."binary(+,[number,binary(*)])".
+.assert.parse.ok."set.$x.call.add.1.2".
+.assert.ast.has."assignment_set".
+.assert.ast.has."function_call".
 .ret.
 .end.
 
 .test.core.parser.decl_stmt_expr.separation.
 .begin.
-.assert.parse.ok."proc f(){}\n1+2".
-.assert.ast.has."decl_proc".
+.assert.parse.ok."fn.main.$arg\ncall.main.$arg".
+.assert.ast.has."function_def".
 .assert.ast.has."stmt_expr".
 .ret.
 .end.

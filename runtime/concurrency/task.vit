@@ -1,17 +1,49 @@
 space runtime/concurrency/task
 
+pull core/str
+
 const TASK_NEW: string = "new"
 const TASK_RUNNING: string = "running"
 const TASK_DONE: string = "done"
+const TASK_FAILED: string = "failed"
 
 form Task
 {
     id: i64
     name: string
     state: string
+    payload: string
+    result_value: string
 }
 
 proc make(id: i64, name: string) -> Task
 {
-    give Task(id, name, TASK_NEW)
+    if name == "" { name = "task-" + str.from_i64(id) }
+    give Task(id, name, TASK_NEW, "", "")
+}
+
+proc start(t: Task, payload: string) -> Task
+{
+    t.state = TASK_RUNNING
+    t.payload = payload
+    give t
+}
+
+proc complete(t: Task, value: string) -> Task
+{
+    t.state = TASK_DONE
+    t.result_value = value
+    give t
+}
+
+proc fail(t: Task, reason: string) -> Task
+{
+    t.state = TASK_FAILED
+    t.result_value = reason
+    give t
+}
+
+proc summary(t: Task) -> string
+{
+    give t.name + " state=" + t.state + " result=" + t.result_value
 }

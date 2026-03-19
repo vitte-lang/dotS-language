@@ -1,7 +1,29 @@
 .test.core.semantic.symbol_table.hierarchy.
 .begin.
-.assert.semantic.ok."proc f".
+.assert.semantic.ok."fn.f".
 .assert.symbol.exists."f".
+.ret.
+.end.
+
+.test.core.semantic.function_params.exposed.
+.begin.
+.assert.semantic.ok."fn.main.$arg.$ctx".
+.assert.symbol.exists."$arg".
+.assert.symbol.exists."$ctx".
+.ret.
+.end.
+
+.test.core.semantic.assignment_symbols.named_from_variable.
+.begin.
+.assert.semantic.ok."let.$answer.42".
+.assert.symbol.exists."$answer".
+.ret.
+.end.
+
+.test.core.semantic.vitte_package_import_ok.
+.begin.
+.assert.semantic.ok."import.retry".
+.assert.symbol.exists."retry".
 .ret.
 .end.
 
@@ -9,6 +31,34 @@
 .begin.
 .assert.semantic.diag."DOTS0003 duplicate".
 .assert.semantic.diag."DOTS0003 undeclared".
+.assert.semantic.quickfix.present.
+.ret.
+.end.
+
+.test.core.semantic.nested_call_undeclared_detected.
+.begin.
+.assert.semantic.diag."DOTS0003 undeclared".
+.assert.semantic.quickfix.present.
+.ret.
+.end.
+
+.test.core.semantic.qualified_call_tail_resolution.
+.begin.
+.assert.semantic.ok."fn.create\ncall.thread.pool.create".
+.assert.symbol.exists."create".
+.ret.
+.end.
+
+.test.core.semantic.vitte_package_import_missing.
+.begin.
+.assert.semantic.diag."DOTS0003 missing package".
+.assert.semantic.quickfix.present.
+.ret.
+.end.
+
+.test.core.semantic.return_outside_function.
+.begin.
+.assert.semantic.diag."DOTS0003 return outside function".
 .assert.semantic.quickfix.present.
 .ret.
 .end.

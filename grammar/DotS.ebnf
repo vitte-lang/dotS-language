@@ -1,249 +1,149 @@
-(* ===================================================== *)
-(* DotS Language Grammar                                  *)
-(* ===================================================== *)
+(* ========================================= *)
+(* DotS Script Language Grammar              *)
+(* Minimal Script-Oriented Syntax            *)
+(* ========================================= *)
 
-program
-    = { instruction } ;
+program         = { statement } ;
 
-instruction
-    = "." sequence "." ;
+(* ----------------------------------------- *)
+(* Statements                                *)
+(* ----------------------------------------- *)
 
-sequence
-    = token { "." token } ;
+statement       = assignment
+                | function_def
+                | function_call
+                | control
+                | error_stmt
+                | expression ;
 
-token
-    = directive
-    | identifier
-    | qualified_identifier
-    | variable
-    | literal
-    | type_identifier
-    | operator ;
+(* ----------------------------------------- *)
+(* Assignment                                *)
+(* ----------------------------------------- *)
 
-(* ----------------------------------------------------- *)
-(* Lexical tokens *)
-(* ----------------------------------------------------- *)
+assignment      = "set" "." variable "." expression
+                | "let" "." variable "." expression
+                | "const" "." variable "." expression ;
 
-directive
-    = "module"
-    | "use"
-    | "import"
-    | "export"
-    | "set"
-    | "call"
-    | "fn"
-    | "ret"
-    | "loop"
-    | "if"
-    | "else"
-    | "begin"
-    | "end"
-    | "try"
-    | "catch"
-    | "throw"
-    | "await"
-    | "async"
-    | "spawn"
-    | "bench"
-    | "debug"
-    | "trace"
-    | "test" ;
+(* ----------------------------------------- *)
+(* Functions                                 *)
+(* ----------------------------------------- *)
 
-identifier
-    = letter { letter | digit | "_" } ;
+function_def    = "fn" "." qualified_identifier { "." parameter } ;
 
-qualified_identifier
-    = identifier "." identifier { "." identifier } ;
+parameter       = variable ;
 
-variable
-    = "$" identifier ;
+function_call   = "call" "." qualified_identifier { "." argument } ;
 
-type_identifier
-    = "int"
-    | "float"
-    | "bool"
-    | "str"
-    | "bytes"
-    | "any"
-    | "map"
-    | "list"
-    | "chan"
-    | "null" ;
+return_stmt     = "ret" [ "." argument ] ;
 
-literal
-    = integer
-    | float
-    | string
-    | boolean
-    | "null" ;
+(* ----------------------------------------- *)
+(* Control flow                              *)
+(* ----------------------------------------- *)
 
-integer
-    = ["-"] digit { digit } ;
+control         = if_stmt
+                | loop_stmt
+                | while_stmt
+                | for_stmt
+                | break_stmt
+                | continue_stmt ;
 
-float
-    = ["-"] digit { digit } "." digit { digit } ;
+if_stmt         = "if" "." expression ;
 
-boolean
-    = "true" | "false" ;
+elif_stmt       = "elif" "." expression ;
 
-string
-    = '"' { string_char } '"' ;
+else_stmt       = "else" ;
 
-string_char
-    = unescaped_char | escape ;
+loop_stmt       = "loop" "." expression ;
 
-unescaped_char
-    = ? any unicode character except quote, backslash and newline ? ;
+while_stmt      = "while" "." expression ;
 
-escape
-    = "\\\\"
-    | "\\\""
-    | "\\n"
-    | "\\r"
-    | "\\t"
-    | "\\u" hex hex hex hex ;
+for_stmt        = "for" "." variable "." expression ;
 
-hex
-    = digit | "a"..."f" | "A"..."F" ;
+break_stmt      = "break" ;
 
-operator
-    = "+" | "-" | "*" | "/" | "%"
-    | "==" | "!=" | "<" | ">" | "<=" | ">="
-    | "and" | "or" | "not" ;
+continue_stmt   = "continue" ;
 
-letter
-    = "a"..."z" | "A"..."Z" ;
+(* ----------------------------------------- *)
+(* Error handling                            *)
+(* ----------------------------------------- *)
 
-digit
-    = "0"..."9" ;
+error_stmt      = try_stmt
+                | catch_stmt
+                | throw_stmt ;
 
-(* ----------------------------------------------------- *)
-(* Structured DotS patterns *)
-(* ----------------------------------------------------- *)
+try_stmt        = "try" ;
 
-module_decl
-    = "." "module" "." module_path "." ;
+catch_stmt      = "catch" ;
 
-module_path
-    = identifier { "." identifier } ;
+throw_stmt      = "throw" "." expression ;
 
-use_decl
-    = "." "use" "." module_path "." ;
+(* ----------------------------------------- *)
+(* Expressions                               *)
+(* ----------------------------------------- *)
 
-import_decl
-    = "." "import" "." module_path "." ;
+expression      = pipeline ;
 
-set_stmt
-    = "." "set" "." variable "." value "." ;
+pipeline        = value { "." value } ;
 
-call_stmt
-    = "." "call" "." callable "." ;
+value           = identifier
+                | variable
+                | literal
+                | function_call ;
 
-callable
-    = identifier | qualified_identifier ;
+argument        = expression ;
 
-function_decl
-    = "." "fn" "." callable "."
-      "." "begin" "."
-      { instruction }
-      "." "end" "." ;
+(* ----------------------------------------- *)
+(* Modules / imports                         *)
+(* ----------------------------------------- *)
 
-loop_stmt
-    = "." "loop" "." value "."
-      { instruction }
-      "." "end" "." ;
+module_stmt     = "module" "." qualified_identifier ;
 
-if_stmt
-    = "." "if" "." value "."
-      { instruction }
-      [ "." "else" "." { instruction } ]
-      "." "end" "." ;
+use_stmt        = "use" "." qualified_identifier ;
 
-operation_stmt
-    = "." qualified_identifier
-      { "." value }
-      "." ;
+import_stmt     = "import" "." qualified_identifier ;
 
-typed_operation_stmt
-    = "." qualified_identifier
-      "." type_identifier
-      { "." value }
-      "." ;
+(* ----------------------------------------- *)
+(* Variables                                 *)
+(* ----------------------------------------- *)
 
-value
-    = variable
-    | literal
-    | identifier
-    | qualified_identifier
-    | type_identifier ;
+variable        = "$" identifier ;
 
-(* ----------------------------------------------------- *)
-(* Examples: valid *)
-(* ----------------------------------------------------- *)
+(* ----------------------------------------- *)
+(* Literals                                  *)
+(* ----------------------------------------- *)
 
-(* .module.benchmark.http. *)
-(* .use.thread. *)
-(* .thread.pool.create.$pool.$workers. *)
-(* .chan.create.$chan.int.$channel_size. *)
-(* .json.set.$obj."bench".true. *)
+literal         = string
+                | number
+                | boolean ;
 
-(* ----------------------------------------------------- *)
-(* Examples: invalid *)
-(* ----------------------------------------------------- *)
+string          = '"' { character } '"' ;
 
-(* .module..http.                ; empty segment *)
-(* .set.iterations.1000.         ; missing $ for variable *)
-(* .json.set.$obj."bench"."true". ; string instead of bool *)
-(* .thread.pool.create..$workers. ; empty callable segment *)
-(* .chan.create.$chan.integer.$n. ; unknown type_identifier *)
+number          = digit { digit } [ "." digit { digit } ] ;
 
-(* ----------------------------------------------------- *)
-(* Benchmark env override patterns *)
-(* ----------------------------------------------------- *)
+boolean         = "true" | "false" ;
 
-bench_env_override_stmt
-    = "."
-      "sys" "." "env" "." "get"
-      "." string
-      "." variable
-      "." ;
+(* ----------------------------------------- *)
+(* Identifiers                               *)
+(* ----------------------------------------- *)
 
-bench_env_key
-    = "DOTS_BENCH_MODE"
-    | "DOTS_BENCH_RUNS"
-    | "DOTS_BENCH_WARMUP"
-    | "DOTS_BENCH_SEED"
-    | "DOTS_BENCH_OUTPUT"
-    | "DOTS_BENCH_FAIL_ON_REGRESSION"
-    | "DOTS_BENCH_BASELINE_FILE"
-    | "DOTS_BENCH_TAG"
-    | "DOTS_BENCH_NOTES"
-    | "DOTS_BENCH_TIMEOUT_MS"
-    | "DOTS_BENCH_COOLDOWN_MS"
-    | "DOTS_BENCH_MACHINE_ID"
-    | "DOTS_BENCH_QUIET"
-    | "DOTS_BENCH_VERBOSE" ;
+identifier      = letter { letter | digit | "_" } ;
 
-(* ----------------------------------------------------- *)
-(* Benchmark summary JSON object (shape expectation) *)
-(* ----------------------------------------------------- *)
+qualified_identifier = identifier { "." identifier } ;
 
-bench_summary_required_key
-    = "schema_version"
-    | "run_id"
-    | "timestamp"
-    | "machine_id"
-    | "bench"
-    | "scenario"
-    | "mode"
-    | "runs"
-    | "avg_ms"
-    | "p50_ms"
-    | "p90_ms"
-    | "p95_ms"
-    | "p99_ms"
-    | "min_ms"
-    | "max_ms"
-    | "stddev_ms"
-    | "cv_pct"
-    | "status" ;
+(* ----------------------------------------- *)
+(* Characters                                *)
+(* ----------------------------------------- *)
+
+letter          = "a"…"z" | "A"…"Z" ;
+
+digit           = "0"…"9" ;
+
+character       = ? any unicode char except " ? ;
+
+(* ----------------------------------------- *)
+(* Whitespace and comments                   *)
+(* ----------------------------------------- *)
+
+whitespace      = " " | "\t" | "\n" | "\r" ;
+
+comment         = "#" { character } ;

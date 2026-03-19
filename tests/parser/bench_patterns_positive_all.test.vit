@@ -1,10 +1,10 @@
 .test.parser.bench.positive.all.
 .begin.
-.assert.parse.ok.".module.benchmark.http.".
-.assert.parse.ok.".import.benchmark.config.".
-.assert.parse.ok.".sys.env.get.\"DOTS_BENCH_RUNS\".$runs_env.".
-.assert.parse.ok.".thread.pool.wait.timeout.$pool.$timeout_ms.$wait_ok.".
-.assert.parse.ok.".profile.series.stddev.$stddev_ms.".
-.assert.parse.ok.".map.set.$summary.\"schema_version\".\"1.1.0\".".
+.assert.parse.ok."module.benchmark".
+.assert.parse.ok."import.config".
+.assert.parse.ok."call.sys.env.get.\"DOTS_BENCH_RUNS\".$runs_env".
+.assert.parse.ok."call.thread.pool.wait.timeout.$pool.$timeout_ms.$wait_ok".
+.assert.parse.ok."call.profile.series.stddev.$stddev_ms".
+.assert.parse.ok."call.map.set.$summary.\"schema_version\".\"1.1.0\"".
 .ret.
 .end.

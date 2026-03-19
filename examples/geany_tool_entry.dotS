@@ -1,8 +1,7 @@
-.module.examples.geany_tool_entry.
-.sys.env.get."DOTS_GEANY_ACTION".$action.
-.if.$action.
-.call.geany.tool.$action.
-.else.
-.call.geany.tool."status".
-.end.
-.ret.0.
+module.geany_tool_entry
+fn.main.$action
+call.sys.env.get."DOTS_GEANY_ACTION".$action
+if.$action
+call.geany.tool.$action
+call.geany.tool."status"
+ret.true

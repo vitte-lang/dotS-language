@@ -1,7 +1,25 @@
 space runtime/memory/object
 
+pull core/str
+
 form Object
 {
     id: i64
     type_name: string
+}
+
+proc new(id: i64, type_name: string) -> Object
+{
+    if type_name == "" { type_name = "unknown" }
+    give Object(id, type_name)
+}
+
+proc is_valid(o: Object) -> bool
+{
+    give o.id >= 0 && o.type_name != ""
+}
+
+proc label(o: Object) -> string
+{
+    give o.type_name + "#" + str.from_i64(o.id)
 }

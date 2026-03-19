@@ -1,5 +1,6 @@
 space core/ir/builder
 
+pull core/str
 pull core/parser
 pull core/ir/node
 
@@ -15,16 +16,92 @@ proc val(id: i64, typ: string, name: string) -> node.IRValue
 
 proc span(file: string, line: i32, col: i32) -> node.SourceSpan
 {
-    give node.SourceSpan(file, line, col)
+    give node.span(file, line, col)
 }
 
 proc estimate_cost(op: string) -> i32
 {
     if op == "const" { give 1 }
+    if op == "bind" || op == "import" || op == "module" { give 1 }
     if op == "add" || op == "sub" || op == "mul" || op == "div" { give 2 }
     if op == "call" { give 8 }
+    if op == "pipe" { give 2 }
     if op == "branch" { give 1 }
     give 1
+}
+
+proc literal_type(n: parser.AstNode) -> string
+{
+    if n.kind == "number" { give "i64" }
+    if n.kind == "string" { give "string" }
+    if n.kind == "boolean" { give "bool" }
+    give "unknown"
+}
+
+proc emit_literal(instrs: [node.IRInstr], n: parser.AstNode, file: string, vid: i64, iid: i64) -> ([node.IRInstr], i64, i64, node.IRValue?)
+{
+    if n.kind != "number" && n.kind != "string" && n.kind != "boolean"
+    {
+        give (instrs, vid, iid, null)
+    }
+    let dst = val(vid, literal_type(n), "%" + str.from_i64(vid))
+    instrs = instrs.push(node.instr(iid, "const", dst, [], n.value, span(file, n.line, n.col), estimate_cost("const")))
+    give (instrs, vid + 1, iid + 1, dst)
+}
+
+proc emit_assignment(instrs: [node.IRInstr], n: parser.AstNode, file: string, vid: i64, iid: i64) -> ([node.IRInstr], i64, i64)
+{
+    let target = n.children[0]
+    let expr = n.children[1]
+    let out = instrs
+    let vcur = vid
+    let icur = iid
+    let out2, v2, i2, rhs = emit_literal(out, expr, file, vcur, icur)
+    out = out2
+    vcur = v2
+    icur = i2
+    let dst = val(vcur, "symbol", target.value)
+    let args: [node.IRValue] = []
+    if rhs != null { args = args.push(rhs) }
+    out = out.push(node.instr(icur, "bind", dst, args, n.kind, span(file, n.line, n.col), estimate_cost("bind")))
+    give (out, vcur + 1, icur + 1)
+}
+
+proc emit_function_call(instrs: [node.IRInstr], n: parser.AstNode, file: string, vid: i64, iid: i64) -> ([node.IRInstr], i64, i64)
+{
+    let out = instrs
+    let args: [node.IRValue] = []
+    let vcur = vid
+    let icur = iid
+    let ai: i32 = 1
+    loop while ai < n.children.len
+    {
+        let out2, v2, i2, rhs = emit_literal(out, n.children[ai], file, vcur, icur)
+        out = out2
+        vcur = v2
+        icur = i2
+        if rhs != null { args = args.push(rhs) }
+        ai = ai + 1
+    }
+    let dst = val(vcur, "call_result", "%" + str.from_i64(vcur))
+    out = out.push(node.instr(icur, "call", dst, args, n.value, span(file, n.line, n.col), estimate_cost("call")))
+    give (out, vcur + 1, icur + 1)
+}
+
+proc emit_module_like(instrs: [node.IRInstr], n: parser.AstNode, file: string, vid: i64, iid: i64) -> ([node.IRInstr], i64, i64)
+{
+    let op = "module"
+    if n.kind == "use_stmt" || n.kind == "import_stmt" { op = "import" }
+    let dst = val(vid, "module_ref", "%" + str.from_i64(vid))
+    let out = instrs.push(node.instr(iid, op, dst, [], n.value, span(file, n.line, n.col), estimate_cost(op)))
+    give (out, vid + 1, iid + 1)
+}
+
+proc emit_pipeline(instrs: [node.IRInstr], n: parser.AstNode, file: string, vid: i64, iid: i64) -> ([node.IRInstr], i64, i64)
+{
+    let dst = val(vid, "pipe", "%" + str.from_i64(vid))
+    let out = instrs.push(node.instr(iid, "pipe", dst, [], str.from_i64(n.children.len), span(file, n.line, n.col), estimate_cost("pipe")))
+    give (out, vid + 1, iid + 1)
 }
 
 proc build_from_ast(ast: parser.AstNode, name: string, file: string) -> BuildResult
@@ -35,15 +112,53 @@ proc build_from_ast(ast: parser.AstNode, name: string, file: string) -> BuildRes
 
     loop n in ast.children
     {
+        if (n.kind == "assignment_const" || n.kind == "assignment_let" || n.kind == "assignment_set") && n.children.len >= 2
+        {
+            let out, v2, i2 = emit_assignment(instrs, n, file, vid, iid)
+            instrs = out
+            vid = v2
+            iid = i2
+            continue
+        }
+        if n.kind == "module_stmt" || n.kind == "use_stmt" || n.kind == "import_stmt"
+        {
+            let out2, v3, i3 = emit_module_like(instrs, n, file, vid, iid)
+            instrs = out2
+            vid = v3
+            iid = i3
+            continue
+        }
+        if n.kind == "function_call"
+        {
+            let out3, v4, i4 = emit_function_call(instrs, n, file, vid, iid)
+            instrs = out3
+            vid = v4
+            iid = i4
+            continue
+        }
         if n.kind == "stmt_expr" && n.children.len > 0
         {
             let e = n.children[0]
             if e.kind == "number"
             {
                 let dst = val(vid, "i64", "%" + str.from_i64(vid))
-                instrs = instrs.push(node.IRInstr(iid, "const", dst, [], e.value, span(file, e.line, e.col), estimate_cost("const")))
+                instrs = instrs.push(node.instr(iid, "const", dst, [], e.value, span(file, e.line, e.col), estimate_cost("const")))
                 vid = vid + 1
                 iid = iid + 1
+            }
+            else if e.kind == "pipeline"
+            {
+                let out4, v5, i5 = emit_pipeline(instrs, e, file, vid, iid)
+                instrs = out4
+                vid = v5
+                iid = i5
+            }
+            else if e.kind == "function_call"
+            {
+                let out5, v6, i6 = emit_function_call(instrs, e, file, vid, iid)
+                instrs = out5
+                vid = v6
+                iid = i6
             }
             else if e.kind == "binary" && e.children.len >= 2
             {
@@ -54,14 +169,13 @@ proc build_from_ast(ast: parser.AstNode, name: string, file: string) -> BuildRes
                 if e.value == "-" { op = "sub" }
                 if e.value == "*" { op = "mul" }
                 if e.value == "/" { op = "div" }
-                instrs = instrs.push(node.IRInstr(iid, op, dst2, [a, b], "", span(file, e.line, e.col), estimate_cost(op)))
+                instrs = instrs.push(node.instr(iid, op, dst2, [a, b], "", span(file, e.line, e.col), estimate_cost(op)))
                 vid = vid + 1
                 iid = iid + 1
             }
         }
     }
 
-    let term = node.IRTerminator("ret", null, "", "")
-    let blk = node.IRBlock("entry", instrs, term)
-    give BuildResult(node.IRModule("1.1.0", name, [blk]))
+    let blk = node.block("entry", instrs, node.term_ret())
+    give BuildResult(node.module(name, [blk]))
 }

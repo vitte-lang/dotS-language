@@ -4,3 +4,8 @@ form StructDecl
 {
     name: string
 }
+
+proc new(name: string) -> StructDecl
+{
+    give StructDecl(name)
+}

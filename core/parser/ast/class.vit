@@ -4,3 +4,8 @@ form ClassDecl
 {
     name: string
 }
+
+proc new(name: string) -> ClassDecl
+{
+    give ClassDecl(name)
+}

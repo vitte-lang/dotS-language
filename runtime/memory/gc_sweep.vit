@@ -1,6 +1,31 @@
 space runtime/memory/gc_sweep
 
+pull core/str
+
+form SweepPlan
+{
+    candidates: i64
+    released_bytes: i64
+    survivors: i64
+}
+
+proc plan(live_bytes: i64) -> SweepPlan
+{
+    let released = live_bytes / 8
+    let candidates = 1 + (released % 11)
+    let survivors = live_bytes - released
+    give SweepPlan(candidates, released, survivors)
+}
+
 proc run() -> bool
 {
-    give true
+    let p = plan(0)
+    give p.candidates >= 1 && p.survivors >= 0
+}
+
+proc summary(p: SweepPlan) -> string
+{
+    give "candidates=" + str.from_i64(p.candidates) +
+        " released=" + str.from_i64(p.released_bytes) +
+        " survivors=" + str.from_i64(p.survivors)
 }

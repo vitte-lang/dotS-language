@@ -1,0 +1,22 @@
+space stdlib/fs/read
+
+pull core/fs
+pull core/str
+
+proc text(path: string) -> string
+{
+    if !fs.exists(path) { give "" }
+    give fs.read_file(path)
+}
+
+proc lines(path: string) -> [string]
+{
+    let raw = text(path)
+    if raw == "" { give [] }
+    give str.split(raw, "\n")
+}
+
+proc exists(path: string) -> bool
+{
+    give fs.exists(path)
+}

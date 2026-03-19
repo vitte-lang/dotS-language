@@ -1,0 +1,17 @@
+space stdlib/io/terminal
+
+pull core/process
+pull core/str
+
+proc columns() -> i32
+{
+    let raw = process.env("COLUMNS")
+    if raw == "" { give 80 }
+    give str.to_i32(raw)
+}
+
+proc is_tty() -> bool
+{
+    let term = process.env("TERM")
+    give term != ""
+}

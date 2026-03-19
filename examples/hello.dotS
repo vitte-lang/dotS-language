@@ -1,0 +1,5 @@
+module.hello
+fn.main.$name
+set.$msg."hello"
+call.print.$msg.$name
+ret.true

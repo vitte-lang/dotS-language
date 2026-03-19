@@ -1,0 +1,22 @@
+space runtime/interpreter/dispatch
+
+pull core/str
+
+form Dispatch
+{
+    op: string
+    payload: string
+}
+
+proc route(mode: string, ir_hash: string) -> Dispatch
+{
+    if str.contains(ir_hash, "panic")
+    {
+        give Dispatch("panic", ir_hash)
+    }
+    if mode == ""
+    {
+        give Dispatch("noop", ir_hash)
+    }
+    give Dispatch(mode, ir_hash)
+}

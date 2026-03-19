@@ -6,8 +6,6 @@ pull core/lexer
 pull core/lexer/token
 pull core/lexer/token_kind
 pull core/parser/context
-pull core/parser/grammar
-pull core/parser/precedence
 pull core/parser/diagnostics
 pull core/parser/recovery
 pull core/diagnostics
@@ -40,7 +38,123 @@ proc trace_enabled() -> bool
     give v == "1" || v == "true"
 }
 
-proc parse_primary(ctx: context.ParseContext, next_id: i64) -> (AstNode, context.ParseContext, i64)
+proc token_line(t: token.Token?) -> i32
+{
+    if t == null { give 1 }
+    give t.sp.start_pos.line
+}
+
+proc token_col(t: token.Token?) -> i32
+{
+    if t == null { give 1 }
+    give t.sp.start_pos.col
+}
+
+proc parse_identifier(ctx: context.ParseContext, next_id: i64, expected: string) -> (AstNode, context.ParseContext, i64)
+{
+    let t = context.peek(ctx, 0)
+    if t != null && t.kind == token_kind.TK_IDENT
+    {
+        let n = make_node(next_id, "identifier", t.lexeme, [], t.sp.start_pos.line, t.sp.start_pos.col)
+        give (n, context.bump(ctx), next_id + 1)
+    }
+
+    ctx.diagnostics = ctx.diagnostics.push(diagnostics.missing_token(token_line(t), token_col(t), expected))
+    let n2 = make_node(next_id, "missing", expected, [], token_line(t), token_col(t))
+    give (n2, ctx, next_id + 1)
+}
+
+proc parse_qualified_identifier(ctx: context.ParseContext, next_id: i64, expected: string) -> (AstNode, context.ParseContext, i64)
+{
+    let head, c1, id1 = parse_identifier(ctx, next_id + 1, expected)
+    let parts: [AstNode] = [head]
+    let raw = head.value
+    let cur = c1
+    let nid = id1
+
+    loop while true
+    {
+        let dot = context.peek(cur, 0)
+        let nxt = context.peek(cur, 1)
+        if dot == null || dot.kind != token_kind.TK_DOT { break }
+        if nxt == null || nxt.kind != token_kind.TK_IDENT { break }
+
+        cur = context.bump(cur)
+        let seg, c2, id2 = parse_identifier(cur, nid, expected)
+        parts = parts.push(seg)
+        raw = raw + "." + seg.value
+        cur = c2
+        nid = id2
+    }
+
+    let n = make_node(next_id, "qualified_identifier", raw, parts, head.line, head.col)
+    give (n, cur, nid)
+}
+
+proc parse_dot(ctx: context.ParseContext) -> context.ParseContext
+{
+    let t = context.peek(ctx, 0)
+    if t != null && t.kind == token_kind.TK_DOT
+    {
+        give context.bump(ctx)
+    }
+
+    ctx.diagnostics = ctx.diagnostics.push(diagnostics.missing_token(token_line(t), token_col(t), "."))
+    give ctx
+}
+
+proc parse_variable(ctx: context.ParseContext, next_id: i64) -> (AstNode, context.ParseContext, i64)
+{
+    let t = context.peek(ctx, 0)
+    if t == null
+    {
+        let n = make_node(next_id, "missing", "$identifier", [], 1, 1)
+        give (n, ctx, next_id + 1)
+    }
+
+    if t.kind != token_kind.TK_DOLLAR
+    {
+        ctx.diagnostics = ctx.diagnostics.push(diagnostics.unexpected_token(t, "$identifier"))
+        let n2 = make_node(next_id, "error", t.lexeme, [], t.sp.start_pos.line, t.sp.start_pos.col)
+        give (n2, context.bump(ctx), next_id + 1)
+    }
+
+    let c1 = context.bump(ctx)
+    let name, c2, id2 = parse_identifier(c1, next_id + 1, "identifier")
+    let n3 = make_node(next_id, "variable", "$" + name.value, [name], t.sp.start_pos.line, t.sp.start_pos.col)
+    give (n3, c2, id2)
+}
+
+proc parse_function_call(ctx: context.ParseContext, next_id: i64) -> (AstNode, context.ParseContext, i64)
+{
+    let kw = context.peek(ctx, 0)
+    let c1 = context.bump(ctx)
+    let c2 = parse_dot(c1)
+    let callee, c3, id3 = parse_qualified_identifier(c2, next_id + 1, "function name")
+
+    let args: [AstNode] = [callee]
+    let cur = c3
+    let nid = id3
+
+    loop while true
+    {
+        let t = context.peek(cur, 0)
+        if t == null || t.kind != token_kind.TK_DOT { break }
+
+        cur = context.bump(cur)
+        let a, c4, id4 = parse_value(cur, nid)
+        args = args.push(a)
+        cur = c4
+        nid = id4
+    }
+
+    let line = token_line(kw)
+    let col = token_col(kw)
+    let n = make_node(next_id, "function_call", callee.value, args, line, col)
+    give (n, cur, nid)
+}
+
+proc parse_value(ctx: context.ParseContext, next_id: i64) -> (AstNode, context.ParseContext, i64)
 {
     let t = context.peek(ctx, 0)
     if t == null
@@ -49,67 +163,58 @@ proc parse_primary(ctx: context.ParseContext, next_id: i64) -> (AstNode, context
         give (n, ctx, next_id + 1)
     }
 
-    if t.kind == token_kind.TK_NUMBER || t.kind == token_kind.TK_STRING || t.kind == token_kind.TK_IDENT || t.kind == token_kind.TK_DOT_CALL
+    if t.kind == token_kind.TK_NUMBER
     {
-        let n = make_node(next_id, t.kind, t.lexeme, [], t.sp.start_pos.line, t.sp.start_pos.col)
-        give (n, context.bump(ctx), next_id + 1)
+        give (make_node(next_id, "number", t.lexeme, [], t.sp.start_pos.line, t.sp.start_pos.col), context.bump(ctx), next_id + 1)
     }
 
-    if t.kind == token_kind.TK_LPAREN
+    if t.kind == token_kind.TK_STRING
     {
-        let c1 = context.bump(ctx)
-        let expr, c2, n2 = parse_expr(c1, 0, next_id + 1)
-        let rp = context.peek(c2, 0)
-        if rp != null && rp.kind == token_kind.TK_RPAREN
-        {
-            let n = make_node(next_id, "group", "", [expr], t.sp.start_pos.line, t.sp.start_pos.col)
-            give (n, context.bump(c2), n2)
-        }
-        c2.diagnostics = c2.diagnostics.push(diagnostics.missing_token(t.sp.start_pos.line, t.sp.start_pos.col, ")"))
-        let n3 = make_node(next_id, "group", "", [expr], t.sp.start_pos.line, t.sp.start_pos.col)
-        give (n3, c2, n2)
+        give (make_node(next_id, "string", t.lexeme, [], t.sp.start_pos.line, t.sp.start_pos.col), context.bump(ctx), next_id + 1)
     }
 
-    ctx.diagnostics = ctx.diagnostics.push(diagnostics.unexpected_token(t, "expression"))
-    let rec = recovery.sync(ctx)
-    let n4 = make_node(next_id, "error", t.lexeme, [], t.sp.start_pos.line, t.sp.start_pos.col)
-    give (n4, rec, next_id + 1)
-}
-
-proc token_to_op(t: token.Token?) -> string
-{
-    if t == null { give "" }
-    if t.kind == token_kind.TK_EQUAL { give "=" }
     if t.kind == token_kind.TK_IDENT
     {
-        if t.lexeme == "and" || t.lexeme == "or" { give t.lexeme }
+        let k = "identifier"
+        if t.lexeme == "true" || t.lexeme == "false" { k = "boolean" }
+        give (make_node(next_id, k, t.lexeme, [], t.sp.start_pos.line, t.sp.start_pos.col), context.bump(ctx), next_id + 1)
     }
-    if t.kind == token_kind.TK_UNKNOWN
+
+    if t.kind == token_kind.TK_DOLLAR
     {
-        if t.lexeme == "+" || t.lexeme == "-" || t.lexeme == "*" || t.lexeme == "/" || t.lexeme == "<" || t.lexeme == ">" { give t.lexeme }
+        give parse_variable(ctx, next_id)
     }
-    give ""
+
+    if t.kind == token_kind.TK_KEYWORD && t.lexeme == "call"
+    {
+        give parse_function_call(ctx, next_id)
+    }
+
+    ctx.diagnostics = ctx.diagnostics.push(diagnostics.unexpected_token(t, "value"))
+    give (make_node(next_id, "error", t.lexeme, [], t.sp.start_pos.line, t.sp.start_pos.col), context.bump(ctx), next_id + 1)
 }
 
-proc parse_expr(ctx: context.ParseContext, min_bp: i32, next_id: i64) -> (AstNode, context.ParseContext, i64)
+proc parse_expression(ctx: context.ParseContext, next_id: i64) -> (AstNode, context.ParseContext, i64)
 {
-    let lhs, c1, id1 = parse_primary(ctx, next_id)
+    let lhs, c1, id1 = parse_value(ctx, next_id)
     let left = lhs
     let cur = c1
     let nid = id1
 
     loop while true
     {
-        let op_t = context.peek(cur, 0)
-        let op = token_to_op(op_t)
-        if op == "" { break }
-
-        let bp = precedence.value(op)
-        if bp < min_bp { break }
+        let t = context.peek(cur, 0)
+        if t == null || t.kind != token_kind.TK_DOT { break }
+        let t2 = context.peek(cur, 1)
+        if t2 == null || t2.kind == token_kind.TK_NEWLINE || t2.kind == token_kind.TK_EOF
+        {
+            cur.diagnostics = cur.diagnostics.push(diagnostics.missing_token(token_line(t), token_col(t), "value"))
+            break
+        }
 
         cur = context.bump(cur)
-        let rhs, c2, id2 = parse_expr(cur, bp + 1, nid)
-        left = make_node(nid, "binary", op, [left, rhs], left.line, left.col)
+        let rhs, c2, id2 = parse_value(cur, nid)
+        left = make_node(nid, "pipeline", "", [left, rhs], left.line, left.col)
         cur = c2
         nid = id2 + 1
     }
@@ -117,7 +222,103 @@ proc parse_expr(ctx: context.ParseContext, min_bp: i32, next_id: i64) -> (AstNod
     give (left, cur, nid)
 }
 
-proc parse_decl(ctx: context.ParseContext, next_id: i64) -> (AstNode, context.ParseContext, i64)
+proc parse_assignment(ctx: context.ParseContext, next_id: i64, kw: string) -> (AstNode, context.ParseContext, i64)
+{
+    let k = context.peek(ctx, 0)
+    let c1 = context.bump(ctx)
+    let c2 = parse_dot(c1)
+    let v, c3, id3 = parse_variable(c2, next_id + 1)
+    let c4 = parse_dot(c3)
+    let ex, c5, id5 = parse_expression(c4, id3)
+    let n = make_node(next_id, "assignment_" + kw, kw, [v, ex], token_line(k), token_col(k))
+    give (n, c5, id5)
+}
+
+proc parse_function_def(ctx: context.ParseContext, next_id: i64) -> (AstNode, context.ParseContext, i64)
+{
+    let kw = context.peek(ctx, 0)
+    let c1 = context.bump(ctx)
+    let c2 = parse_dot(c1)
+    let name, c3, id3 = parse_identifier(c2, next_id + 1, "function name")
+
+    let params: [AstNode] = [name]
+    let cur = c3
+    let nid = id3
+
+    loop while true
+    {
+        let t = context.peek(cur, 0)
+        if t == null || t.kind != token_kind.TK_DOT { break }
+
+        cur = context.bump(cur)
+        let p, c4, id4 = parse_variable(cur, nid)
+        params = params.push(p)
+        cur = c4
+        nid = id4
+    }
+
+    let n = make_node(next_id, "function_def", name.value, params, token_line(kw), token_col(kw))
+    give (n, cur, nid)
+}
+
+proc parse_keyword_stmt(ctx: context.ParseContext, next_id: i64, kind: string, with_expr: bool) -> (AstNode, context.ParseContext, i64)
+{
+    let kw = context.peek(ctx, 0)
+    let cur = context.bump(ctx)
+    let raw = ""
+    if kw != null { raw = kw.lexeme }
+
+    if !with_expr
+    {
+        give (make_node(next_id, kind, raw, [], token_line(kw), token_col(kw)), cur, next_id + 1)
+    }
+
+    let c2 = parse_dot(cur)
+    let ex, c3, id3 = parse_expression(c2, next_id + 1)
+    let n = make_node(next_id, kind, raw, [ex], token_line(kw), token_col(kw))
+    give (n, c3, id3)
+}
+
+proc parse_for_stmt(ctx: context.ParseContext, next_id: i64) -> (AstNode, context.ParseContext, i64)
+{
+    let kw = context.peek(ctx, 0)
+    let c1 = context.bump(ctx)
+    let c2 = parse_dot(c1)
+    let v, c3, id3 = parse_variable(c2, next_id + 1)
+    let c4 = parse_dot(c3)
+    let ex, c5, id5 = parse_expression(c4, id3)
+    let n = make_node(next_id, "for_stmt", "for", [v, ex], token_line(kw), token_col(kw))
+    give (n, c5, id5)
+}
+
+proc parse_module_stmt(ctx: context.ParseContext, next_id: i64, kind: string) -> (AstNode, context.ParseContext, i64)
+{
+    let kw = context.peek(ctx, 0)
+    let c1 = context.bump(ctx)
+    let c2 = parse_dot(c1)
+    let name, c3, id3 = parse_qualified_identifier(c2, next_id + 1, "identifier")
+    let n = make_node(next_id, kind, name.value, [name], token_line(kw), token_col(kw))
+    give (n, c3, id3)
+}
+
+proc parse_return_stmt(ctx: context.ParseContext, next_id: i64) -> (AstNode, context.ParseContext, i64)
+{
+    let kw = context.peek(ctx, 0)
+    let cur = context.bump(ctx)
+    let t = context.peek(cur, 0)
+
+    if t != null && t.kind == token_kind.TK_DOT
+    {
+        let c1 = context.bump(cur)
+        let ex, c2, id2 = parse_expression(c1, next_id + 1)
+        let n = make_node(next_id, "return_stmt", "ret", [ex], token_line(kw), token_col(kw))
+        give (n, c2, id2)
+    }
+
+    give (make_node(next_id, "return_stmt", "ret", [], token_line(kw), token_col(kw)), cur, next_id + 1)
+}
+
+proc parse_statement(ctx: context.ParseContext, next_id: i64) -> (AstNode, context.ParseContext, i64)
 {
     let t = context.peek(ctx, 0)
     if t == null
@@ -126,23 +327,34 @@ proc parse_decl(ctx: context.ParseContext, next_id: i64) -> (AstNode, context.Pa
         give (n, ctx, next_id + 1)
     }
 
-    if t.kind == token_kind.TK_KEYWORD && grammar.is_declaration_keyword(t.lexeme)
+    if t.kind == token_kind.TK_KEYWORD
     {
-        let c1 = context.bump(ctx)
-        let name_t = context.peek(c1, 0)
-        let name = ""
-        let c2 = c1
-        if name_t != null && name_t.kind == token_kind.TK_IDENT
-        {
-            name = name_t.lexeme
-            c2 = context.bump(c1)
-        }
-        let n = make_node(next_id, "decl_" + t.lexeme, name, [], t.sp.start_pos.line, t.sp.start_pos.col)
-        give (n, c2, next_id + 1)
+        if t.lexeme == "set" || t.lexeme == "let" || t.lexeme == "const" { give parse_assignment(ctx, next_id, t.lexeme) }
+        if t.lexeme == "fn" { give parse_function_def(ctx, next_id) }
+        if t.lexeme == "call" { give parse_function_call(ctx, next_id) }
+        if t.lexeme == "ret" { give parse_return_stmt(ctx, next_id) }
+
+        if t.lexeme == "if" { give parse_keyword_stmt(ctx, next_id, "if_stmt", true) }
+        if t.lexeme == "elif" { give parse_keyword_stmt(ctx, next_id, "elif_stmt", true) }
+        if t.lexeme == "else" { give parse_keyword_stmt(ctx, next_id, "else_stmt", false) }
+        if t.lexeme == "loop" { give parse_keyword_stmt(ctx, next_id, "loop_stmt", true) }
+        if t.lexeme == "while" { give parse_keyword_stmt(ctx, next_id, "while_stmt", true) }
+        if t.lexeme == "for" { give parse_for_stmt(ctx, next_id) }
+        if t.lexeme == "break" { give parse_keyword_stmt(ctx, next_id, "break_stmt", false) }
+        if t.lexeme == "continue" { give parse_keyword_stmt(ctx, next_id, "continue_stmt", false) }
+
+        if t.lexeme == "try" { give parse_keyword_stmt(ctx, next_id, "try_stmt", false) }
+        if t.lexeme == "catch" { give parse_keyword_stmt(ctx, next_id, "catch_stmt", false) }
+        if t.lexeme == "throw" { give parse_keyword_stmt(ctx, next_id, "throw_stmt", true) }
+
+        if t.lexeme == "module" { give parse_module_stmt(ctx, next_id, "module_stmt") }
+        if t.lexeme == "use" { give parse_module_stmt(ctx, next_id, "use_stmt") }
+        if t.lexeme == "import" { give parse_module_stmt(ctx, next_id, "import_stmt") }
     }
 
-    let ex, c3, id3 = parse_expr(ctx, 0, next_id)
-    give (make_node(id3, "stmt_expr", "", [ex], ex.line, ex.col), c3, id3 + 1)
+    let ex, c1, id1 = parse_expression(ctx, next_id + 1)
+    let n = make_node(next_id, "stmt_expr", "", [ex], ex.line, ex.col)
+    give (n, c1, id1)
 }
 
 proc parse(text: string) -> ParseResult
@@ -157,10 +369,15 @@ proc parse(text: string) -> ParseResult
     loop while true
     {
         let t = context.peek(cur, 0)
-        if t == null { break }
-        if t.kind == token_kind.TK_EOF { break }
+        if t == null || t.kind == token_kind.TK_EOF { break }
 
-        let n, c2, id2 = parse_decl(cur, nid)
+        if t.kind == token_kind.TK_NEWLINE
+        {
+            cur = context.bump(cur)
+            continue
+        }
+
+        let n, c2, id2 = parse_statement(cur, nid)
         items = items.push(n)
         cur = c2
         nid = id2
@@ -170,7 +387,7 @@ proc parse(text: string) -> ParseResult
         {
             cur = context.bump(cur)
         }
-        else if nt != null && nt.kind != token_kind.TK_EOF && nt.kind != token_kind.TK_RBRACE
+        else if nt != null && nt.kind != token_kind.TK_EOF
         {
             cur = recovery.sync(cur)
             let nt2 = context.peek(cur, 0)

@@ -1,0 +1,99 @@
+space packaging/artifact
+
+pull core/fs
+pull core/str
+pull modules/package/manifest
+
+form PackageArtifact
+{
+    schema_version: string
+    name: string
+    version: string
+    license: string
+    artifact_path: string
+    changelog_path: string
+    source_root: string
+}
+
+proc default_artifact_path() -> string
+{
+    give "dist/package.dotspkg.json"
+}
+
+proc default_changelog_path() -> string
+{
+    give "CHANGELOG.md"
+}
+
+proc default_source_root() -> string
+{
+    if fs.exists("src") { give "src" }
+    give "."
+}
+
+proc current_artifact() -> PackageArtifact
+{
+    give PackageArtifact("1.1.0", manifest_name(), manifest_version(), manifest_license(), default_artifact_path(), default_changelog_path(), default_source_root())
+}
+
+proc render_artifact_json(a: PackageArtifact) -> string
+{
+    let changelog = "false"
+    if fs.exists(a.changelog_path) { changelog = "true" }
+    let src_exists = "false"
+    if fs.exists(a.source_root) { src_exists = "true" }
+
+    give "{" +
+        "\"schema_version\":\"" + a.schema_version + "\"," +
+        "\"name\":\"" + a.name + "\"," +
+        "\"version\":\"" + a.version + "\"," +
+        "\"license\":\"" + a.license + "\"," +
+        "\"artifact_path\":\"" + a.artifact_path + "\"," +
+        "\"changelog_path\":\"" + a.changelog_path + "\"," +
+        "\"changelog_present\":\"" + changelog + "\"," +
+        "\"source_root\":\"" + a.source_root + "\"," +
+        "\"source_present\":\"" + src_exists + "\"" +
+    "}\n"
+}
+
+proc pack(path: string) -> string?
+{
+    let a = current_artifact()
+    let out = path
+    if out == "" { out = a.artifact_path }
+
+    let err = manifest_validate_schema()
+    if err != null { give err }
+
+    fs.mkdir_p(fs.dir_name(out))
+    fs.write_file(out, render_artifact_json(a))
+    give null
+}
+
+proc verify(path: string) -> string?
+{
+    let p = path
+    if p == "" { p = default_artifact_path() }
+    if !fs.exists(p) { give "artifact not found: " + p }
+
+    let raw = fs.read_file(p)
+    if !str.contains(raw, "\"schema_version\"") { give "artifact.schema_version missing" }
+    if !str.contains(raw, "\"name\"") { give "artifact.name missing" }
+    if !str.contains(raw, "\"version\"") { give "artifact.version missing" }
+    if !str.contains(raw, "\"license\"") { give "artifact.license missing" }
+    give null
+}
+
+proc unpack(path: string, out_dir: string) -> string?
+{
+    let p = path
+    if p == "" { p = default_artifact_path() }
+    let err = verify(p)
+    if err != null { give err }
+
+    let dst = out_dir
+    if dst == "" { dst = "dist/unpacked" }
+    fs.mkdir_p(dst)
+    fs.write_file(dst + "/artifact.json", fs.read_file(p))
+    give null
+}

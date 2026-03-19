@@ -1,6 +1,34 @@
 space runtime/vm/opcode
 
+pull core/str
+
 const OP_NOP: string = "NOP"
 const OP_CONST: string = "CONST"
 const OP_CALL: string = "CALL"
 const OP_RET: string = "RET"
+const OP_JUMP: string = "JUMP"
+const OP_TRAP: string = "TRAP"
+
+proc is_known(op: string) -> bool
+{
+    give op == OP_NOP || op == OP_CONST || op == OP_CALL || op == OP_RET || op == OP_JUMP || op == OP_TRAP
+}
+
+proc normalize(op: string) -> string
+{
+    let clean = str.trim(op)
+    if str.contains(clean, " ") { clean = str.split(clean, " ")[0] }
+    if !is_known(clean) { give OP_TRAP }
+    give clean
+}
+
+proc explain(op: string) -> string
+{
+    let n = normalize(op)
+    if n == OP_NOP { give "no-op" }
+    if n == OP_CONST { give "push constant" }
+    if n == OP_CALL { give "invoke callable" }
+    if n == OP_RET { give "return from frame" }
+    if n == OP_JUMP { give "jump to offset" }
+    give "trap"
+}

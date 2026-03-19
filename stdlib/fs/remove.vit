@@ -1,0 +1,17 @@
+space stdlib/fs/remove
+
+pull core/fs
+
+proc file(path: string) -> bool
+{
+    if !fs.exists(path) { give false }
+    fs.remove(path)
+    give true
+}
+
+proc tree(path: string) -> bool
+{
+    if !fs.exists(path) { give false }
+    fs.remove_all(path)
+    give true
+}

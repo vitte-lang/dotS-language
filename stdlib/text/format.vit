@@ -1,0 +1,34 @@
+space stdlib/text/format
+
+pull core/str
+
+proc int(v: i64) -> string
+{
+    give str.from_i64(v)
+}
+
+proc bool(v: bool) -> string
+{
+    give str.from_bool(v)
+}
+
+proc kv(key: string, value: string) -> string
+{
+    give key + "=" + value
+}
+
+proc csv(items: [string]) -> string
+{
+    give str.join(items, ",")
+}
+
+proc lines(items: [string]) -> string
+{
+    if items.len == 0 { give "" }
+    give str.join(items, "\n") + "\n"
+}
+
+proc repeat(s: string, n: i32) -> string
+{
+    give str.repeat(s, n)
+}

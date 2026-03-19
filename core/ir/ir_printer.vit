@@ -70,3 +70,18 @@ proc emit_json_stable(m: node.IRModule) -> string
         "\"blocks\":[" + out + "]" +
     "}"
 }
+
+proc emit_text(m: node.IRModule) -> string
+{
+    let out = "module " + m.name + "\n"
+    loop b in m.blocks
+    {
+        out = out + "block " + b.name + "\n"
+        loop ins in b.instrs
+        {
+            out = out + "  " + ins.op + " " + ins.literal + "\n"
+        }
+        out = out + "  term " + b.term.kind + "\n"
+    }
+    give out
+}

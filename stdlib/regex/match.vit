@@ -1,0 +1,35 @@
+space stdlib/regex/match
+
+pull core/str
+pull stdlib/regex/regex
+
+form Match
+{
+    ok: bool
+    pattern: string
+    value: string
+    kind: string
+}
+
+proc find(pattern: string, raw: string) -> Match
+{
+    let ok = regex.is_match(pattern, raw)
+    let value = regex.first(pattern, raw)
+    give Match(ok, pattern, value, regex.explain(pattern))
+}
+
+proc groups(pattern: string, raw: string) -> [string]
+{
+    let m = find(pattern, raw)
+    if !m.ok { give [] }
+    if m.kind == "contains"
+    {
+        give str.split(raw, m.value)
+    }
+    give [m.value]
+}
+
+proc summary(m: Match) -> string
+{
+    give "match ok=" + str.from_bool(m.ok) + " kind=" + m.kind + " value=" + m.value
+}

@@ -1,6 +1,13 @@
 space core/parser/ast/lambda
 
+pull core/str
+
 form LambdaExpr
 {
     params_csv: string
+}
+
+proc new(params: [string]) -> LambdaExpr
+{
+    give LambdaExpr(str.join(params, ","))
 }

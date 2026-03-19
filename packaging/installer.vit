@@ -1,0 +1,16 @@
+space packaging/installer
+
+pull core/fs
+pull packaging/artifact
+
+proc install_package_artifact(path: string, target_dir: string) -> string?
+{
+    let err = artifact.verify(path)
+    if err != null { give err }
+
+    let dst = target_dir
+    if dst == "" { dst = ".dots/package-install" }
+    fs.mkdir_p(dst)
+    fs.write_file(dst + "/installed_artifact.json", fs.read_file(path))
+    give null
+}

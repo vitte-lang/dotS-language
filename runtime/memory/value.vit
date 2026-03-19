@@ -1,7 +1,25 @@
 space runtime/memory/value
 
+pull core/str
+
 form Value
 {
     type_name: string
     raw: string
+}
+
+proc new(type_name: string, raw: string) -> Value
+{
+    if type_name == "" { type_name = "string" }
+    give Value(type_name, raw)
+}
+
+proc is_empty(v: Value) -> bool
+{
+    give v.raw == ""
+}
+
+proc debug(v: Value) -> string
+{
+    give v.type_name + ":" + v.raw
 }

@@ -107,3 +107,28 @@ proc unlock(m: Mutex, thread_id: i64) -> (Mutex, result.RuntimeResult)
     metrics.append_metric("wait_queue_len", m.wait_queue_len, "mutex=" + str.from_i64(m.id))
     give (m, result.ok("unlocked"))
 }
+
+proc owner(m: Mutex) -> i64
+{
+    give m.owner_thread_id
+}
+
+proc summary(m: Mutex) -> string
+{
+    give "mutex#" + str.from_i64(m.id) +
+        " locked=" + str.from_bool(m.locked) +
+        " owner=" + str.from_i64(m.owner_thread_id) +
+        " contention=" + str.from_i64(m.contention_total)
+}
+
+proc status_json(m: Mutex) -> string
+{
+    give "{" +
+        "\"schema_version\":\"1.1.0\"," +
+        "\"id\":\"" + str.from_i64(m.id) + "\"," +
+        "\"locked\":\"" + str.from_bool(m.locked) + "\"," +
+        "\"owner_thread_id\":\"" + str.from_i64(m.owner_thread_id) + "\"," +
+        "\"contention_total\":\"" + str.from_i64(m.contention_total) + "\"," +
+        "\"wait_queue_len\":\"" + str.from_i64(m.wait_queue_len) + "\"" +
+    "}"
+}

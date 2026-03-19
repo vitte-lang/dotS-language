@@ -1,0 +1,8 @@
+space stdlib/time/now
+
+pull core/time
+
+proc ms() -> i64
+{
+    give time.now_ms()
+}

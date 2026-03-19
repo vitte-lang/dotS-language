@@ -4,3 +4,8 @@ form Block
 {
     item_count: i32
 }
+
+proc new(item_count: i32) -> Block
+{
+    give Block(item_count)
+}

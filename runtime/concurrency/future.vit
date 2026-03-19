@@ -1,13 +1,46 @@
 space runtime/concurrency/future
 
+pull core/str
+pull runtime/common/result
+
 form Future
 {
     id: i64
     state: string
     value: string
+    error_code: string
 }
 
 proc make(id: i64) -> Future
 {
-    give Future(id, "pending", "")
+    give Future(id, "pending", "", "")
+}
+
+proc resolve(f: Future, value: string) -> Future
+{
+    f.state = "done"
+    f.value = value
+    give f
+}
+
+proc reject(f: Future, code: string) -> Future
+{
+    if code == "" { code = result.E_INVALID_STATE }
+    f.state = "failed"
+    f.error_code = code
+    give f
+}
+
+proc await(f: Future) -> result.RuntimeResult
+{
+    if f.state == "done" { give result.ok(f.value) }
+    if f.state == "failed" { give result.err(f.error_code, "future failed", false) }
+    give result.err(result.E_RUNTIME_TIMEOUT, "future pending", true)
+}
+
+proc summary(f: Future) -> string
+{
+    let extra = f.value
+    if f.error_code != "" { extra = f.error_code }
+    give "future#" + str.from_i64(f.id) + " state=" + f.state + " value=" + extra
 }

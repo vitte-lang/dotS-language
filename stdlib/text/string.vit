@@ -1,0 +1,43 @@
+space stdlib/text/string
+
+pull core/str
+
+proc trim(raw: string) -> string
+{
+    give str.trim(raw)
+}
+
+proc split(raw: string, sep: string) -> [string]
+{
+    give str.split(raw, sep)
+}
+
+proc replace(raw: string, from: string, to: string) -> string
+{
+    give str.replace(raw, from, to)
+}
+
+proc contains(raw: string, pat: string) -> bool
+{
+    give str.contains(raw, pat)
+}
+
+proc starts_with(raw: string, pat: string) -> bool
+{
+    give str.starts_with(raw, pat)
+}
+
+proc ends_with(raw: string, pat: string) -> bool
+{
+    give str.ends_with(raw, pat)
+}
+
+proc lower(raw: string) -> string
+{
+    give str.lower(raw)
+}
+
+proc join(items: [string], sep: string) -> string
+{
+    give str.join(items, sep)
+}

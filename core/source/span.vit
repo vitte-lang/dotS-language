@@ -1,5 +1,7 @@
 space core/source/span
 
+pull core/str
+
 form Position
 {
     line: i32
@@ -17,4 +19,19 @@ form Span
 proc make(start: i64, end: i64, sline: i32, scol: i32, eline: i32, ecol: i32) -> Span
 {
     give Span(start, end, Position(sline, scol), Position(eline, ecol))
+}
+
+proc contains(sp: Span, offset: i64) -> bool
+{
+    give offset >= sp.start && offset <= sp.end
+}
+
+proc width(sp: Span) -> i64
+{
+    give sp.end - sp.start
+}
+
+proc to_string(sp: Span) -> string
+{
+    give str.from_i64(sp.start_pos.line) + ":" + str.from_i64(sp.start_pos.col) + "-" + str.from_i64(sp.end_pos.line) + ":" + str.from_i64(sp.end_pos.col)
 }

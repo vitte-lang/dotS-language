@@ -1,5 +1,6 @@
 space core/lexer/stream
 
+pull core/lexer/token_kind
 pull core/lexer/token
 
 form TokenStream
@@ -24,4 +25,18 @@ proc bump(s: TokenStream) -> TokenStream
 {
     if s.idx < s.tokens.len { s.idx = s.idx + 1 }
     give s
+}
+
+proc remaining(s: TokenStream) -> i64
+{
+    let out = s.tokens.len - s.idx
+    if out < 0 { give 0 }
+    give out
+}
+
+proc expect(s: TokenStream, kind: string) -> bool
+{
+    let t = peek(s, 0)
+    if t == null { give kind == token_kind.TK_EOF }
+    give t.kind == kind
 }

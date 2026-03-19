@@ -1,0 +1,22 @@
+space stdlib/system/os
+
+pull core/process
+
+proc cwd() -> string
+{
+    give process.cwd()
+}
+
+proc chdir(path: string) -> void
+{
+    process.chdir(path)
+}
+
+proc name() -> string
+{
+    let os = process.env("OS")
+    if os != "" { give os }
+    let typ = process.env("OSTYPE")
+    if typ != "" { give typ }
+    give "unknown"
+}

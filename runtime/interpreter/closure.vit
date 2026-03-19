@@ -1,0 +1,20 @@
+space runtime/interpreter/closure
+
+pull core/str
+
+form Closure
+{
+    name: string
+    capture: string
+}
+
+proc new(name: string, capture: string) -> Closure
+{
+    if name == "" { name = "lambda" }
+    give Closure(name, capture)
+}
+
+proc label(c: Closure) -> string
+{
+    give c.name + "@" + str.from_i64(c.capture.len)
+}
