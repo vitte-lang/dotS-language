@@ -1,0 +1,13 @@
+.test.cli.stdlib.regex_compression.modules.present.
+.begin.
+.sys.exec.capture."bash -lc 'for f in stdlib/regex/regex.vit stdlib/regex/match.vit stdlib/compression/zip.vit stdlib/compression/gzip.vit; do test -s \"$f\" || exit 1; done; echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.cli.stdlib.regex_compression.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"proc is_match\\(|proc first\\(|proc replace_all\\(|form Match|proc find\\(|proc groups\\(|proc pack\\(|proc unpack\\(|proc compress\\(|proc decompress\\(|proc summary\\(\" stdlib/regex/*.vit stdlib/compression/*.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

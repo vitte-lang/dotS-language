@@ -5,6 +5,9 @@ pull core/fs
 pull core/str
 pull core/time
 pull core/process
+pull core/semantic
+pull core/diagnostics/reporter
+pull core/diagnostics/formatter
 
 form CheckArgs
 {
@@ -48,19 +51,37 @@ proc execute(a: CheckArgs) -> i32
     if a.help { usage(); give 0 }
 
     let start = time.now_ms()
-    let p = process.exec("dots", ["check", a.file])
+    let src = fs.read_file(a.file)
+    let res = semantic.analyze(src, a.file)
+    let diags = reporter.normalize(res.diagnostics, reporter.default_budget())
     let dur = time.now_ms() - start
+    let exit_code: i32 = 0
+    if !res.ok { exit_code = 1 }
 
     if a.json
     {
-        io.print("{\"command\":\"check\",\"duration_ms\":\"" + str.from_i64(dur) + "\",\"exit\":\"" + str.from_i64(p.code) + "\"}")
+        let payload = formatter.format_json(diags, "dots-check-" + str.from_i64(start), a.file)
+        io.print("{" +
+            "\"command\":\"check\"," +
+            "\"duration_ms\":\"" + str.from_i64(dur) + "\"," +
+            "\"exit\":\"" + str.from_i64(exit_code) + "\"," +
+            "\"result\":" + payload +
+        "}")
     }
     else
     {
-        io.print("check duration_ms=" + str.from_i64(dur))
+        if diags.len == 0
+        {
+            io.print("ok " + a.file + " duration_ms=" + str.from_i64(dur))
+        }
+        else
+        {
+            io.print(formatter.format_human(diags))
+            io.print("check failed file=" + a.file + " diagnostics=" + str.from_i64(diags.len) + " duration_ms=" + str.from_i64(dur))
+        }
     }
 
-    give p.code
+    give exit_code
 }
 
 proc main() -> i32

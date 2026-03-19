@@ -1,0 +1,13 @@
+.test.cli.ffi.transport.modules.present.
+.begin.
+.sys.exec.capture."bash -lc 'for f in ffi/transport/types.vit ffi/transport/c.vit ffi/transport/cpp.vit ffi/transport/py.vit ffi/transport/wasm.vit ffi/transport/fake.vit; do test -s \"$f\" || exit 1; done; echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.cli.ffi.transport.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"proc ok\\(|proc summary\\(|proc result_json\\(|transport_c_status|transport_cpp_status|transport_py_status|transport_wasm_status|transport_fake_status\" ffi/transport/*.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

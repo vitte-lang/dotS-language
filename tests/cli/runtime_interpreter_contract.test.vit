@@ -1,0 +1,13 @@
+.test.cli.runtime.interpreter.modules.present.
+.begin.
+.sys.exec.capture."bash -lc 'for f in runtime/interpreter/interpreter.vit runtime/interpreter/evaluator.vit runtime/interpreter/dispatch.vit runtime/interpreter/frame.vit runtime/interpreter/closure.vit runtime/interpreter/environment.vit; do test -s \"$f\" || exit 1; done; echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.cli.runtime.interpreter.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"form Interpreter|proc execute\\(|status_json|form Environment|proc set\\(|proc get\\(|form Frame|proc bind\\(|form Dispatch|proc route\\(|form Closure|proc label\\(|evaluate\\(\" runtime/interpreter/*.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

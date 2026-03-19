@@ -2,24 +2,34 @@ space lsp/goto_definition
 
 pull core/str
 pull lsp/model
+pull modules/loader/resolver
 
 proc symbol_at(doc: Document, line: i32, character: i32) -> string
 {
+    let dotted = dotted_prefix(doc.text, line, character)
+    if dotted != "" { give dotted }
     give word_prefix(doc.text, line, character)
 }
 
 proc find_definition_line(doc: Document, symbol: string) -> i32
 {
     if symbol == "" { give -1 }
+    let tail = symbol
+    if str.contains(symbol, ".")
+    {
+        let parts = str.split(symbol, ".")
+        if parts.len > 0 { tail = parts[parts.len - 1] }
+    }
     let lines = str.split(doc.text, "\n")
     let i: i32 = 0
     loop while i < lines.len
     {
         let l = str.trim(lines[i])
-        if str.starts_with(l, "proc " + symbol + "(") { give i }
+        if str.starts_with(l, "proc " + symbol + "(") || str.starts_with(l, "proc " + tail + "(") { give i }
         if str.starts_with(l, "form " + symbol + " ") || l == "form " + symbol { give i }
-        if str.starts_with(l, "const " + symbol + ":") { give i }
-        if str.starts_with(l, "space " + symbol) { give i }
+        if str.starts_with(l, "form " + tail + " ") || l == "form " + tail { give i }
+        if str.starts_with(l, "const " + symbol + ":") || str.starts_with(l, "const " + tail + ":") { give i }
+        if str.starts_with(l, "space " + symbol) || str.starts_with(l, "space " + tail) { give i }
         i = i + 1
     }
     give -1
@@ -63,6 +73,21 @@ proc definition_result_json_workspace(docs: [Document], doc: Document, line: i32
         if ln >= 0
         {
             give "{\"uri\":\"" + d.uri + "\",\"range\":{\"start\":{\"line\":" + str.from_i64(ln) + ",\"character\":0},\"end\":{\"line\":" + str.from_i64(ln) + ",\"character\":1}}}"
+        }
+    }
+
+    if str.starts_with(s, "import.") || str.starts_with(s, "use.")
+    {
+        let parts = str.split(s, ".")
+        if parts.len >= 2
+        {
+            let pkg = parts[1]
+            let p = resolver.resolve_package(pkg, "")
+            if p != null
+            {
+                let uri = normalize_uri(p.source_path)
+                give "{\"uri\":\"" + uri + "\",\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":0,\"character\":1}}}"
+            }
         }
     }
 

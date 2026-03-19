@@ -2,6 +2,7 @@ space lsp/completion
 
 pull core/str
 pull lsp/model
+pull modules/loader/resolver
 
 form CompletionItemEx
 {
@@ -38,6 +39,9 @@ proc completion_context_trigger(doc: Document, line: i32, character: i32) -> str
 {
     let l = line_at(doc.text, line)
     if l == "" || character <= 0 || character > l.len { give "default" }
+    let dotted = dotted_prefix(doc.text, line, character)
+    if str.starts_with(dotted, "import.") { give "import" }
+    if str.starts_with(dotted, "use.") { give "use" }
     let prev = l[character - 1]
     if prev == 46 { give "dot" }   # .
     if prev == 32 || prev == 9 { give "space" }
@@ -65,16 +69,28 @@ proc completion_items(doc: Document, line: i32, character: i32) -> [CompletionIt
 {
     let prefix = word_prefix(doc.text, line, character)
     let trigger = completion_context_trigger(doc, line, character)
+    let dotted = dotted_prefix(doc.text, line, character)
 
     let keywords = ["space", "pull", "form", "proc", "const", "let", "give", "loop", "if", "else", "entry", "at"]
     let cand: [string] = []
-    loop k in keywords
+    if trigger != "import" && trigger != "use"
     {
-        if trigger == "dot" && k == "space" { continue }
-        cand = cand.push(k)
+        loop k in keywords
+        {
+            if trigger == "dot" && k == "space" { continue }
+            cand = cand.push(k)
+        }
     }
     loop s in doc.symbols { cand = cand.push(s) }
     loop s2 in load_index_symbols(doc.uri) { cand = cand.push(s2) }
+    if trigger == "import" || trigger == "use"
+    {
+        loop pkg in resolver.discover_packages("") { cand = cand.push(pkg) }
+    }
+    else
+    {
+        loop pkg in resolver.discover_packages("") { cand = cand.push(pkg) }
+    }
 
     let ranked: [string] = []
     loop c in cand
@@ -112,7 +128,14 @@ proc completion_items(doc: Document, line: i32, character: i32) -> [CompletionIt
         let snippet = snippet_for(label)
         let fmt = 1
         if label == "proc" || label == "form" || label == "entry" { fmt = 2 }
-        out = out.push(CompletionItemEx(label, kind_for(label), snippet, fmt, p[0], label, "dots symbol", "", "item:" + label))
+        let detail = "dots symbol"
+        if resolver.has_package(label, "") { detail = "vitte package" }
+        let insert = snippet
+        if trigger == "import" || trigger == "use"
+        {
+            insert = label
+        }
+        out = out.push(CompletionItemEx(label, kind_for(label), insert, fmt, p[0], label, detail, dotted, "item:" + label))
     }
     give out
 }
@@ -140,5 +163,6 @@ proc completion_resolve_json(item_label: string) -> string
     if item_label == "proc" { detail = "Procedure keyword"; doc = "Define a procedure with typed signature." }
     if item_label == "form" { detail = "Form keyword"; doc = "Define a data structure." }
     if item_label == "entry" { detail = "Entry keyword"; doc = "Define executable entry point." }
+    if resolver.has_package(item_label, "") { detail = "Vitte package"; doc = "Package resolved from ../vitte/src/vitte/packages." }
     give "{\"label\":\"" + item_label + "\",\"detail\":\"" + detail + "\",\"documentation\":{\"kind\":\"markdown\",\"value\":\"" + doc + "\"}}"
 }

@@ -3,6 +3,7 @@ space lsp/hover
 pull core/str
 pull lsp/model
 pull lsp/goto_definition
+pull modules/loader/resolver
 
 proc inferred_type_from_line(def_line: string) -> string
 {
@@ -20,6 +21,26 @@ proc hover_markdown(doc: Document, line: i32, character: i32) -> string
 {
     let sym = symbol_at(doc, line, character)
     if sym == "" { give "" }
+    if str.starts_with(sym, "import.") || str.starts_with(sym, "use.")
+    {
+        let parts = str.split(sym, ".")
+        if parts.len >= 2
+        {
+            let pkg = parts[1]
+            let md = "### " + pkg + "\\n\\n"
+            md = md + "#### Type\\n`vitte package`\\n"
+            if resolver.has_package(pkg, "")
+            {
+                md = md + "\\n#### Provenance\\n`../vitte/src/vitte/packages`\\n"
+            }
+            else
+            {
+                md = md + "\\n#### Provenance\\n`missing vitte package`\\n"
+            }
+            md = md + "\\n#### Location\\n`package lookup`\\n"
+            give md
+        }
+    }
 
     let def_line_no = find_definition_line(doc, sym)
     let def_raw = ""

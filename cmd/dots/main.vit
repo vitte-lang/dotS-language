@@ -22,6 +22,143 @@ pull runtime/status
 pull runtime/common/events
 pull runtime/common/trace
 
+proc plugin_root() -> string
+{
+    give ".dots/plugins"
+}
+
+proc plugin_manifest_file() -> string
+{
+    give plugin_root() + "/plugins.txt"
+}
+
+proc session_file() -> string
+{
+    give ".dots/session.v1"
+}
+
+proc self_root() -> string
+{
+    give ".dots/self"
+}
+
+proc ensure_plugin_root() -> void
+{
+    if !fs.exists(plugin_root()) { fs.mkdir_p(plugin_root()) }
+}
+
+proc load_plugin_names() -> [string]
+{
+    if !fs.exists(plugin_manifest_file()) { give [] }
+    let out: [string] = []
+    let lines = str.split(fs.read_file(plugin_manifest_file()), "\n")
+    loop l in lines
+    {
+        let name = str.trim(l)
+        if name != "" { out = out.push(name) }
+    }
+    give out
+}
+
+proc plugin_exists(name: string) -> bool
+{
+    loop p in load_plugin_names()
+    {
+        if p == name { give true }
+    }
+    give false
+}
+
+proc save_plugin_names(items: [string]) -> void
+{
+    ensure_plugin_root()
+    fs.write_file(plugin_manifest_file(), str.join(items, "\n") + "\n")
+}
+
+proc add_plugin(name: string) -> bool
+{
+    if name == "" { give false }
+    if plugin_exists(name) { give false }
+    let items = load_plugin_names()
+    save_plugin_names(items.push(name))
+    fs.write_file(plugin_root() + "/" + name + ".plugin", "name=" + name + "\ninstalled_at_ms=" + str.from_i64(time.now_ms()) + "\n")
+    give true
+}
+
+proc remove_plugin(name: string) -> bool
+{
+    if name == "" { give false }
+    let items: [string] = []
+    let removed = false
+    loop p in load_plugin_names()
+    {
+        if p == name
+        {
+            removed = true
+            continue
+        }
+        items = items.push(p)
+    }
+    save_plugin_names(items)
+    let pf = plugin_root() + "/" + name + ".plugin"
+    if fs.exists(pf) { fs.remove(pf) }
+    give removed
+}
+
+proc current_identity() -> string
+{
+    if !fs.exists(session_file()) { give "anonymous" }
+    let raw = str.trim(fs.read_file(session_file()))
+    if raw == "" { give "anonymous" }
+    let lines = str.split(raw, "\n")
+    loop l in lines
+    {
+        if str.starts_with(l, "user=") { give str.replace(l, "user=", "") }
+    }
+    give "anonymous"
+}
+
+proc login_identity(token: string) -> string
+{
+    let clean = str.trim(token)
+    if clean == "" { give "" }
+    let user = clean
+    if str.contains(clean, ":")
+    {
+        let p = str.split(clean, ":")
+        if p.len >= 1 { user = p[0] }
+    }
+    if str.contains(user, "@")
+    {
+        let p2 = str.split(user, "@")
+        if p2.len >= 1 { user = p2[0] }
+    }
+    user = str.replace(user, " ", "_")
+    give user
+}
+
+proc write_session(user: string) -> void
+{
+    if !fs.exists(".dots") { fs.mkdir_p(".dots") }
+    fs.write_file(session_file(), "user=" + user + "\nlogin_at_ms=" + str.from_i64(time.now_ms()) + "\n")
+}
+
+proc remove_session() -> void
+{
+    if fs.exists(session_file()) { fs.remove(session_file()) }
+}
+
+proc self_doctor_lines() -> [string]
+{
+    let out: [string] = []
+    out = out.push("version=0.2.0-alpha")
+    out = out.push("session=" + str.from_bool(fs.exists(session_file())))
+    out = out.push("plugins=" + str.from_i64(load_plugin_names().len))
+    out = out.push("completions=" + str.from_bool(fs.exists("completions/dots.bash")))
+    out = out.push("lsp_server=" + str.from_bool(fs.exists("lsp/server.vit")))
+    give out
+}
+
 proc audit_log(ctx: CommandContext, action: string, detail: string) -> void
 {
     let root = ".dots/audit"
@@ -120,11 +257,21 @@ proc validate_command(cmd: string) -> string?
         give null
     }
 
-    let s = suggest_command(cmd)
+    let suggestions = suggest_commands(cmd, 3)
 
-    if s != ""
+    if suggestions.len == 1
     {
-        give "unknown command: " + cmd + " (did you mean '" + s + "'?)"
+        give "unknown command: " + cmd + " (did you mean '" + suggestions[0] + "'?)"
+    }
+
+    if suggestions.len > 1
+    {
+        let quoted: [string] = []
+        loop s in suggestions
+        {
+            quoted = quoted.push("'" + s + "'")
+        }
+        give "unknown command: " + cmd + " (did you mean " + str.join(quoted, ", ") + "?)"
     }
 
     give "unknown command: " + cmd
@@ -179,20 +326,46 @@ proc builtin_plugins(args: [string]) -> i32
 
     if sub == "list"
     {
-        io.print("plugins: (none)")
+        let items = load_plugin_names()
+        if items.len == 0
+        {
+            io.print("plugins: (none)")
+            give EXIT_OK
+        }
+        io.print("plugins: " + str.join(items, ", "))
         give EXIT_OK
     }
 
     if sub == "install"
     {
-        io.print("plugin install placeholder")
-        give EXIT_OK
+        if args.len < 2
+        {
+            io.print("usage: dots plugins install <name>")
+            give EXIT_USAGE
+        }
+        if add_plugin(args[1])
+        {
+            io.print("plugin installed: " + args[1])
+            give EXIT_OK
+        }
+        io.print("plugin unchanged: " + args[1])
+        give EXIT_RUNTIME
     }
 
     if sub == "remove"
     {
-        io.print("plugin remove placeholder")
-        give EXIT_OK
+        if args.len < 2
+        {
+            io.print("usage: dots plugins remove <name>")
+            give EXIT_USAGE
+        }
+        if remove_plugin(args[1])
+        {
+            io.print("plugin removed: " + args[1])
+            give EXIT_OK
+        }
+        io.print("plugin not installed: " + args[1])
+        give EXIT_RUNTIME
     }
 
     err("unknown plugins subcommand")
@@ -655,19 +828,28 @@ proc builtin_auth(command: string) -> i32
 {
     if command == "whoami"
     {
-        io.print("anonymous")
+        io.print(current_identity())
         give EXIT_OK
     }
 
     if command == "login"
     {
-        io.print("login placeholder (secure storage pending)")
+        let raw = process.env("DOTS_AUTH_TOKEN")
+        let user = login_identity(raw)
+        if user == ""
+        {
+            io.print("dots: login requires DOTS_AUTH_TOKEN")
+            give EXIT_USAGE
+        }
+        write_session(user)
+        io.print("login ok user=" + user)
         give EXIT_OK
     }
 
     if command == "logout"
     {
-        io.print("logout placeholder")
+        remove_session()
+        io.print("logout ok")
         give EXIT_OK
     }
 
@@ -682,8 +864,32 @@ proc builtin_self(args: [string]) -> i32
         give EXIT_USAGE
     }
 
-    io.print("self " + args[0] + " placeholder")
-    give EXIT_OK
+    if args[0] == "doctor"
+    {
+        io.print("self doctor")
+        loop l in self_doctor_lines() { io.print(l) }
+        give EXIT_OK
+    }
+
+    if args[0] == "update"
+    {
+        if !fs.exists(self_root()) { fs.mkdir_p(self_root()) }
+        fs.write_file(self_root() + "/last_update", str.from_i64(time.now_ms()) + "\nversion=0.2.0-alpha\n")
+        io.print("self update prepared")
+        give EXIT_OK
+    }
+
+    if args[0] == "uninstall"
+    {
+        remove_session()
+        if fs.exists(plugin_root()) { fs.remove_all(plugin_root()) }
+        if fs.exists(self_root()) { fs.remove_all(self_root()) }
+        io.print("self uninstall cleaned local state")
+        give EXIT_OK
+    }
+
+    io.print("dots: unknown self subcommand: " + args[0])
+    give EXIT_USAGE
 }
 
 proc builtin_lsp(args: [string], ctx: CommandContext) -> i32

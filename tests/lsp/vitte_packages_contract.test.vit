@@ -1,0 +1,20 @@
+.test.lsp.vitte.packages.snapshot.present.
+.begin.
+.sys.exec.capture."bash -lc 'test -f tests/snapshots/lsp/diagnostics_vitte_package.snapshot.json && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.lsp.vitte.packages.diagnostics_and_completion.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"DOTS004|missing vitte package|vitte package|Package resolved from ../vitte/src/vitte/packages\" lsp/diagnostics.vit lsp/completion.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.lsp.vitte.packages.snapshot.shape.
+.begin.
+.sys.exec.capture."bash -lc 'grep -q \"\\\"jsonrpc\\\":\\\"2.0\\\"\" tests/snapshots/lsp/diagnostics_vitte_package.snapshot.json && grep -q \"DOTS004\" tests/snapshots/lsp/diagnostics_vitte_package.snapshot.json && grep -q \"missing vitte package\" tests/snapshots/lsp/diagnostics_vitte_package.snapshot.json && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

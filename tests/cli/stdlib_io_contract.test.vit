@@ -1,0 +1,13 @@
+.test.cli.stdlib.io.modules.present.
+.begin.
+.sys.exec.capture."bash -lc 'for f in stdlib/io/console.vit stdlib/io/input.vit stdlib/io/logger.vit stdlib/io/print.vit stdlib/io/terminal.vit; do test -s \"$f\" || exit 1; done; echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.cli.stdlib.io.bridge.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"pull core/io|pull core/fs|pull core/process|io\\.print|io\\.read_stdin_all|fs\\.append_file|process\\.env\" stdlib/io/*.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

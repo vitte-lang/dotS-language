@@ -1,0 +1,31 @@
+space tools/debugger/debugger
+
+pull core/str
+pull tools/debugger/breakpoint
+
+form DebugSession
+{
+    target: string
+    breakpoints: [breakpoint.Breakpoint]
+}
+
+proc new_session(target: string) -> DebugSession
+{
+    give DebugSession(target, [])
+}
+
+proc add_breakpoint(s: DebugSession, file: string, line: i32) -> DebugSession
+{
+    s.breakpoints = s.breakpoints.push(breakpoint.make(file, line))
+    give s
+}
+
+proc breakpoint_count(s: DebugSession) -> i32
+{
+    give s.breakpoints.len
+}
+
+proc summary(s: DebugSession) -> string
+{
+    give "debug target=" + s.target + " breakpoints=" + str.from_i64(breakpoint_count(s))
+}

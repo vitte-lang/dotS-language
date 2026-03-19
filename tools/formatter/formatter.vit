@@ -1,0 +1,30 @@
+space tools/formatter/formatter
+
+pull core/str
+pull tools/formatter/printer
+pull tools/formatter/bench_order
+
+proc looks_like_bench(src: string) -> bool
+{
+    if str.contains(src, "bench") { give true }
+    if str.contains(src, "summary json") { give true }
+    if str.contains(src, "DOTS_BENCH") { give true }
+    give false
+}
+
+proc format_source(src: string) -> string
+{
+    let lines = str.split(src, "\n")
+    if looks_like_bench(src)
+    {
+        lines = bench_order.reorder_lines(lines)
+    }
+    give printer.format_lines(lines)
+}
+
+proc is_idempotent(src: string) -> bool
+{
+    let once = format_source(src)
+    let twice = format_source(once)
+    give once == twice
+}

@@ -4,6 +4,9 @@ pull core/io
 pull core/fs
 pull core/str
 pull core/process
+pull modules/loader/loader
+pull tools/docgen/doc_parser
+pull tools/docgen/html_generator
 
 pull dots/cmd/registry
 
@@ -53,13 +56,27 @@ proc docs_out_dir() -> string
 
 proc open_file_cross_platform(path: string) -> void
 {
-    let p1 = process.exec("bash", ["-lc", "xdg-open \"" + path + "\" >/dev/null 2>&1"])
+    let p1 = process.exec("xdg-open", [path])
     if p1.code == 0 { give }
 
-    let p2 = process.exec("bash", ["-lc", "open \"" + path + "\" >/dev/null 2>&1"])
+    let p2 = process.exec("open", [path])
     if p2.code == 0 { give }
 
-    process.exec("bash", ["-lc", "cmd /c start \"\" \"" + path + "\" >/dev/null 2>&1"])
+    process.exec("cmd", ["/c", "start", "", path])
+}
+
+proc render_packages_md() -> string
+{
+    let out = "# Vitte Packages\n\n"
+    let pkgs = loader.available_packages("")
+    loop p in pkgs
+    {
+        let info = loader.load_package_info(p, "")
+        out = out + "## " + p + "\n"
+        if info != "" { out = out + "Source: `../vitte/src/vitte/packages/" + p + "`\n\n" }
+        else { out = out + "Source: unresolved metadata\n\n" }
+    }
+    give out
 }
 
 proc render_md() -> string
@@ -74,30 +91,22 @@ proc render_md() -> string
         out = out + "Usage: `" + c.usage + "`\n\n"
     }
 
+    out = out + render_packages_md()
+
     give out
 }
 
 proc render_html() -> string
 {
-    let out = "<html><head><meta charset=\"utf-8\"><title>DotS CLI</title></head><body>"
-    out = out + "<h1>DotS CLI</h1>"
-
-    let cmds = command_registry()
-    loop c in cmds
-    {
-        out = out + "<h2>" + c.name + "</h2>"
-        out = out + "<p>" + c.description + "</p>"
-        out = out + "<pre>" + c.usage + "</pre>"
-    }
-
-    out = out + "</body></html>"
-    give out
+    let model = doc_parser.parse_cli_docs(render_md(), render_packages_md())
+    give html_generator.render(model)
 }
 
 proc render_json() -> string
 {
     let cmds = command_registry()
-    give "{\"doc\":\"cli\",\"commands\":\"" + str.from_i64(cmds.len) + "\"}"
+    let pkgs = loader.available_packages("")
+    give "{\"doc\":\"cli\",\"commands\":\"" + str.from_i64(cmds.len) + "\",\"vitte_packages\":\"" + str.from_i64(pkgs.len) + "\"}"
 }
 
 proc render_by_format(format: string) -> string

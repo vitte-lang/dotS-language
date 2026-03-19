@@ -1,0 +1,13 @@
+.test.cli.source.deep.modules.present.
+.begin.
+.sys.exec.capture."bash -lc 'for f in core/source/span.vit core/source/location.vit core/source/source_file.vit core/source/source_map.vit core/source/file_cache.vit; do test -s \"$f\" || exit 1; done; echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.cli.source.deep.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"proc contains\\(|proc width\\(|proc to_string\\(|span_from_offsets|line_text\\(|slice\\(|offset_span\\(|find_symbol\\(|summary\\(|last_hash\\(|last_version\\(\" core/source/*.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

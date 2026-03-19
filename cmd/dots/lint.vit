@@ -5,6 +5,8 @@ pull core/fs
 pull core/str
 pull core/list
 pull core/process
+pull modules/loader/resolver
+pull tools/linter/linter
 
 form LintArgs
 {
@@ -133,6 +135,18 @@ proc collect_files(target: string) -> [string]
         }
     }
 
+    if target == "." || str.contains(target, "vitte")
+    {
+        let pkgs = resolver.discover_packages("")
+        loop pkg in pkgs
+        {
+            let mod = resolver.package_mod_file(pkg, "")
+            let info = resolver.package_info_file(pkg, "")
+            if mod != null && fs.exists(mod) { out = out.push(mod) }
+            if info != null && fs.exists(info) { out = out.push(info) }
+        }
+    }
+
     give out
 }
 
@@ -153,49 +167,35 @@ proc rule_enabled(a: LintArgs, rule: string) -> bool
 
 proc lint_file(path: string, a: LintArgs) -> [string]
 {
-    let out: [string] = []
+    let out = linter.lint_file(path)
+    let filtered: [string] = []
+
+    loop e in out
+    {
+        if str.contains(e, ": TABS") && !rule_enabled(a, "TABS") { continue }
+        if str.contains(e, ": DOTDOT") && !rule_enabled(a, "DOTDOT") { continue }
+        if str.contains(e, ": TRAILING_SPACES") && !rule_enabled(a, "TRAILING_SPACES") { continue }
+        if str.contains(e, ": AST_PARSE") && !rule_enabled(a, "AST_PARSE") { continue }
+        filtered = filtered.push(e)
+    }
+
     let src = fs.read_file(path)
     let lines = str.split(src, "\n")
     let ln: i32 = 1
-
     loop l in lines
     {
-        if rule_enabled(a, "TABS") && str.contains(l, "\t")
-        {
-            out = out.push(path + ":" + str.from_i64(ln) + ": TABS tab character")
-        }
-
-        if rule_enabled(a, "DOTDOT") && str.contains(l, "..")
-        {
-            out = out.push(path + ":" + str.from_i64(ln) + ": DOTDOT suspicious token '..'")
-        }
-
-        if rule_enabled(a, "TRAILING_SPACES") && str.ends_with(l, " ")
-        {
-            out = out.push(path + ":" + str.from_i64(ln) + ": TRAILING_SPACES")
-        }
-
         if rule_enabled(a, "NO_BASH_EXEC_PACKAGE")
         {
             let is_pkg_path = str.contains(path, "cmd/dots/install.vit") || str.contains(path, "cmd/dots/update.vit") || str.contains(path, "cmd/dots/publish.vit") || str.contains(path, "modules/package/")
             if is_pkg_path && str.contains(l, "process.exec(\"bash\"")
             {
-                out = out.push(path + ":" + str.from_i64(ln) + ": NO_BASH_EXEC_PACKAGE forbidden process.exec(\"bash\")")
+                filtered = filtered.push(path + ":" + str.from_i64(ln) + ": NO_BASH_EXEC_PACKAGE forbidden process.exec(\"bash\")")
             }
         }
-
         ln = ln + 1
     }
 
-    if rule_enabled(a, "AST_PARSE")
-    {
-        if str.contains(src, ".begin.") && !str.contains(src, ".end.")
-        {
-            out = out.push(path + ":1: AST_PARSE missing .end.")
-        }
-    }
-
-    give out
+    give filtered
 }
 
 proc print_sarif(errs: [string]) -> void
@@ -219,7 +219,7 @@ proc execute(a: LintArgs) -> i32
 
     if a.fix
     {
-        process.exec("bash", ["scripts/bench_autofix.sh"])
+        process.exec("scripts/bench_autofix.sh", [])
     }
 
     if a.format == "sarif"

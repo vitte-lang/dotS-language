@@ -1,32 +1,58 @@
-# DotS benchmark formatter profile
-# Preferred block order:
-# 1) module
-# 2) import
-# 3) use (alphabetical)
-# 4) constants/config
-# 5) env overrides
-# 6) metadata header
-# 7) work functions
-# 8) setup/warmup/runs
-# 9) stats
-# 10) summary human
-# 11) summary json
-# 12) exit code gates
+space tools/formatter/bench_order
 
-.fn.format_bench_file.
-.begin.
-# Placeholder implementation hook for dots fmt.
-.ret.
-.end.
+pull core/str
 
-.fn.autofix_import_order.
-.begin.
-# Placeholder: alphabetic sort of .use.* and .import.* blocks.
-.ret.
-.end.
+proc classify(line: string) -> i32
+{
+    let l = str.trim(line)
+    if str.starts_with(l, ".module.") { give 1 }
+    if str.starts_with(l, ".import.") { give 2 }
+    if str.starts_with(l, ".use.") { give 3 }
+    if str.contains(l, "$retry_") || str.contains(l, "$timeout_") || str.contains(l, "$iterations") { give 4 }
+    if str.contains(l, "DOTS_BENCH") || str.contains(l, "sys.env") { give 5 }
+    if str.contains(l, "$bench_") || str.contains(l, "metadata") { give 6 }
+    if str.starts_with(l, ".fn.") { give 7 }
+    if str.contains(l, "warmup") || str.contains(l, "setup") || str.contains(l, "run") { give 8 }
+    if str.contains(l, "p95") || str.contains(l, "stddev") || str.contains(l, "avg_ms") { give 9 }
+    if str.contains(l, "summary") && !str.contains(l, "json") { give 10 }
+    if str.contains(l, "json") || str.contains(l, "schema_version") { give 11 }
+    if str.contains(l, "exit") || str.contains(l, "status") { give 12 }
+    give 50
+}
 
-.fn.autofix_duration_suffix.
-.begin.
-# Placeholder: rename $duration -> $duration_ms style vars.
-.ret.
-.end.
+proc reorder_lines(lines: [string]) -> [string]
+{
+    let ranked: [string] = []
+    loop l in lines
+    {
+        let trimmed = str.trim(l)
+        if trimmed == "" { continue }
+        let key = str.from_i64(classify(trimmed)) + "|" + trimmed
+        ranked = ranked.push(key)
+    }
+
+    let i: i32 = 0
+    loop while i < ranked.len
+    {
+        let j: i32 = i + 1
+        loop while j < ranked.len
+        {
+            if ranked[j] < ranked[i]
+            {
+                let tmp = ranked[i]
+                ranked[i] = ranked[j]
+                ranked[j] = tmp
+            }
+            j = j + 1
+        }
+        i = i + 1
+    }
+
+    let out: [string] = []
+    loop item in ranked
+    {
+        let p = str.split(item, "|")
+        if p.len >= 2 { out = out.push(p[1]) }
+    }
+    give out
+}

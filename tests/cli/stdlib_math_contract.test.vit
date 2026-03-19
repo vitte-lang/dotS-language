@@ -1,0 +1,13 @@
+.test.cli.stdlib.math.modules.present.
+.begin.
+.sys.exec.capture."bash -lc 'for f in stdlib/math/basic.vit stdlib/math/random.vit stdlib/math/matrix.vit; do test -s \"$f\" || exit 1; done; echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.cli.stdlib.math.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"proc abs\\(|proc clamp\\(|proc sum\\(|proc avg\\(|pull runtime/common/prng|proc between\\(|form Matrix2|proc identity\\(|proc mul\\(|proc det\\(|proc to_json\\(\" stdlib/math/*.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

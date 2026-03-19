@@ -1,0 +1,68 @@
+space tools/formatter/printer
+
+pull core/str
+
+proc normalize_line(line: string) -> string
+{
+    let l = str.trim(line)
+    if l == "" { give "" }
+    if !str.starts_with(l, ".") { l = "." + l }
+    if !str.ends_with(l, ".") { l = l + "." }
+    give l
+}
+
+proc format_lines(lines: [string]) -> string
+{
+    let out = ""
+    let indent: i32 = 0
+
+    loop raw in lines
+    {
+        let line = normalize_line(raw)
+        if line == "" { continue }
+
+        if str.contains(line, ".end.") { indent = indent - 1 }
+        if indent < 0 { indent = 0 }
+
+        let pad = str.repeat("  ", indent)
+        out = out + pad + line + "\n"
+
+        if str.contains(line, ".begin.") { indent = indent + 1 }
+    }
+
+    give out
+}
+
+proc unified_diff(path: string, before: string, after: string) -> string
+{
+    if before == after
+    {
+        give ""
+    }
+
+    let out = "--- " + path + "\n+++ " + path + "\n"
+    let b = str.split(before, "\n")
+    let a = str.split(after, "\n")
+
+    let i: i32 = 0
+    let max = b.len
+    if a.len > max { max = a.len }
+
+    loop while i < max
+    {
+        let lb = ""
+        let la = ""
+        if i < b.len { lb = b[i] }
+        if i < a.len { la = a[i] }
+
+        if lb != la
+        {
+            if lb != "" { out = out + "-" + lb + "\n" }
+            if la != "" { out = out + "+" + la + "\n" }
+        }
+
+        i = i + 1
+    }
+
+    give out
+}

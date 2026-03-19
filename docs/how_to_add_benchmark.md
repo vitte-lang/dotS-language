@@ -2,8 +2,8 @@
 
 1. Copier `bench/_template.dotS` vers `bench/<name>_bench.dotS`.
 2. Définir:
-   - `.module.benchmark.<name>.`
-   - imports `.import.benchmark.config.` + `.import.benchmark.baseline.`
+   - `module.benchmark`
+   - imports `import.config` + `import.baseline`
    - config top-level (`iterations/workers/...`)
 3. Implémenter:
    - work unit

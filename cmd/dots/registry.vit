@@ -132,26 +132,81 @@ proc find_command(name: string) -> CommandDef?
     give null
 }
 
-proc suggest_command(name: string) -> string
+proc push_suggestion(items: [string], name: string, max_items: i32) -> [string]
+{
+    if max_items <= 0 { give items }
+    if items.len >= max_items { give items }
+
+    loop it in items
+    {
+        if it == name
+        {
+            give items
+        }
+    }
+
+    give items.push(name)
+}
+
+proc suggest_commands(name: string, max_items: i32) -> [string]
 {
     let registry = command_registry()
+    let out: [string] = []
+
+    if max_items <= 0
+    {
+        give out
+    }
 
     loop c in registry
     {
         if str.starts_with(c.name, name)
         {
-            give c.name
+            out = push_suggestion(out, c.name, max_items)
         }
 
         loop a in c.aliases
         {
             if str.starts_with(a, name)
             {
-                give c.name
+                out = push_suggestion(out, c.name, max_items)
             }
+        }
+
+        if out.len >= max_items
+        {
+            give out
         }
     }
 
+    loop c in registry
+    {
+        if str.contains(c.name, name)
+        {
+            out = push_suggestion(out, c.name, max_items)
+        }
+
+        loop a in c.aliases
+        {
+            if str.contains(a, name)
+            {
+                out = push_suggestion(out, c.name, max_items)
+            }
+        }
+
+        if out.len >= max_items
+        {
+            give out
+        }
+    }
+
+    give out
+}
+
+proc suggest_command(name: string) -> string
+{
+    let items = suggest_commands(name, 1)
+    if items.len > 0 { give items[0] }
     give ""
 }
 

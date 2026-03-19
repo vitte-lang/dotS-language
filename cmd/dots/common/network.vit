@@ -138,8 +138,7 @@ proc net_attempt(endpoint: string) -> i32
         give 1
     }
 
-    let cmd = "curl -Is --max-time 2 \"" + endpoint + "\" >/dev/null 2>&1"
-    let p = process.exec("bash", ["-lc", cmd])
+    let p = process.exec("curl", ["-I", "-s", "--max-time", "2", endpoint])
     give p.code
 }
 

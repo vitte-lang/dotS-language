@@ -1,0 +1,13 @@
+.test.cli.package.artifact.modules.present.
+.begin.
+.sys.exec.capture."bash -lc 'test -f packaging/artifact.vit && test -f packaging/build.vit && test -f packaging/installer.vit && test -f packaging/publish.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.cli.package.command.uses.artifact.pipeline.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"artifact\\.pack|artifact\\.verify|artifact\\.unpack|--file|--out-dir\" cmd/dots/package.vit packaging/*.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

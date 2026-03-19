@@ -1,0 +1,33 @@
+space tools/linter/linter
+
+pull core/fs
+pull core/str
+pull tools/linter/rules/style
+pull tools/linter/rules/bench
+
+proc lint_file(path: string) -> [string]
+{
+    let out: [string] = []
+    let src = fs.read_file(path)
+    let lines = str.split(src, "\n")
+
+    loop e in style.lint_lines(path, lines)
+    {
+        out = out.push(e)
+    }
+
+    if str.contains(path, "bench/") || str.contains(path, "_bench") || str.contains(src, "DOTS_BENCH")
+    {
+        loop e2 in bench.lint_bench_file(path, src)
+        {
+            out = out.push(e2)
+        }
+    }
+
+    if str.contains(src, ".begin.") && !str.contains(src, ".end.")
+    {
+        out = out.push(path + ":1: AST_PARSE missing .end.")
+    }
+
+    give out
+}

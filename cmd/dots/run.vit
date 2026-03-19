@@ -5,6 +5,12 @@ pull core/fs
 pull core/str
 pull core/time
 pull core/process
+pull core/diagnostics
+pull core/semantic
+pull core/diagnostics/reporter
+pull core/diagnostics/formatter
+pull core/parser
+pull modules/loader/resolver
 
 form RunArgs
 {
@@ -233,6 +239,64 @@ proc validate(a: RunArgs) -> string?
     give null
 }
 
+proc resolve_entry_file(entry: string) -> string?
+{
+    if entry == "" { give null }
+
+    let candidates = [
+        "src/" + entry + ".dotS",
+        "examples/" + entry + ".dotS",
+        entry + ".dotS"
+    ]
+
+    loop c in candidates
+    {
+        if fs.exists(c) { give c }
+    }
+
+    give null
+}
+
+proc collect_vitte_imports(path: string) -> [string]
+{
+    let parsed = parser.parse(fs.read_file(path))
+    let out: [string] = []
+
+    loop n in parsed.root.children
+    {
+        if n.kind == "use_stmt" || n.kind == "import_stmt"
+        {
+            out = out.push(n.value)
+        }
+    }
+
+    give out
+}
+
+proc preflight_run(a: RunArgs) -> ([string], [string], [diagnostics.Diagnostic])
+{
+    let imports: [string] = []
+    let resolved: [string] = []
+    let diags: [diagnostics.Diagnostic] = []
+
+    if a.file == "" { give (imports, resolved, diags) }
+
+    let src = fs.read_file(a.file)
+    let res = semantic.analyze(src, a.file)
+    diags = reporter.normalize(res.diagnostics, reporter.default_budget())
+    imports = collect_vitte_imports(a.file)
+
+    loop pkg in imports
+    {
+        if resolver.has_package(pkg, "")
+        {
+            resolved = resolved.push(pkg)
+        }
+    }
+
+    give (imports, resolved, diags)
+}
+
 proc execute_once(a: RunArgs) -> i32
 {
     let env_err = load_env_file(a.env_file)
@@ -242,28 +306,35 @@ proc execute_once(a: RunArgs) -> i32
         give 2
     }
 
-    let argv: [string] = ["run"]
-
-    if a.file != ""
-    {
-        argv = argv.push(a.file)
-    }
-
-    loop p in a.passthrough
-    {
-        argv = argv.push(p)
-    }
-
     let start = time.now_ms()
-    let p = process.exec("dots", argv)
+    let imports, resolved, diags = preflight_run(a)
     let dur = time.now_ms() - start
+    let exit_code: i32 = 0
+    if diags.len > 0 { exit_code = 1 }
 
     if a.json
     {
-        io.print("{\"command\":\"run\",\"duration_ms\":\"" + str.from_i64(dur) + "\",\"exit\":\"" + str.from_i64(p.code) + "\"}")
+        let payload = formatter.format_json(diags, "dots-run-" + str.from_i64(start), a.file)
+        io.print("{" +
+            "\"command\":\"run\"," +
+            "\"duration_ms\":\"" + str.from_i64(dur) + "\"," +
+            "\"exit\":\"" + str.from_i64(exit_code) + "\"," +
+            "\"imports\":\"" + str.from_i64(imports.len) + "\"," +
+            "\"resolved_imports\":\"" + str.from_i64(resolved.len) + "\"," +
+            "\"result\":" + payload +
+        "}")
+    }
+    else if diags.len == 0
+    {
+        io.print("run preflight ok file=" + a.file + " vitte_imports=" + str.from_i64(imports.len) + " resolved=" + str.from_i64(resolved.len) + " duration_ms=" + str.from_i64(dur))
+    }
+    else
+    {
+        io.print(formatter.format_human(diags))
+        io.print("run blocked file=" + a.file + " diagnostics=" + str.from_i64(diags.len) + " vitte_imports=" + str.from_i64(imports.len) + " resolved=" + str.from_i64(resolved.len) + " duration_ms=" + str.from_i64(dur))
     }
 
-    give p.code
+    give exit_code
 }
 
 proc execute_watch(a: RunArgs) -> i32
@@ -316,7 +387,17 @@ proc execute(a: RunArgs) -> i32
 
     if a.entry != ""
     {
-        io.print("entry resolution placeholder: " + a.entry)
+        if a.file == ""
+        {
+            let resolved = resolve_entry_file(a.entry)
+            if resolved == null
+            {
+                io.print("dots: entry not found: " + a.entry)
+                give 2
+            }
+            a.file = resolved
+        }
+        io.print("entry resolution: " + a.entry + " -> " + a.file)
     }
 
     if !a.watch

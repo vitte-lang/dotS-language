@@ -1,29 +1,37 @@
-# DotS benchmark lint rules
-# Rule IDs:
-# BENCH001 module name must be .module.benchmark.<name>.
-# BENCH002 imports must be sorted alphabetically after .import.*
-# BENCH003 no magic constants inside measured blocks
-# BENCH004 require setup/execution/cleanup duration variables
-# BENCH005 require warmup and multi-run stats (avg/median/p95/min/max)
-# BENCH006 require checksum variable to prove useful work
-# BENCH007 if atomic.* used => .use.atomic. required
-# BENCH008 require machine-readable JSON summary print
-# BENCH009 require human summary section
-# BENCH010 duration var name must end with _ms
-# BENCH011 require p50/p90/p95/p99 stats
-# BENCH012 require stddev/cv and unstable status gate
-# BENCH013 require env override support for runs/warmup/seed/output
-# BENCH014 require tag/notes/machine_id in summary JSON
-# BENCH015 require checksum anti-cheat (non constant)
+space tools/linter/rules/bench
 
-.fn.lint_bench_file.
-.begin.
-# Placeholder implementation hook for lsp/diagnostics or dots lint command.
-.ret.
-.end.
+pull core/str
 
-.fn.autofix_bench_file.
-.begin.
-# Placeholder implementation hook for dots lint --fix.
-.ret.
-.end.
+proc lint_bench_file(path: string, src: string) -> [string]
+{
+    let out: [string] = []
+
+    if !str.contains(src, ".module.")
+    {
+        out = out.push(path + ":1: BENCH001 missing benchmark module declaration")
+    }
+
+    if !str.contains(src, "summary") || !str.contains(src, "json")
+    {
+        out = out.push(path + ":1: BENCH008 require machine-readable JSON summary print")
+    }
+
+    if !str.contains(src, "p95") && !str.contains(src, "stddev")
+    {
+        out = out.push(path + ":1: BENCH011 require percentile/stddev stats")
+    }
+
+    if str.contains(src, "$duration.") && !str.contains(src, "$duration_ms")
+    {
+        out = out.push(path + ":1: BENCH010 duration var name should end with _ms")
+    }
+
+    give out
+}
+
+proc autofix_bench_file(src: string) -> string
+{
+    let out = src
+    out = str.replace(out, "$duration.", "$duration_ms.")
+    give out
+}

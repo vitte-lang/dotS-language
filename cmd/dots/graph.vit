@@ -4,6 +4,8 @@ pull core/io
 pull core/fs
 pull core/str
 pull core/process
+pull core/parser
+pull modules/loader/resolver
 
 form GraphArgs
 {
@@ -107,6 +109,64 @@ proc scan_edges() -> [Edge]
             let line = str.trim(l)
             if !str.starts_with(line, "pull ") { continue }
             let target = str.trim(str.replace(line, "pull ", ""))
+            out = out.push(Edge(from, target))
+        }
+    }
+
+    give out
+}
+
+proc file_node_name(path: string) -> string
+{
+    let out = path
+    out = str.replace(out, "./", "")
+    out = str.replace(out, "/", "_")
+    out = str.replace(out, ".dotS", "")
+    give out
+}
+
+proc scan_project_dots_files() -> [string]
+{
+    let out: [string] = []
+    let roots: [string] = ["examples", "bench", "src"]
+
+    loop r in roots
+    {
+        if !fs.exists(r) { continue }
+        let files = fs.read_dir(r)
+        loop f in files
+        {
+            let p = r + "/" + f
+            if str.ends_with(p, ".dotS")
+            {
+                out = out.push(p)
+            }
+        }
+    }
+
+    give out
+}
+
+proc scan_import_edges() -> [Edge]
+{
+    let out: [Edge] = []
+    let files = scan_project_dots_files()
+
+    loop p in files
+    {
+        let parsed = parser.parse(fs.read_file(p))
+        let from = file_node_name(p)
+
+        loop n in parsed.root.children
+        {
+            if n.kind != "use_stmt" && n.kind != "import_stmt" { continue }
+
+            let pkg = n.value
+            let target = "vitte/" + pkg
+            if !resolver.has_package(pkg, "")
+            {
+                target = "missing/" + pkg
+            }
             out = out.push(Edge(from, target))
         }
     }
@@ -251,6 +311,10 @@ proc execute(a: GraphArgs) -> i32
 
     let nodes = scan_modules()
     let edges_all = scan_edges()
+    loop e in scan_import_edges()
+    {
+        edges_all = edges_all.push(e)
+    }
     let edges = subgraph(nodes, edges_all, a.focus, a.depth, a.reverse)
 
     let cycles: [string] = []

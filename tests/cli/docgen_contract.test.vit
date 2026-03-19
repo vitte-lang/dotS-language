@@ -1,0 +1,13 @@
+.test.cli.docgen.modules.present.
+.begin.
+.sys.exec.capture."bash -lc 'test -f tools/docgen/doc_parser.vit && test -f tools/docgen/html_generator.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.cli.doc.command.uses.docgen.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"tools/docgen/doc_parser|tools/docgen/html_generator|parse_cli_docs|html_generator.render\" cmd/dots/doc.vit tools/docgen/*.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

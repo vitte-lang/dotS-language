@@ -4,6 +4,8 @@ pull core/io
 pull core/fs
 pull core/str
 pull core/process
+pull tools/formatter/formatter
+pull tools/formatter/printer
 
 form FmtArgs
 {
@@ -54,73 +56,10 @@ proc validate(a: FmtArgs) -> string?
     give null
 }
 
-proc normalize(line: string) -> string
-{
-    let l = str.trim(line)
-    if l == "" { give "" }
-    if !str.starts_with(l, ".") { l = "." + l }
-    if !str.ends_with(l, ".") { l = l + "." }
-    give l
-}
-
-proc format_source(src: string) -> string
-{
-    let lines = str.split(src, "\n")
-    let out: string = ""
-    let indent: i32 = 0
-
-    loop raw in lines
-    {
-        let line = normalize(raw)
-        if line == "" { continue }
-
-        if str.contains(line, ".end.") { indent = indent - 1 }
-        let pad = str.repeat("  ", indent)
-        out = out + pad + line + "\n"
-        if str.contains(line, ".begin.") { indent = indent + 1 }
-    }
-
-    give out
-}
-
-proc unified_diff(path: string, before: string, after: string) -> string
-{
-    if before == after
-    {
-        give ""
-    }
-
-    let out = "--- " + path + "\n+++ " + path + "\n"
-    let b = str.split(before, "\n")
-    let a = str.split(after, "\n")
-
-    let i: i32 = 0
-    let max = b.len
-    if a.len > max { max = a.len }
-
-    loop while i < max
-    {
-        let lb = ""
-        let la = ""
-        if i < b.len { lb = b[i] }
-        if i < a.len { la = a[i] }
-
-        if lb != la
-        {
-            if lb != "" { out = out + "-" + lb + "\n" }
-            if la != "" { out = out + "+" + la + "\n" }
-        }
-
-        i = i + 1
-    }
-
-    give out
-}
-
 proc process_file(path: string, a: FmtArgs) -> i32
 {
     let src = fs.read_file(path)
-    let out = format_source(src)
+    let out = formatter.format_source(src)
 
     if a.check
     {
@@ -128,7 +67,7 @@ proc process_file(path: string, a: FmtArgs) -> i32
         {
             if a.diff
             {
-                io.print(unified_diff(path, src, out))
+                io.print(printer.unified_diff(path, src, out))
             }
             give 1
         }
@@ -138,8 +77,7 @@ proc process_file(path: string, a: FmtArgs) -> i32
 
     fs.write_file(path, out)
 
-    let second = format_source(out)
-    if second != out
+    if !formatter.is_idempotent(out)
     {
         io.print("dots: formatter non-idempotent for " + path)
         give 1
@@ -147,7 +85,7 @@ proc process_file(path: string, a: FmtArgs) -> i32
 
     if a.diff
     {
-        let d = unified_diff(path, src, out)
+        let d = printer.unified_diff(path, src, out)
         if d != "" { io.print(d) }
     }
 
@@ -161,7 +99,7 @@ proc execute(a: FmtArgs) -> i32
     if a.stdin_mode
     {
         let src = io.read_stdin_all()
-        io.print(format_source(src))
+        io.print(formatter.format_source(src))
         give 0
     }
 

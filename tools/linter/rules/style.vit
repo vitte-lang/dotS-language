@@ -1,0 +1,31 @@
+space tools/linter/rules/style
+
+pull core/str
+
+proc lint_lines(path: string, lines: [string]) -> [string]
+{
+    let out: [string] = []
+    let ln: i32 = 1
+
+    loop l in lines
+    {
+        if str.contains(l, "\t")
+        {
+            out = out.push(path + ":" + str.from_i64(ln) + ": TABS tab character")
+        }
+
+        if str.contains(l, "..")
+        {
+            out = out.push(path + ":" + str.from_i64(ln) + ": DOTDOT suspicious token '..'")
+        }
+
+        if str.ends_with(l, " ")
+        {
+            out = out.push(path + ":" + str.from_i64(ln) + ": TRAILING_SPACES")
+        }
+
+        ln = ln + 1
+    }
+
+    give out
+}

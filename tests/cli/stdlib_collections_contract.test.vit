@@ -1,0 +1,13 @@
+.test.cli.stdlib.collections.modules.present.
+.begin.
+.sys.exec.capture."bash -lc 'for f in stdlib/collections/list.vit stdlib/collections/set.vit stdlib/collections/queue.vit stdlib/collections/map.vit stdlib/collections/graph.vit; do test -s \"$f\" || exit 1; done; echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.cli.stdlib.collections.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"proc empty\\(|proc push\\(|proc contains\\(|form Queue|proc enqueue\\(|proc dequeue\\(|form Map|proc set\\(|proc get\\(|form Graph|proc add_edge\\(|proc neighbors\\(\" stdlib/collections/*.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

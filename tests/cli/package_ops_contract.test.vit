@@ -1,0 +1,13 @@
+.test.cli.package.ops.modules.present.
+.begin.
+.sys.exec.capture."bash -lc 'for f in modules/package/install.vit modules/package/remove.vit modules/package/update.vit; do test -s \"$f\" || exit 1; done; echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.cli.package.ops.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"install_package_json|install_package_summary|update_packages_json|update_packages_summary|publish_package_json|publish_package_summary|remove_package\\(|remove_package_json|remove_package_summary\" modules/package/*.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

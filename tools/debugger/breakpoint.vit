@@ -1,0 +1,26 @@
+space tools/debugger/breakpoint
+
+pull core/str
+
+form Breakpoint
+{
+    file: string
+    line: i32
+    enabled: bool
+}
+
+proc make(file: string, line: i32) -> Breakpoint
+{
+    give Breakpoint(file, line, true)
+}
+
+proc disable(bp: Breakpoint) -> Breakpoint
+{
+    bp.enabled = false
+    give bp
+}
+
+proc key(bp: Breakpoint) -> string
+{
+    give bp.file + ":" + str.from_i64(bp.line)
+}

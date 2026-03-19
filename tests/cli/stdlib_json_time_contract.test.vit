@@ -1,0 +1,20 @@
+.test.cli.stdlib.json.modules.present.
+.begin.
+.sys.exec.capture."bash -lc 'for f in stdlib/json/decode.vit stdlib/json/encode.vit stdlib/json/parser.vit; do test -s \"$f\" || exit 1; done; echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.cli.stdlib.time.modules.present.
+.begin.
+.sys.exec.capture."bash -lc 'for f in stdlib/time/datetime.vit stdlib/time/now.vit stdlib/time/sleep.vit; do test -s \"$f\" || exit 1; done; echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.cli.stdlib.json_time.bridge.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"pull core/str|pull core/time|time\\.now_ms|time\\.sleep_ms|str\\.replace|str\\.split|str\\.to_i64|str\\.from_i64|str\\.from_bool\" stdlib/json/*.vit stdlib/time/*.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

@@ -8,7 +8,7 @@ mapfile -t cmds < <(rg -o 'CommandDef\("([a-z-]+)"' "$reg" | sed -E 's/.*"([a-z-
 
 fail=0
 for c in "${cmds[@]}"; do
-  [[ "$c" =~ ^(help|version|completion|plugins|verify|status|whoami|login|logout|self|ffi|lsp)$ ]] && continue
+  [[ "$c" =~ ^(help|version|completion|plugins|verify|status|whoami|login|logout|self|ffi|lsp|runtime)$ ]] && continue
   f="cmd/dots/${c}.vit"
   if [[ ! -f "$f" ]]; then
     echo "missing command file for registry command: $c"

@@ -5,6 +5,13 @@ pull core/fs
 pull core/str
 pull core/process
 pull core/time
+pull core/diagnostics
+pull core/semantic
+pull core/diagnostics/reporter
+pull core/diagnostics/formatter
+pull core/parser
+pull modules/loader/resolver
+
 
 form BuildArgs
 {
@@ -70,6 +77,50 @@ proc cache_stamp(a: BuildArgs) -> string
     give ".dots/build-cache/" + name + ".stamp"
 }
 
+proc collect_vitte_imports(path: string) -> [string]
+{
+    let parsed = parser.parse(fs.read_file(path))
+    let out: [string] = []
+
+    loop n in parsed.root.children
+    {
+        if n.kind == "use_stmt" || n.kind == "import_stmt"
+        {
+            out = out.push(n.value)
+        }
+    }
+
+    give out
+}
+
+proc build_artifact(a: BuildArgs, output: string, imports: [string], resolved: [string]) -> void
+{
+    let src = fs.read_file(a.input)
+
+    if a.emit == "ast"
+    {
+        let parsed = parser.parse(src)
+        fs.write_file(output, parser.ast_json_stable(parsed.root) + "\n")
+        give
+    }
+
+    let mode = "debug"
+    if a.release { mode = "release" }
+
+    let artifact = "{" +
+        "\"schema_version\":\"1.1.0\"," +
+        "\"kind\":\"dots-build\"," +
+        "\"target\":\"" + a.target + "\"," +
+        "\"emit\":\"" + a.emit + "\"," +
+        "\"mode\":\"" + mode + "\"," +
+        "\"input\":\"" + a.input + "\"," +
+        "\"imports\":\"" + str.from_i64(imports.len) + "\"," +
+        "\"resolved_imports\":\"" + str.from_i64(resolved.len) + "\"," +
+        "\"source_bytes\":\"" + str.from_i64(src.len) + "\"" +
+    "}\n"
+    fs.write_file(output, artifact)
+}
+
 proc execute(a: BuildArgs) -> i32
 {
     if a.help { usage(); give 0 }
@@ -79,10 +130,22 @@ proc execute(a: BuildArgs) -> i32
 
     let base = fs.base_name(a.input)
     let output = a.out_dir + "/" + str.replace(base, ".dotS", ".dotc")
+    let src = fs.read_file(a.input)
+    let res = semantic.analyze(src, a.input)
+    let diags = reporter.normalize(res.diagnostics, reporter.default_budget())
+    let imports = collect_vitte_imports(a.input)
+    let resolved: [string] = []
+    loop pkg in imports
+    {
+        if resolver.has_package(pkg, "")
+        {
+            resolved = resolved.push(pkg)
+        }
+    }
 
     if !a.no_cache && fs.exists(output) && fs.exists(cache_stamp(a))
     {
-        if fs.mtime_ms(output) >= fs.mtime_ms(a.input)
+        if diags.len == 0 && fs.mtime_ms(output) >= fs.mtime_ms(a.input)
         {
             if a.json
             {
@@ -109,25 +172,43 @@ proc execute(a: BuildArgs) -> i32
         give 0
     }
 
-    let start = time.now_ms()
-    let p = process.exec("dots", ["compile", a.input, "-o", output])
-    let dur = time.now_ms() - start
-
-    if p.code == 0
+    if diags.len > 0
     {
-        fs.write_file(cache_stamp(a), str.from_i64(time.now_ms()) + "\n")
+        if a.json
+        {
+            let payload = formatter.format_json(diags, "dots-build-" + str.from_i64(time.now_ms()), a.input)
+            io.print("{" +
+                "\"schema_version\":\"1.1.0\"," +
+                "\"command\":\"build\"," +
+                "\"target\":\"" + a.target + "\"," +
+                "\"emit\":\"" + a.emit + "\"," +
+                "\"exit\":\"1\"," +
+                "\"result\":" + payload +
+            "}")
+        }
+        else
+        {
+            io.print(formatter.format_human(diags))
+            io.print("build blocked input=" + a.input + " diagnostics=" + str.from_i64(diags.len))
+        }
+        give 1
     }
+
+    let start = time.now_ms()
+    build_artifact(a, output, imports, resolved)
+    let dur = time.now_ms() - start
+    fs.write_file(cache_stamp(a), str.from_i64(time.now_ms()) + "\n")
 
     if a.json
     {
-        io.print("{\"schema_version\":\"1\",\"command\":\"build\",\"target\":\"" + a.target + "\",\"emit\":\"" + a.emit + "\",\"duration_ms\":\"" + str.from_i64(dur) + "\",\"exit\":\"" + str.from_i64(p.code) + "\",\"output\":\"" + output + "\"}")
+        io.print("{\"schema_version\":\"1\",\"command\":\"build\",\"target\":\"" + a.target + "\",\"emit\":\"" + a.emit + "\",\"duration_ms\":\"" + str.from_i64(dur) + "\",\"exit\":\"0\",\"output\":\"" + output + "\",\"imports\":\"" + str.from_i64(imports.len) + "\",\"resolved_imports\":\"" + str.from_i64(resolved.len) + "\"}")
     }
     else
     {
-        io.print("built " + a.input + " -> " + output + " in " + str.from_i64(dur) + " ms")
+        io.print("built " + a.input + " -> " + output + " in " + str.from_i64(dur) + " ms" + " vitte_imports=" + str.from_i64(imports.len) + " resolved=" + str.from_i64(resolved.len))
     }
 
-    give p.code
+    give 0
 }
 
 proc main() -> i32

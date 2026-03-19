@@ -4,3 +4,13 @@
 .assert.contains.$out."did you mean".
 .ret.
 .end.
+
+.test.cli.typo.suggestion.maximum_three.
+.begin.
+.sys.exec.capture."dots p".$out.
+.assert.contains.$out."'profile'".
+.assert.contains.$out."'publish'".
+.assert.contains.$out."'package'".
+.assert.not_contains.$out."'plugins'".
+.ret.
+.end.

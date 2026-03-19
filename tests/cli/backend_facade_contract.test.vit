@@ -1,0 +1,13 @@
+.test.cli.backend.facade.modules.present.
+.begin.
+.sys.exec.capture."bash -lc 'for f in modules/package/backend.vit modules/package/backend/types.vit; do test -s \"$f\" || exit 1; done; echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.cli.backend.facade.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"backend_status_json|backend_status_prom|backend_doctor_json|error_json\\(|result_json\\(|summary\\(\" modules/package/backend.vit modules/package/backend/types.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

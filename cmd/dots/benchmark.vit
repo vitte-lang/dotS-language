@@ -74,18 +74,18 @@ proc execute(a: BenchArgs) -> i32
 
     if a.bench == ""
     {
-        rc = process.exec("bash", ["scripts/bench.sh", "run-all"]).code
+        rc = process.exec("scripts/bench.sh", ["run-all"]).code
     }
     else
     {
-        rc = process.exec("bash", ["scripts/bench.sh", "run", a.bench]).code
+        rc = process.exec("scripts/bench.sh", ["run", a.bench]).code
     }
 
     if a.compare != ""
     {
         if a.bench != ""
         {
-            process.exec("bash", ["scripts/bench.sh", "compare", a.bench])
+            process.exec("scripts/bench.sh", ["compare", a.bench])
         }
     }
 

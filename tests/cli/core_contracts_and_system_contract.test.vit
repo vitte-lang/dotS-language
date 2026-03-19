@@ -1,0 +1,20 @@
+.test.cli.core.contracts.doc.present.
+.begin.
+.sys.exec.capture."bash -lc 'test -s docs/core_contracts.md && rg -n \"core/fs|core/io|core/process\" docs/core_contracts.md && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.cli.stdlib.system.modules.present.
+.begin.
+.sys.exec.capture."bash -lc 'for f in stdlib/system/env.vit stdlib/system/os.vit stdlib/system/process.vit; do test -s \"$f\" || exit 1; done; echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.cli.stdlib.system.core_bridge.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"pull core/process|process\\.env|process\\.set_env|process\\.cwd|process\\.chdir|process\\.args|process\\.exec\" stdlib/system/*.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

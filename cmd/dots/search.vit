@@ -5,6 +5,7 @@ pull core/fs
 pull core/str
 pull core/process
 pull core/time
+pull modules/loader/resolver
 
 form SearchArgs
 {
@@ -85,6 +86,22 @@ proc source_files() -> [string]
     give out
 }
 
+proc vitte_package_files() -> [string]
+{
+    let out: [string] = []
+    let pkgs = resolver.discover_packages("")
+
+    loop pkg in pkgs
+    {
+        let mod = resolver.package_mod_file(pkg, "")
+        let info = resolver.package_info_file(pkg, "")
+        if mod != null && fs.exists(mod) { out = out.push(mod) }
+        if info != null && fs.exists(info) { out = out.push(info) }
+    }
+
+    give out
+}
+
 proc tokenize(line: string) -> [string]
 {
     let s = str.lower(line)
@@ -120,6 +137,10 @@ proc build_index() -> i32
 
     let lines_out = ""
     let files = source_files()
+    loop vf in vitte_package_files()
+    {
+        files = files.push(vf)
+    }
 
     loop p in files
     {

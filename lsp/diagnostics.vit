@@ -2,6 +2,7 @@ space lsp/diagnostics
 
 pull core/str
 pull lsp/model
+pull modules/loader/resolver
 
 const SEV_ERROR: i32 = 1
 const SEV_WARNING: i32 = 2
@@ -28,6 +29,29 @@ proc analyze_incremental(doc: Document, limit: i32) -> [Diagnostic]
         {
             out = out.push(Diagnostic("DOTS003", SEV_ERROR, i, 0, "invalid dotted operation", doc.uri, i, 0))
         }
+
+        let trimmed = str.trim(l)
+        if str.starts_with(trimmed, "import.") || str.starts_with(trimmed, "use.")
+        {
+            let parts = str.split(trimmed, ".")
+            if parts.len >= 2
+            {
+                let pkg = parts[1]
+                if !resolver.has_package(pkg, "")
+                {
+                    out = out.push(Diagnostic("DOTS004", SEV_ERROR, i, 0, "missing vitte package: " + pkg, doc.uri, i, 0))
+                }
+            }
+        }
+        if str.starts_with(trimmed, "ret") && !str.contains(doc.text, "fn.")
+        {
+            out = out.push(Diagnostic("DOTS005", SEV_ERROR, i, 0, "return outside function", doc.uri, i, 0))
+        }
+        if str.starts_with(trimmed, "throw") && !str.contains(trimmed, ".")
+        {
+            out = out.push(Diagnostic("DOTS006", SEV_WARNING, i, 0, "throw requires expression", doc.uri, i, 0))
+        }
+
         if out.len >= limit { give out }
         i = i + 1
     }
@@ -59,7 +83,9 @@ proc diagnostics_json_array(diags: [Diagnostic]) -> string
     {
         let d = diags[i]
         if i > 0 { out = out + "," }
-        out = out + "{\"code\":\"" + d.code + "\",\"severity\":" + str.from_i64(d.severity) + ",\"source\":\"dots-lsp\",\"range\":{\"start\":{\"line\":" + str.from_i64(d.line) + ",\"character\":" + str.from_i64(d.character) + "},\"end\":{\"line\":" + str.from_i64(d.line) + ",\"character\":" + str.from_i64(d.character + 1) + "}},\"message\":\"" + str.replace(d.message, "\"", "\\\"") + "\",\"data\":{\"quickFix\":\"see docs/grammar.md#" + d.code + "\"},\"relatedInformation\":[{\"location\":{\"uri\":\"" + d.related_uri + "\",\"range\":{\"start\":{\"line\":" + str.from_i64(d.related_line) + ",\"character\":" + str.from_i64(d.related_character) + "},\"end\":{\"line\":" + str.from_i64(d.related_line) + ",\"character\":" + str.from_i64(d.related_character + 1) + "}}},\"message\":\"related\"}]}"
+        let docs = "docs/grammar.md#" + d.code
+        if d.code == "DOTS005" || d.code == "DOTS006" { docs = "docs/language_spec.md#" + d.code }
+        out = out + "{\"code\":\"" + d.code + "\",\"severity\":" + str.from_i64(d.severity) + ",\"source\":\"dots-lsp\",\"range\":{\"start\":{\"line\":" + str.from_i64(d.line) + ",\"character\":" + str.from_i64(d.character) + "},\"end\":{\"line\":" + str.from_i64(d.line) + ",\"character\":" + str.from_i64(d.character + 1) + "}},\"message\":\"" + str.replace(d.message, "\"", "\\\"") + "\",\"data\":{\"quickFix\":\"see " + docs + "\"},\"relatedInformation\":[{\"location\":{\"uri\":\"" + d.related_uri + "\",\"range\":{\"start\":{\"line\":" + str.from_i64(d.related_line) + ",\"character\":" + str.from_i64(d.related_character) + "},\"end\":{\"line\":" + str.from_i64(d.related_line) + ",\"character\":" + str.from_i64(d.related_character + 1) + "}}},\"message\":\"related\"}]}"
         i = i + 1
     }
     out = out + "]"

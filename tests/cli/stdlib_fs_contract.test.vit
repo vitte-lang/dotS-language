@@ -1,0 +1,13 @@
+.test.cli.stdlib.fs.modules.present.
+.begin.
+.sys.exec.capture."bash -lc 'for f in stdlib/fs/copy.vit stdlib/fs/path.vit stdlib/fs/read.vit stdlib/fs/remove.vit stdlib/fs/stat.vit stdlib/fs/walk.vit stdlib/fs/write.vit; do test -s \"$f\" || exit 1; done; echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.cli.stdlib.fs.core_bridge.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"pull core/fs|fs\\.read_file|fs\\.write_file|fs\\.append_file|fs\\.remove|fs\\.remove_all|fs\\.mtime_ms|fs\\.base_name|fs\\.dir_name|fs\\.read_dir\" stdlib/fs/*.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

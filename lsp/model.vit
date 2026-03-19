@@ -245,6 +245,35 @@ proc word_prefix(text: string, line: i32, character: i32) -> string
     give out
 }
 
+proc dotted_prefix(text: string, line: i32, character: i32) -> string
+{
+    let l = line_at(text, line)
+    if l == "" { give "" }
+    let cut = l
+    if character >= 0 && character < l.len
+    {
+        cut = ""
+        let i: i32 = 0
+        loop while i < character
+        {
+            cut = cut + str.from_i64(l[i])
+            i = i + 1
+        }
+    }
+    cut = str.replace(cut, "(", " ")
+    cut = str.replace(cut, ")", " ")
+    cut = str.replace(cut, ",", " ")
+    cut = str.replace(cut, ":", " ")
+    cut = str.replace(cut, "\t", " ")
+    let parts = str.split(cut, " ")
+    let out = ""
+    loop p in parts
+    {
+        if str.trim(p) != "" { out = str.trim(p) }
+    }
+    give out
+}
+
 proc diag_state_get(states: [DiagState], uri: string) -> string
 {
     let u = normalize_uri(uri)

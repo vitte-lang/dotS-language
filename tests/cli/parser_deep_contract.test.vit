@@ -1,0 +1,13 @@
+.test.cli.parser.deep.modules.present.
+.begin.
+.sys.exec.capture."bash -lc 'for f in core/parser/parser.vit core/parser/grammar.vit core/parser/ast/program.vit core/parser/ast/pipeline.vit core/parser/ast/module.vit core/parser/ast/function.vit; do test -s \"$f\" || exit 1; done; echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.cli.parser.deep.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"parse_qualified_identifier|qualified_identifier|missing token value|is_declaration_keyword|TK_KEYWORD|proc arity\\(|proc stage_count\\(|proc summary\\(\" core/parser/parser.vit core/parser/grammar.vit core/parser/ast/*.vit grammar/DotS.ebnf && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

@@ -133,11 +133,8 @@ proc acquire_lock(stale_ms: i64) -> string?
         }
     }
 
-    let mk = process.exec("bash", ["-lc", "mkdir -p \"" + lock_dir() + "\" >/dev/null 2>&1"])
-    if mk.code != 0
-    {
-        give "cache lock acquisition failed"
-    }
+    fs.mkdir_p(lock_dir())
+    if !fs.exists(lock_dir()) { give "cache lock acquisition failed" }
 
     fs.write_file(lock_stamp_file(), str.from_i64(time.now_ms()) + "\n")
     give null

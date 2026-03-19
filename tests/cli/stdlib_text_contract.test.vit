@@ -1,0 +1,13 @@
+.test.cli.stdlib.text.modules.present.
+.begin.
+.sys.exec.capture."bash -lc 'for f in stdlib/text/format.vit stdlib/text/string.vit; do test -s \"$f\" || exit 1; done; echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.cli.stdlib.text.core_bridge.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"pull core/str|str\\.trim|str\\.split|str\\.replace|str\\.contains|str\\.starts_with|str\\.ends_with|str\\.lower|str\\.join|str\\.from_i64|str\\.from_bool|str\\.repeat\" stdlib/text/*.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

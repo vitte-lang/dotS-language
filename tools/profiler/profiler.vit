@@ -1,0 +1,43 @@
+space tools/profiler/profiler
+
+pull core/str
+pull core/time
+
+form Sample
+{
+    name: string
+    started_ms: i64
+    ended_ms: i64
+}
+
+proc begin(name: string) -> Sample
+{
+    let now = time.now_ms()
+    give Sample(name, now, now)
+}
+
+proc finish(s: Sample) -> Sample
+{
+    s.ended_ms = time.now_ms()
+    give s
+}
+
+proc duration_ms(s: Sample) -> i64
+{
+    give s.ended_ms - s.started_ms
+}
+
+proc to_json(s: Sample) -> string
+{
+    give "{" +
+        "\"name\":\"" + s.name + "\"," +
+        "\"started_ms\":\"" + str.from_i64(s.started_ms) + "\"," +
+        "\"ended_ms\":\"" + str.from_i64(s.ended_ms) + "\"," +
+        "\"duration_ms\":\"" + str.from_i64(duration_ms(s)) + "\"" +
+    "}"
+}
+
+proc to_line(s: Sample) -> string
+{
+    give s.name + " duration_ms=" + str.from_i64(duration_ms(s))
+}

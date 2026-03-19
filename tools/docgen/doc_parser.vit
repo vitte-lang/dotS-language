@@ -1,0 +1,103 @@
+space tools/docgen/doc_parser
+
+pull core/str
+
+form DocSection
+{
+    level: i32
+    title: string
+    body: string
+}
+
+form DocModel
+{
+    title: string
+    sections: [DocSection]
+}
+
+proc default_title() -> string
+{
+    give "DotS Documentation"
+}
+
+proc parse_markdown(md: string) -> DocModel
+{
+    let title = default_title()
+    let sections: [DocSection] = []
+    let current_level: i32 = 0
+    let current_title = ""
+    let current_body = ""
+
+    let lines = str.split(md, "\n")
+    loop l in lines
+    {
+        let line = str.trim(l)
+
+        if str.starts_with(line, "# ")
+        {
+            if current_title != ""
+            {
+                sections = sections.push(DocSection(current_level, current_title, str.trim(current_body)))
+            }
+            current_level = 1
+            current_title = str.trim(str.replace(line, "# ", ""))
+            current_body = ""
+            if title == default_title() { title = current_title }
+            continue
+        }
+
+        if str.starts_with(line, "## ")
+        {
+            if current_title != ""
+            {
+                sections = sections.push(DocSection(current_level, current_title, str.trim(current_body)))
+            }
+            current_level = 2
+            current_title = str.trim(str.replace(line, "## ", ""))
+            current_body = ""
+            continue
+        }
+
+        if str.starts_with(line, "### ")
+        {
+            if current_title != ""
+            {
+                sections = sections.push(DocSection(current_level, current_title, str.trim(current_body)))
+            }
+            current_level = 3
+            current_title = str.trim(str.replace(line, "### ", ""))
+            current_body = ""
+            continue
+        }
+
+        if current_title == ""
+        {
+            if line != ""
+            {
+                if current_body != "" { current_body = current_body + "\n" }
+                current_body = current_body + line
+            }
+            continue
+        }
+
+        if current_body != "" { current_body = current_body + "\n" }
+        current_body = current_body + l
+    }
+
+    if current_title != ""
+    {
+        sections = sections.push(DocSection(current_level, current_title, str.trim(current_body)))
+    }
+
+    give DocModel(title, sections)
+}
+
+proc parse_cli_docs(cli_md: string, packages_md: string) -> DocModel
+{
+    let merged = cli_md
+    if packages_md != ""
+    {
+        merged = merged + "\n\n" + packages_md
+    }
+    give parse_markdown(merged)
+}
