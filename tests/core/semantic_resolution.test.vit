@@ -56,6 +56,22 @@
 .ret.
 .end.
 
+.test.core.semantic.vitte_package_import_missing.suggestions.max_list_stdlib.
+.begin.
+.assert.semantic.diag."did you mean".
+.assert.semantic.diag."'json'".
+.assert.semantic.diag."candidate package".
+.assert.semantic.quickfix.present.
+.ret.
+.end.
+
+.test.core.semantic.vitte_package_import_missing.suggestions.configurable.max.
+.begin.
+.assert.semantic.diag."did you mean".
+.assert.semantic.quickfix.present.
+.ret.
+.end.
+
 .test.core.semantic.return_outside_function.
 .begin.
 .assert.semantic.diag."DOTS0003 return outside function".

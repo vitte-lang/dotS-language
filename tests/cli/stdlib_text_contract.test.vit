@@ -7,7 +7,7 @@
 
 .test.cli.stdlib.text.core_bridge.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"pull core/str|str\\.trim|str\\.split|str\\.replace|str\\.contains|str\\.starts_with|str\\.ends_with|str\\.lower|str\\.join|str\\.from_i64|str\\.from_bool|str\\.repeat\" stdlib/text/*.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"pull core/str|pull stdlib/system/result|str\\.trim|str\\.split|str\\.replace|str\\.contains|str\\.starts_with|str\\.ends_with|str\\.lower|str\\.join|str\\.from_i64|str\\.from_bool|str\\.repeat|proc repeat\\(|proc split_result\\(|proc replace_result\\(|proc repeat_result\\(|proc split_lines\\(|proc lines_count\\(|proc is_blank\\(|proc reverse\\(|proc pad_left\\(|proc pad_right\\(|proc center\\(|proc count\\(|proc find\\(|proc rfind\\(|proc strip_prefix\\(|proc strip_suffix\\(|proc partition\\(\" stdlib/text/*.vit && echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

@@ -18,3 +18,10 @@
 .assert.contains.$out."ok".
 .ret.
 .end.
+
+.test.lsp.vitte.packages.code_actions.quickfix.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"DOTS004|Replace package with|did you mean|package_quickfix_limit\" lsp/code_actions.vit lsp/diagnostics.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

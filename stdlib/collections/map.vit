@@ -1,52 +1,198 @@
 space stdlib/collections/map
 
-form Entry
-{
-    key: string
-    value: string
-}
+pull core/str
+pull stdlib/system/result
 
 form Map
 {
-    entries: [Entry]
+    items: [string]
 }
 
-proc new() -> Map
+proc empty() -> Map
 {
     give Map([])
 }
 
+proc entry(key: string, value: string) -> string
+{
+    give key + "=" + value
+}
+
+proc key_of(raw: string) -> string
+{
+    let p = str.split(raw, "=")
+    if p.len == 0 { give "" }
+    give p[0]
+}
+
+proc value_of(raw: string) -> string
+{
+    let p = str.split(raw, "=")
+    if p.len < 2 { give "" }
+    give p[1]
+}
+
 proc set(m: Map, key: string, value: string) -> Map
 {
-    let out: [Entry] = []
+    let out: [string] = []
     let replaced = false
-    loop e in m.entries
+    loop it in m.items
     {
-        if e.key == key
+        if key_of(it) == key
         {
-            out = out.push(Entry(key, value))
+            out = out.push(entry(key, value))
             replaced = true
+            continue
         }
-        else
-        {
-            out = out.push(e)
-        }
+        out = out.push(it)
     }
-    if !replaced { out = out.push(Entry(key, value)) }
-    m.entries = out
+    if !replaced
+    {
+        out = out.push(entry(key, value))
+    }
+    m.items = out
     give m
 }
 
-proc get(m: Map, key: string) -> string
+proc get(m: Map, key: string) -> string?
 {
-    loop e in m.entries
+    loop it in m.items
     {
-        if e.key == key { give e.value }
+        if key_of(it) == key { give value_of(it) }
     }
-    give ""
+    give null
+}
+
+proc has(m: Map, key: string) -> bool
+{
+    give get(m, key) != null
+}
+
+proc set_result(m: Map, key: string, value: string) -> result.StdResult
+{
+    if str.trim(key) == "" { give result.err("E_KEY_EMPTY", "key is empty") }
+    let out = set(m, key, value)
+    give result.ok(str.join(out.items, ","))
+}
+
+proc delete(m: Map, key: string) -> Map
+{
+    let out: [string] = []
+    loop it in m.items
+    {
+        if key_of(it) == key { continue }
+        out = out.push(it)
+    }
+    m.items = out
+    give m
+}
+
+proc get_or(m: Map, key: string, fallback: string) -> string
+{
+    let v = get(m, key)
+    if v == null { give fallback }
+    give v
+}
+
+proc keys(m: Map) -> [string]
+{
+    let out: [string] = []
+    loop it in m.items
+    {
+        out = out.push(key_of(it))
+    }
+    give out
+}
+
+proc values(m: Map) -> [string]
+{
+    let out: [string] = []
+    loop it in m.items
+    {
+        out = out.push(value_of(it))
+    }
+    give out
 }
 
 proc size(m: Map) -> i64
 {
-    give m.entries.len
+    give m.items.len
+}
+
+proc clear(m: Map) -> Map
+{
+    m.items = []
+    give m
+}
+
+proc merge(a: Map, b: Map) -> Map
+{
+    let out = a
+    loop it in b.items
+    {
+        out = set(out, key_of(it), value_of(it))
+    }
+    give out
+}
+
+proc copy(m: Map) -> Map
+{
+    let out = empty()
+    out.items = m.items
+    give out
+}
+
+proc items(m: Map) -> [string]
+{
+    give m.items
+}
+
+proc pop(m: Map, key: string) -> (Map, string?)
+{
+    let v = get(m, key)
+    give (delete(m, key), v)
+}
+
+proc pop_or(m: Map, key: string, fallback: string) -> (Map, string)
+{
+    let out, v = pop(m, key)
+    if v == null { give (out, fallback) }
+    give (out, v)
+}
+
+proc pop_result(m: Map, key: string) -> result.StdResult
+{
+    if str.trim(key) == "" { give result.err("E_KEY_EMPTY", "key is empty") }
+    let out, v = pop(m, key)
+    if v == null
+    {
+        give result.err("E_KEY_MISSING", "key not found: " + key)
+    }
+    give result.ok(v + " remaining=" + str.from_i64(size(out)))
+}
+
+proc update(m: Map, pairs: [string]) -> Map
+{
+    let out = m
+    loop it in pairs
+    {
+        out = set(out, key_of(it), value_of(it))
+    }
+    give out
+}
+
+proc from_items(pairs: [string]) -> Map
+{
+    give update(empty(), pairs)
+}
+
+proc equals(a: Map, b: Map) -> bool
+{
+    if size(a) != size(b) { give false }
+    loop it in a.items
+    {
+        let k = key_of(it)
+        if get(a, k) != get(b, k) { give false }
+    }
+    give true
 }

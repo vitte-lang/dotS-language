@@ -2,6 +2,98 @@ space core/parser/diagnostics
 
 pull core/diagnostics
 pull core/lexer/token
+pull core/lexer/keyword
+
+proc min3(a: i32, b: i32, c: i32) -> i32
+{
+    let m = a
+    if b < m { m = b }
+    if c < m { m = c }
+    give m
+}
+
+proc levenshtein(a: string, b: string) -> i32
+{
+    if a == b { give 0 }
+    if a.len == 0 { give b.len }
+    if b.len == 0 { give a.len }
+
+    let prev: [i32] = []
+    let j: i32 = 0
+    loop while j <= b.len
+    {
+        prev = prev.push(j)
+        j = j + 1
+    }
+
+    let i: i32 = 1
+    loop while i <= a.len
+    {
+        let cur: [i32] = [i]
+        let k: i32 = 1
+        loop while k <= b.len
+        {
+            let cost: i32 = 1
+            if a[i - 1] == b[k - 1] { cost = 0 }
+            let ins = cur[k - 1] + 1
+            let del = prev[k] + 1
+            let sub = prev[k - 1] + cost
+            cur = cur.push(min3(ins, del, sub))
+            k = k + 1
+        }
+        prev = cur
+        i = i + 1
+    }
+
+    give prev[b.len]
+}
+
+proc closest_keyword(raw: string) -> string
+{
+    let best = ""
+    let best_dist: i32 = 9999
+
+    let max_dist: i32 = 2
+    if raw.len <= 4 { max_dist = 1 }
+
+    loop k in keyword.table()
+    {
+        let d = levenshtein(raw, k)
+        if d < best_dist
+        {
+            best_dist = d
+            best = k
+        }
+    }
+
+    if best_dist <= max_dist
+    {
+        give best
+    }
+
+    give ""
+}
+
+proc keyword_typo(t: token.Token) -> diagnostics.Diagnostic?
+{
+    let s = closest_keyword(t.lexeme)
+    if s == ""
+    {
+        give null
+    }
+
+    let d = diagnostics.make(
+        "DOTS0002",
+        "unknown statement keyword '" + t.lexeme + "' (did you mean '" + s + "'?)",
+        "<memory>",
+        t.sp.start_pos.line,
+        t.sp.start_pos.col,
+        t.sp.end_pos.line,
+        t.sp.end_pos.col,
+        "parser"
+    )
+    give diagnostics.with_quick_fix(d, "replace", "Replace with keyword '" + s + "'", s)
+}
 
 proc unexpected_token(t: token.Token, expected: string) -> diagnostics.Diagnostic
 {

@@ -1,37 +1,31 @@
 space stdlib/collections/graph
 
-form Edge
-{
-    from: string
-    to: string
-}
+pull core/str
+pull stdlib/collections/list
+pull stdlib/system/result
 
 form Graph
 {
-    nodes: [string]
-    edges: [Edge]
+    edges: [string]
 }
 
-proc new() -> Graph
+proc empty() -> Graph
 {
-    give Graph([], [])
+    give Graph([])
 }
 
-proc add_node(g: Graph, node: string) -> Graph
+proc edge(from: string, to: string) -> string
 {
-    loop n in g.nodes
-    {
-        if n == node { give g }
-    }
-    g.nodes = g.nodes.push(node)
-    give g
+    give from + "->" + to
 }
 
 proc add_edge(g: Graph, from: string, to: string) -> Graph
 {
-    g = add_node(g, from)
-    g = add_node(g, to)
-    g.edges = g.edges.push(Edge(from, to))
+    let e = edge(from, to)
+    if !list.contains(g.edges, e)
+    {
+        g.edges = g.edges.push(e)
+    }
     give g
 }
 
@@ -40,12 +34,79 @@ proc neighbors(g: Graph, from: string) -> [string]
     let out: [string] = []
     loop e in g.edges
     {
-        if e.from == from { out = out.push(e.to) }
+        if !str.starts_with(e, from + "->") { continue }
+        let p = str.split(e, "->")
+        if p.len >= 2 { out = out.push(p[1]) }
     }
     give out
+}
+
+proc add_edge_result(g: Graph, from: string, to: string) -> result.StdResult
+{
+    if str.trim(from) == "" || str.trim(to) == ""
+    {
+        give result.err("E_NODE_EMPTY", "graph node must be non-empty")
+    }
+    let out = add_edge(g, from, to)
+    give result.ok(str.join(out.edges, ","))
+}
+
+proc has_edge(g: Graph, from: string, to: string) -> bool
+{
+    let e = edge(from, to)
+    give list.contains(g.edges, e)
+}
+
+proc degree_out(g: Graph, from: string) -> i64
+{
+    give neighbors(g, from).len
+}
+
+proc degree_in(g: Graph, to: string) -> i64
+{
+    let n: i32 = 0
+    loop e in g.edges
+    {
+        let p = str.split(e, "->")
+        if p.len >= 2 && p[1] == to { n = n + 1 }
+    }
+    give n
+}
+
+proc nodes(g: Graph) -> [string]
+{
+    let out: [string] = []
+    loop e in g.edges
+    {
+        let p = str.split(e, "->")
+        if p.len >= 2
+        {
+            if !list.contains(out, p[0]) { out = out.push(p[0]) }
+            if !list.contains(out, p[1]) { out = out.push(p[1]) }
+        }
+    }
+    give out
+}
+
+proc remove_edge(g: Graph, from: string, to: string) -> Graph
+{
+    let target = edge(from, to)
+    let out: [string] = []
+    loop e in g.edges
+    {
+        if e == target { continue }
+        out = out.push(e)
+    }
+    g.edges = out
+    give g
 }
 
 proc edge_count(g: Graph) -> i64
 {
     give g.edges.len
+}
+
+proc node_count(g: Graph) -> i64
+{
+    give nodes(g).len
 }

@@ -17,9 +17,26 @@ proc is_alnum(c: i64) -> bool
     give is_alpha(c) || is_digit(c)
 }
 
+proc is_hex_digit(c: i64) -> bool
+{
+    if is_digit(c) { give true }
+    give (c >= 65 && c <= 70) || (c >= 97 && c <= 102)
+}
+
+proc is_oct_digit(c: i64) -> bool
+{
+    give c >= 48 && c <= 55
+}
+
+proc is_bin_digit(c: i64) -> bool
+{
+    give c == 48 || c == 49
+}
+
 proc valid_escape(c: i64) -> bool
 {
-    give c == 110 || c == 116 || c == 114 || c == 34 || c == 92
+    # n t r b f " ' \ x u
+    give c == 110 || c == 116 || c == 114 || c == 98 || c == 102 || c == 34 || c == 39 || c == 92 || c == 120 || c == 117
 }
 
 proc unescape(raw: string) -> string
@@ -28,7 +45,10 @@ proc unescape(raw: string) -> string
     out = str.replace(out, "\\n", "\n")
     out = str.replace(out, "\\t", "\t")
     out = str.replace(out, "\\r", "\r")
+    out = str.replace(out, "\\b", "\b")
+    out = str.replace(out, "\\f", "\f")
     out = str.replace(out, "\\\"", "\"")
+    out = str.replace(out, "\\'", "'")
     out = str.replace(out, "\\\\", "\\")
     give out
 }

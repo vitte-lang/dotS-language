@@ -1,11 +1,14 @@
 space stdlib/collections/queue
 
+pull core/str
+pull stdlib/system/result
+
 form Queue
 {
     items: [string]
 }
 
-proc new() -> Queue
+proc empty() -> Queue
 {
     give Queue([])
 }
@@ -16,10 +19,10 @@ proc enqueue(q: Queue, value: string) -> Queue
     give q
 }
 
-proc dequeue(q: Queue) -> (Queue, string)
+proc dequeue(q: Queue) -> (Queue, string?)
 {
-    if q.items.len == 0 { give (q, "") }
-    let head = q.items[0]
+    if q.items.len == 0 { give (q, null) }
+    let v = q.items[0]
     let out: [string] = []
     let i: i32 = 1
     loop while i < q.items.len
@@ -28,10 +31,64 @@ proc dequeue(q: Queue) -> (Queue, string)
         i = i + 1
     }
     q.items = out
-    give (q, head)
+    give (q, v)
 }
 
-proc size(q: Queue) -> i64
+proc len(q: Queue) -> i64
 {
     give q.items.len
+}
+
+proc is_empty(q: Queue) -> bool
+{
+    give q.items.len == 0
+}
+
+proc dequeue_result(q: Queue) -> result.StdResult
+{
+    let q2, v = dequeue(q)
+    if v == null { give result.err("E_QUEUE_EMPTY", "queue is empty") }
+    give result.ok(v + " remaining=" + str.from_i64(q2.items.len))
+}
+
+proc peek(q: Queue) -> string?
+{
+    if q.items.len == 0 { give null }
+    give q.items[0]
+}
+
+proc clear(q: Queue) -> Queue
+{
+    q.items = []
+    give q
+}
+
+proc to_list(q: Queue) -> [string]
+{
+    give q.items
+}
+
+proc enqueue_many(q: Queue, values: [string]) -> Queue
+{
+    loop it in values
+    {
+        q = enqueue(q, it)
+    }
+    give q
+}
+
+proc dequeue_n(q: Queue, n: i64) -> (Queue, [string])
+{
+    if n <= 0 { give (q, []) }
+    let out: [string] = []
+    let i: i32 = 0
+    loop while i < n
+    {
+        let q2, v = dequeue(q)
+        q = q2
+        if v == null { stop }
+        out = out.push(v)
+        i = i + 1
+    }
+    give (q, out)
 }

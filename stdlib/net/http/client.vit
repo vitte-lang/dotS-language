@@ -1,0 +1,97 @@
+space stdlib/net/http/client
+
+pull core/str
+pull stdlib/system/result
+
+form RetryPolicy
+{
+    retries: i64
+    base_backoff_ms: i64
+    max_backoff_ms: i64
+    retry_on_5xx: bool
+    retry_on_429: bool
+}
+
+proc default_retry_policy() -> RetryPolicy
+{
+    give RetryPolicy(2, 100, 2000, true, true)
+}
+
+proc clamp_timeout_ms(v: i64) -> i64
+{
+    if v < 1 { give 1 }
+    if v > 600000 { give 600000 }
+    give v
+}
+
+proc should_retry_core(status_code: i64, attempt: i64, policy: RetryPolicy) -> bool
+{
+    if attempt >= policy.retries { give false }
+    if policy.retry_on_429 && status_code == 429 { give true }
+    if policy.retry_on_5xx && status_code >= 500 && status_code <= 599 { give true }
+    give false
+}
+
+proc should_retry(status_code: i64, attempt: i64, policy: RetryPolicy) -> bool
+{
+    let r = should_retry_result(status_code, attempt, policy)
+    if !r.ok { give false }
+    give r.value == "true"
+}
+
+proc backoff_ms(attempt: i64, policy: RetryPolicy) -> i64
+{
+    if attempt <= 0 { give policy.base_backoff_ms }
+    let n = policy.base_backoff_ms
+    let i: i64 = 0
+    loop while i < attempt
+    {
+        n = n * 2
+        i = i + 1
+    }
+    if n > policy.max_backoff_ms { n = policy.max_backoff_ms }
+    if n < 1 { n = 1 }
+    give n
+}
+
+proc policy_summary(p: RetryPolicy) -> string
+{
+    give "retries=" + str.from_i64(p.retries) +
+         ",base_backoff_ms=" + str.from_i64(p.base_backoff_ms) +
+         ",max_backoff_ms=" + str.from_i64(p.max_backoff_ms) +
+         ",retry_on_5xx=" + str.from_bool(p.retry_on_5xx) +
+         ",retry_on_429=" + str.from_bool(p.retry_on_429)
+}
+
+proc validate_policy(p: RetryPolicy) -> result.StdResult
+{
+    if p.retries < 0 { give result.err("E_RETRY_INVALID", "retries must be >= 0") }
+    if p.base_backoff_ms < 1 { give result.err("E_BACKOFF_INVALID", "base_backoff_ms must be >= 1") }
+    if p.max_backoff_ms < p.base_backoff_ms { give result.err("E_BACKOFF_INVALID", "max_backoff_ms must be >= base_backoff_ms") }
+    give result.ok("ok")
+}
+
+proc should_retry_result(status_code: i64, attempt: i64, policy: RetryPolicy) -> result.StdResult
+{
+    let v = validate_policy(policy)
+    if !v.ok { give v }
+    give result.ok(str.from_bool(should_retry_core(status_code, attempt, policy)))
+}
+
+proc make_policy(retries: i64, base_backoff_ms: i64, max_backoff_ms: i64, retry_on_5xx: bool, retry_on_429: bool) -> RetryPolicy
+{
+    give RetryPolicy(retries, base_backoff_ms, max_backoff_ms, retry_on_5xx, retry_on_429)
+}
+
+proc with_retries(p: RetryPolicy, retries: i64) -> RetryPolicy
+{
+    p.retries = retries
+    give p
+}
+
+proc with_backoff(p: RetryPolicy, base_backoff_ms: i64, max_backoff_ms: i64) -> RetryPolicy
+{
+    p.base_backoff_ms = base_backoff_ms
+    p.max_backoff_ms = max_backoff_ms
+    give p
+}

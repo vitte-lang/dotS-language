@@ -1,10 +1,18 @@
 space stdlib/collections/set
 
+pull core/str
 pull stdlib/collections/list
+pull stdlib/system/result
 
 proc empty() -> [string]
 {
     give []
+}
+
+proc add(items: [string], value: string) -> [string]
+{
+    if list.contains(items, value) { give items }
+    give items.push(value)
 }
 
 proc contains(items: [string], value: string) -> bool
@@ -12,24 +20,102 @@ proc contains(items: [string], value: string) -> bool
     give list.contains(items, value)
 }
 
-proc add(items: [string], value: string) -> [string]
+proc to_list(items: [string]) -> [string]
 {
-    if contains(items, value) { give items }
-    give items.push(value)
+    give items
+}
+
+proc len(items: [string]) -> i64
+{
+    give items.len
+}
+
+proc add_result(items: [string], value: string) -> result.StdResult
+{
+    let out = add(items, value)
+    give result.ok(str.join(out, ","))
 }
 
 proc remove(items: [string], value: string) -> [string]
 {
     let out: [string] = []
-    loop x in items
+    loop it in items
     {
-        if x == value { continue }
-        out = out.push(x)
+        if it == value { continue }
+        out = out.push(it)
     }
     give out
 }
 
-proc size(items: [string]) -> i64
+proc union(a: [string], b: [string]) -> [string]
 {
-    give items.len
+    let out = a
+    loop it in b
+    {
+        out = add(out, it)
+    }
+    give out
+}
+
+proc intersection(a: [string], b: [string]) -> [string]
+{
+    let out: [string] = []
+    loop it in a
+    {
+        if contains(b, it) { out = add(out, it) }
+    }
+    give out
+}
+
+proc difference(a: [string], b: [string]) -> [string]
+{
+    let out: [string] = []
+    loop it in a
+    {
+        if !contains(b, it) { out = add(out, it) }
+    }
+    give out
+}
+
+proc is_subset(a: [string], b: [string]) -> bool
+{
+    loop it in a
+    {
+        if !contains(b, it) { give false }
+    }
+    give true
+}
+
+proc is_superset(a: [string], b: [string]) -> bool
+{
+    give is_subset(b, a)
+}
+
+proc equals(a: [string], b: [string]) -> bool
+{
+    give len(a) == len(b) && is_subset(a, b)
+}
+
+proc copy(items: [string]) -> [string]
+{
+    let out: [string] = []
+    loop it in items
+    {
+        out = add(out, it)
+    }
+    give out
+}
+
+proc symmetric_difference(a: [string], b: [string]) -> [string]
+{
+    give union(difference(a, b), difference(b, a))
+}
+
+proc is_disjoint(a: [string], b: [string]) -> bool
+{
+    loop it in a
+    {
+        if contains(b, it) { give false }
+    }
+    give true
 }

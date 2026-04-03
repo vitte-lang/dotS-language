@@ -1,6 +1,7 @@
 space stdlib/json/parser
 
 pull core/str
+pull stdlib/system/result
 
 proc is_object(raw: string) -> bool
 {
@@ -21,4 +22,142 @@ proc is_array(raw: string) -> bool
 proc is_json(raw: string) -> bool
 {
     give is_object(raw) || is_array(raw)
+}
+
+proc field_string_raw(raw: string, key: string) -> string?
+{
+    if !is_object(raw) { give null }
+    let pat = "\"" + key + "\":\""
+    if !str.contains(raw, pat) { give null }
+    let p = str.split(raw, pat)
+    if p.len < 2 { give null }
+    let q = str.split(p[1], "\"")
+    if q.len < 1 { give null }
+    give q[0]
+}
+
+proc field_i64_raw(raw: string, key: string) -> i64?
+{
+    if !is_object(raw) { give null }
+    let pat = "\"" + key + "\":"
+    if !str.contains(raw, pat) { give null }
+    let p = str.split(raw, pat)
+    if p.len < 2 { give null }
+    let tail = p[1]
+    let n = ""
+    let i: i32 = 0
+    loop while i < tail.len
+    {
+        let ch = tail[i]
+        if (ch >= 48 && ch <= 57) || (i == 0 && ch == 45)
+        {
+            n = n + str.from_i64(ch)
+            i = i + 1
+            continue
+        }
+        break
+    }
+    if n == "" || n == "-" { give null }
+    give str.to_i64(n)
+}
+
+proc field_bool_raw(raw: string, key: string) -> bool?
+{
+    if !is_object(raw) { give null }
+    let t = "\"" + key + "\":true"
+    if str.contains(raw, t) { give true }
+    let f = "\"" + key + "\":false"
+    if str.contains(raw, f) { give false }
+    give null
+}
+
+proc field_string(raw: string, key: string) -> string?
+{
+    let r = field_string_result(raw, key)
+    if !r.ok { give null }
+    give r.value
+}
+
+proc field_i64(raw: string, key: string) -> i64?
+{
+    let r = field_i64_result(raw, key)
+    if !r.ok { give null }
+    give str.to_i64(r.value)
+}
+
+proc field_bool(raw: string, key: string) -> bool?
+{
+    let r = field_bool_result(raw, key)
+    if !r.ok { give null }
+    give r.value == "true"
+}
+
+proc field_string_or(raw: string, key: string, fallback: string) -> string
+{
+    let v = field_string(raw, key)
+    if v == null { give fallback }
+    give v
+}
+
+proc field_i64_or(raw: string, key: string, fallback: i64) -> i64
+{
+    let v = field_i64(raw, key)
+    if v == null { give fallback }
+    give v
+}
+
+proc field_bool_or(raw: string, key: string, fallback: bool) -> bool
+{
+    let v = field_bool(raw, key)
+    if v == null { give fallback }
+    give v
+}
+
+proc has_key(raw: string, key: string) -> bool
+{
+    if !is_object(raw) { give false }
+    let p = "\"" + key + "\":"
+    give str.contains(raw, p)
+}
+
+proc field_string_result(raw: string, key: string) -> result.StdResult
+{
+    if !is_object(raw)
+    {
+        give result.err("E_JSON_NOT_OBJECT", "json value is not an object")
+    }
+    let v = field_string_raw(raw, key)
+    if v == null
+    {
+        give result.err("E_JSON_KEY_MISSING", "missing string key: " + key)
+    }
+    give result.ok(v)
+}
+
+proc field_i64_result(raw: string, key: string) -> result.StdResult
+{
+    if !is_object(raw)
+    {
+        give result.err("E_JSON_NOT_OBJECT", "json value is not an object")
+    }
+    let v = field_i64_raw(raw, key)
+    if v == null
+    {
+        give result.err("E_JSON_KEY_MISSING", "missing i64 key: " + key)
+    }
+    give result.ok(str.from_i64(v))
+}
+
+proc field_bool_result(raw: string, key: string) -> result.StdResult
+{
+    if !is_object(raw)
+    {
+        give result.err("E_JSON_NOT_OBJECT", "json value is not an object")
+    }
+    let v = field_bool_raw(raw, key)
+    if v == null
+    {
+        give result.err("E_JSON_KEY_MISSING", "missing bool key: " + key)
+    }
+    give result.ok(str.from_bool(v))
 }

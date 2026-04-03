@@ -20,3 +20,9 @@
 .assert.parse.recovers.next_line.
 .ret.
 .end.
+
+.test.core.parser.keyword.typo.suggestion.
+.begin.
+.assert.parse.diag."did you mean".
+.ret.
+.end.

@@ -686,7 +686,7 @@ proc main() -> i32
         if method == "textDocument/codeAction"
         {
             let diags = analyze_incremental(doc, max_diags)
-            let result = code_actions_json(doc.uri, diags)
+            let result = code_actions_json(doc, diags)
             write_jsonrpc(result_response(id_json, result))
             let d = time.now_ms() - t0
             latencies = latencies.push(d)

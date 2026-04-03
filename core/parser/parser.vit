@@ -352,6 +352,15 @@ proc parse_statement(ctx: context.ParseContext, next_id: i64) -> (AstNode, conte
         if t.lexeme == "import" { give parse_module_stmt(ctx, next_id, "import_stmt") }
     }
 
+    if t.kind == token_kind.TK_IDENT
+    {
+        let kd = diagnostics.keyword_typo(t)
+        if kd != null
+        {
+            ctx.diagnostics = ctx.diagnostics.push(kd)
+        }
+    }
+
     let ex, c1, id1 = parse_expression(ctx, next_id + 1)
     let n = make_node(next_id, "stmt_expr", "", [ex], ex.line, ex.col)
     give (n, c1, id1)

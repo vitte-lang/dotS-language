@@ -1,0 +1,74 @@
+.test.cli.stdlib.runtime.scenario.preflight.ok.
+.begin.
+.sys.exec.capture."bash -lc 'tmp=.dots/std_runtime_ok.dotS; mkdir -p .dots; printf \"fn.main.$arg\\ncall.main.$arg\\n\" > \"$tmp\"; dots run --json \"$tmp\"; rm -f \"$tmp\"'".$out.
+.assert.contains.$out."\"command\":\"run\"".
+.assert.contains.$out."\"exit\":\"0\"".
+.assert.contains.$out."\"imports\":\"0\"".
+.ret.
+.end.
+
+.test.cli.stdlib.runtime.scenario.missing_package.suggestions.
+.begin.
+.sys.exec.capture."bash -lc 'tmp=.dots/std_runtime_missing_pkg.dotS; mkdir -p .dots; printf \"use.jsn\\n\" > \"$tmp\"; dots run --json \"$tmp\"; rm -f \"$tmp\"'".$out.
+.assert.contains.$out."missing package: jsn".
+.assert.contains.$out."did you mean".
+.assert.contains.$out."json".
+.ret.
+.end.
+
+.test.cli.stdlib.runtime.scenario.suggest_limit.one.
+.begin.
+.sys.exec.capture."bash -lc 'tmp=.dots/std_runtime_suggest_limit.dotS; mkdir -p .dots; printf \"import.jsn\\n\" > \"$tmp\"; DOTS_SUGGEST_MAX=1 dots run --json \"$tmp\"; rm -f \"$tmp\"'".$out.
+.assert.contains.$out."did you mean 'json'".
+.ret.
+.end.
+
+.test.cli.stdlib.runtime.scenario.quickfix_limit.one.
+.begin.
+.sys.exec.capture."bash -lc 'tmp=.dots/std_runtime_quickfix_limit.dotS; mkdir -p .dots; printf \"import.jsn\\n\" > \"$tmp\"; DOTS_SUGGEST_QUICKFIX_MAX=1 dots run --json \"$tmp\" >/tmp/std_runtime_quickfix_limit.json; c=$(grep -o \"Replace package with\" /tmp/std_runtime_quickfix_limit.json | wc -l | tr -d \" \"); cat /tmp/std_runtime_quickfix_limit.json; echo \"quickfix_replace_count=$c\"; rm -f \"$tmp\" /tmp/std_runtime_quickfix_limit.json'".$out.
+.assert.contains.$out."quickfix_replace_count=1".
+.ret.
+.end.
+
+.test.cli.stdlib.runtime.scenario.stdlib_imports.multi.ok.
+.begin.
+.sys.exec.capture."bash -lc 'tmp=.dots/std_runtime_imports_multi.dotS; mkdir -p .dots; printf \"import.json\\nimport.time\\nimport.fs\\nimport.collections\\nimport.text\\nimport.math\\nimport.io\\nfn.main.$arg\\ncall.main.$arg\\n\" > \"$tmp\"; dots run --json \"$tmp\" >/tmp/std_runtime_imports_multi.json; cat /tmp/std_runtime_imports_multi.json; if grep -q \"missing package:\" /tmp/std_runtime_imports_multi.json; then rm -f \"$tmp\" /tmp/std_runtime_imports_multi.json; exit 1; fi; echo \"stdlib_imports_multi_ok\"; rm -f \"$tmp\" /tmp/std_runtime_imports_multi.json'".$out.
+.assert.contains.$out."\"command\":\"run\"".
+.assert.contains.$out."\"exit\":\"0\"".
+.assert.contains.$out."stdlib_imports_multi_ok".
+.ret.
+.end.
+
+.test.cli.stdlib.runtime.scenario.typo.collections.suggestion.
+.begin.
+.sys.exec.capture."bash -lc 'tmp=.dots/std_runtime_typo_collections.dotS; mkdir -p .dots; printf \"import.colletions\\n\" > \"$tmp\"; dots run --json \"$tmp\"; rm -f \"$tmp\"'".$out.
+.assert.contains.$out."missing package: colletions".
+.assert.contains.$out."did you mean".
+.assert.contains.$out."collections".
+.ret.
+.end.
+
+.test.cli.stdlib.runtime.scenario.typo.datetime.suggestion.
+.begin.
+.sys.exec.capture."bash -lc 'tmp=.dots/std_runtime_typo_datetime.dotS; mkdir -p .dots; printf \"import.datatime\\n\" > \"$tmp\"; dots run --json \"$tmp\"; rm -f \"$tmp\"'".$out.
+.assert.contains.$out."missing package: datatime".
+.assert.contains.$out."did you mean".
+.assert.contains.$out."datetime".
+.ret.
+.end.
+
+.test.cli.stdlib.runtime.scenario.quickfix_limit.zero.
+.begin.
+.sys.exec.capture."bash -lc 'tmp=.dots/std_runtime_quickfix_limit_zero.dotS; mkdir -p .dots; printf \"import.colletions\\n\" > \"$tmp\"; DOTS_SUGGEST_QUICKFIX_MAX=0 dots run --json \"$tmp\" >/tmp/std_runtime_quickfix_limit_zero.json; c=$(grep -o \"Replace package with\" /tmp/std_runtime_quickfix_limit_zero.json | wc -l | tr -d \" \"); cat /tmp/std_runtime_quickfix_limit_zero.json; echo \"quickfix_replace_count=$c\"; rm -f \"$tmp\" /tmp/std_runtime_quickfix_limit_zero.json'".$out.
+.assert.contains.$out."quickfix_replace_count=0".
+.ret.
+.end.
+
+.test.cli.stdlib.runtime.scenario.dotted_imports.preflight.ok.
+.begin.
+.sys.exec.capture."bash -lc 'tmp=.dots/std_runtime_dotted_imports.dotS; mkdir -p .dots; printf \"import.net.http\\nimport.collections.map\\nimport.time.datetime\\nfn.main.$arg\\ncall.main.$arg\\n\" > \"$tmp\"; dots run --json \"$tmp\" >/tmp/std_runtime_dotted_imports.json; cat /tmp/std_runtime_dotted_imports.json; if grep -q \"missing package:\" /tmp/std_runtime_dotted_imports.json; then rm -f \"$tmp\" /tmp/std_runtime_dotted_imports.json; exit 1; fi; echo \"stdlib_dotted_imports_ok\"; rm -f \"$tmp\" /tmp/std_runtime_dotted_imports.json'".$out.
+.assert.contains.$out."\"command\":\"run\"".
+.assert.contains.$out."\"exit\":\"0\"".
+.assert.contains.$out."stdlib_dotted_imports_ok".
+.ret.
+.end.

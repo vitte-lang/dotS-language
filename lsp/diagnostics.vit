@@ -1,13 +1,146 @@
 space lsp/diagnostics
 
 pull core/str
+pull core/process
 pull lsp/model
 pull modules/loader/resolver
+pull modules/loader/stdlib_catalog
 
 const SEV_ERROR: i32 = 1
 const SEV_WARNING: i32 = 2
 const SEV_INFO: i32 = 3
 const SEV_HINT: i32 = 4
+
+proc list_has(items: [string], v: string) -> bool
+{
+    loop it in items
+    {
+        if it == v { give true }
+    }
+    give false
+}
+
+proc push_unique(items: [string], v: string) -> [string]
+{
+    if v == "" { give items }
+    if list_has(items, v) { give items }
+    give items.push(v)
+}
+
+proc clamp_i32(v: i32, lo: i32, hi: i32) -> i32
+{
+    if v < lo { give lo }
+    if v > hi { give hi }
+    give v
+}
+
+proc suggest_limit() -> i32
+{
+    let raw = process.env("DOTS_SUGGEST_MAX")
+    if raw == "" { give 8 }
+    give clamp_i32(str.to_i64(raw), 1, 32)
+}
+
+proc min3(a: i32, b: i32, c: i32) -> i32
+{
+    let m = a
+    if b < m { m = b }
+    if c < m { m = c }
+    give m
+}
+
+proc levenshtein(a: string, b: string) -> i32
+{
+    if a == b { give 0 }
+    if a.len == 0 { give b.len }
+    if b.len == 0 { give a.len }
+
+    let prev: [i32] = []
+    let j: i32 = 0
+    loop while j <= b.len
+    {
+        prev = prev.push(j)
+        j = j + 1
+    }
+
+    let i: i32 = 1
+    loop while i <= a.len
+    {
+        let cur: [i32] = [i]
+        let k: i32 = 1
+        loop while k <= b.len
+        {
+            let cost: i32 = 1
+            if a[i - 1] == b[k - 1] { cost = 0 }
+            let ins = cur[k - 1] + 1
+            let del = prev[k] + 1
+            let sub = prev[k - 1] + cost
+            cur = cur.push(min3(ins, del, sub))
+            k = k + 1
+        }
+        prev = cur
+        i = i + 1
+    }
+    give prev[b.len]
+}
+
+proc quote_items(items: [string]) -> string
+{
+    let q: [string] = []
+    loop x in items
+    {
+        q = q.push("'" + x + "'")
+    }
+    give str.join(q, ", ")
+}
+
+proc suggest_packages(pkg: string, max_items: i32) -> [string]
+{
+    let pool: [string] = []
+    loop s in stdlib_catalog.candidates()
+    {
+        pool = push_unique(pool, s)
+    }
+    loop p in resolver.discover_packages("")
+    {
+        pool = push_unique(pool, p)
+    }
+
+    let out: [string] = []
+    let max_score: i32 = 3
+    loop while out.len < max_items
+    {
+        let best = ""
+        let best_score: i32 = 9999
+        let best_pref = false
+        let best_cont = false
+        loop c in pool
+        {
+            if list_has(out, c) { continue }
+            let pref = str.starts_with(c, pkg)
+            let cont = str.contains(c, pkg)
+            let d = levenshtein(pkg, c)
+            let pick = false
+            if d < best_score { pick = true }
+            else if d == best_score
+            {
+                if pref && !best_pref { pick = true }
+                else if pref == best_pref && cont && !best_cont { pick = true }
+            }
+            if pick
+            {
+                best = c
+                best_score = d
+                best_pref = pref
+                best_cont = cont
+            }
+        }
+        if best == "" { break }
+        if !best_pref && !best_cont && best_score > max_score { break }
+        out = out.push(best)
+    }
+    give out
+}
 
 proc analyze_incremental(doc: Document, limit: i32) -> [Diagnostic]
 {
@@ -39,7 +172,17 @@ proc analyze_incremental(doc: Document, limit: i32) -> [Diagnostic]
                 let pkg = parts[1]
                 if !resolver.has_package(pkg, "")
                 {
-                    out = out.push(Diagnostic("DOTS004", SEV_ERROR, i, 0, "missing vitte package: " + pkg, doc.uri, i, 0))
+                    let msg = "missing vitte package: " + pkg
+                    let s = suggest_packages(pkg, suggest_limit())
+                    if s.len == 1
+                    {
+                        msg = msg + " (did you mean '" + s[0] + "'?)"
+                    }
+                    if s.len > 1
+                    {
+                        msg = msg + " (did you mean " + quote_items(s) + "?)"
+                    }
+                    out = out.push(Diagnostic("DOTS004", SEV_ERROR, i, 0, msg, doc.uri, i, 0))
                 }
             }
         }

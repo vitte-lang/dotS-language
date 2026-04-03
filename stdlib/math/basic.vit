@@ -1,5 +1,8 @@
 space stdlib/math/basic
 
+pull core/str
+pull stdlib/system/result
+
 proc abs(v: i64) -> i64
 {
     if v < 0 { give -v }
@@ -39,4 +42,106 @@ proc avg(items: [i64]) -> i64
 {
     if items.len == 0 { give 0 }
     give sum(items) / items.len
+}
+
+proc median(items: [i64]) -> i64
+{
+    if items.len == 0 { give 0 }
+    let s = sort_asc(items)
+    let n = s.len
+    if n % 2 == 1 { give s[n / 2] }
+    give (s[(n / 2) - 1] + s[n / 2]) / 2
+}
+
+proc sort_asc(items: [i64]) -> [i64]
+{
+    let out = items
+    let i: i32 = 0
+    loop while i < out.len
+    {
+        let j: i32 = i + 1
+        loop while j < out.len
+        {
+            if out[i] > out[j]
+            {
+                let t = out[i]
+                out[i] = out[j]
+                out[j] = t
+            }
+            j = j + 1
+        }
+        i = i + 1
+    }
+    give out
+}
+
+proc sort_desc(items: [i64]) -> [i64]
+{
+    let out = sort_asc(items)
+    let i: i32 = 0
+    let j: i32 = out.len - 1
+    loop while i < j
+    {
+        let t = out[i]
+        out[i] = out[j]
+        out[j] = t
+        i = i + 1
+        j = j - 1
+    }
+    give out
+}
+
+proc p90(items: [i64]) -> i64
+{
+    if items.len == 0 { give 0 }
+    let s = sort_asc(items)
+    let idx = ((s.len - 1) * 90) / 100
+    give s[idx]
+}
+
+proc range(items: [i64]) -> i64
+{
+    if items.len == 0 { give 0 }
+    let s = sort_asc(items)
+    give s[s.len - 1] - s[0]
+}
+
+proc minmax(items: [i64]) -> (i64, i64)
+{
+    if items.len == 0 { give (0, 0) }
+    let lo = items[0]
+    let hi = items[0]
+    let i: i32 = 1
+    loop while i < items.len
+    {
+        if items[i] < lo { lo = items[i] }
+        if items[i] > hi { hi = items[i] }
+        i = i + 1
+    }
+    give (lo, hi)
+}
+
+proc percentile(items: [i64], p: i64) -> i64
+{
+    if items.len == 0 { give 0 }
+    let pp = clamp(p, 0, 100)
+    let s = sort_asc(items)
+    let idx = ((s.len - 1) * pp) / 100
+    give s[idx]
+}
+
+proc count_non_zero(items: [i64]) -> i64
+{
+    let n: i32 = 0
+    loop it in items
+    {
+        if it != 0 { n = n + 1 }
+    }
+    give n
+}
+
+proc clamp_result(v: i64, lo: i64, hi: i64) -> result.StdResult
+{
+    if lo > hi { give result.err("E_RANGE_INVALID", "lo must be <= hi") }
+    give result.ok(str.from_i64(clamp(v, lo, hi)))
 }

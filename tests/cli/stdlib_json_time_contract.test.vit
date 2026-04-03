@@ -14,7 +14,7 @@
 
 .test.cli.stdlib.json_time.bridge.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"pull core/str|pull core/time|time\\.now_ms|time\\.sleep_ms|str\\.replace|str\\.split|str\\.to_i64|str\\.from_i64|str\\.from_bool\" stdlib/json/*.vit stdlib/time/*.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"pull core/str|pull core/time|pull stdlib/system/result|time\\.now_ms|time\\.sleep_ms|str\\.replace|str\\.split|str\\.to_i64|str\\.from_i64|str\\.from_bool|proc has_key\\(|proc field_string\\(|proc field_i64\\(|proc field_bool\\(|proc field_string_or\\(|proc field_i64_or\\(|proc field_bool_or\\(|proc field_string_result\\(|proc field_i64_result\\(|proc field_bool_result\\(|proc ms\\(|proc sec\\(|proc stamp\\(|proc parse_duration_ms\\(|proc format_duration_ms\\(|proc add_duration_ms\\(|proc since_ms\\(|proc until_ms\\(|proc parse_duration_ms_result\\(\" stdlib/json/*.vit stdlib/time/*.vit && echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

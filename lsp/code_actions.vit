@@ -1,9 +1,92 @@
 space lsp/code_actions
 
 pull core/str
+pull core/process
 pull lsp/model
 
-proc code_actions_json(uri: string, diags: [Diagnostic]) -> string
+proc clamp_i32(v: i32, lo: i32, hi: i32) -> i32
+{
+    if v < lo { give lo }
+    if v > hi { give hi }
+    give v
+}
+
+proc package_quickfix_limit() -> i32
+{
+    let raw = process.env("DOTS_SUGGEST_QUICKFIX_MAX")
+    if raw == "" { give 3 }
+    give clamp_i32(str.to_i64(raw), 1, 8)
+}
+
+proc parse_did_you_mean_items(msg: string) -> [string]
+{
+    if !str.contains(msg, "did you mean") { give [] }
+    let p = str.split(msg, "'")
+    if p.len < 3 { give [] }
+    let out: [string] = []
+    let i: i32 = 1
+    loop while i < p.len
+    {
+        let it = str.trim(p[i])
+        if it != "" { out = out.push(it) }
+        i = i + 2
+    }
+    give out
+}
+
+proc starts_with_at(raw: string, pat: string, pos: i32) -> bool
+{
+    if pos < 0 { give false }
+    if pos + pat.len > raw.len { give false }
+    let i: i32 = 0
+    loop while i < pat.len
+    {
+        if raw[pos + i] != pat[i] { give false }
+        i = i + 1
+    }
+    give true
+}
+
+proc package_range(line_text: string) -> (i32, i32)
+{
+    let anchors = ["import.", "use.", ".import.", ".use."]
+    let aidx: i32 = 0
+    loop while aidx < anchors.len
+    {
+        let a = anchors[aidx]
+        let i: i32 = 0
+        loop while i <= line_text.len - a.len
+        {
+            if starts_with_at(line_text, a, i)
+            {
+                let s = i + a.len
+                let e = s
+                loop while e < line_text.len
+                {
+                    let ch = line_text[e]
+                    if ch == 46 || ch == 32 || ch == 9 || ch == 44 || ch == 41 || ch == 40 { break }
+                    e = e + 1
+                }
+                if e > s { give (s, e) }
+                give (s, s + 1)
+            }
+            i = i + 1
+        }
+        aidx = aidx + 1
+    }
+    give (0, 1)
+}
+
+proc append_quickfix_replace_package(out: string, uri: string, d: Diagnostic, repl: string, first: bool, line_text: string) -> string
+{
+    let s, e = package_range(line_text)
+    let x = out
+    if !first { x = x + "," }
+    x = x + "{\"title\":\"Replace package with '" + repl + "'\",\"kind\":\"quickfix\",\"diagnostics\":[{\"code\":\"" + d.code + "\"}],\"edit\":{\"changes\":{\"" + uri + "\":[{\"range\":{\"start\":{\"line\":" + str.from_i64(d.line) + ",\"character\":" + str.from_i64(s) + "},\"end\":{\"line\":" + str.from_i64(d.line) + ",\"character\":" + str.from_i64(e) + "}},\"newText\":\"" + repl + "\"}]}}}"
+    give x
+}
+
+proc code_actions_json(doc: Document, diags: [Diagnostic]) -> string
 {
     let out = "["
     let first = true
@@ -12,7 +95,23 @@ proc code_actions_json(uri: string, diags: [Diagnostic]) -> string
         if d.code != "DOTS001" { continue }
         if !first { out = out + "," }
         first = false
-        out = out + "{\"title\":\"Remove TODO marker\",\"kind\":\"quickfix\",\"diagnostics\":[{\"code\":\"" + d.code + "\"}],\"edit\":{\"changes\":{\"" + uri + "\":[{\"range\":{\"start\":{\"line\":" + str.from_i64(d.line) + ",\"character\":0},\"end\":{\"line\":" + str.from_i64(d.line) + ",\"character\":4}},\"newText\":\"\"}]}}}"
+        out = out + "{\"title\":\"Remove TODO marker\",\"kind\":\"quickfix\",\"diagnostics\":[{\"code\":\"" + d.code + "\"}],\"edit\":{\"changes\":{\"" + doc.uri + "\":[{\"range\":{\"start\":{\"line\":" + str.from_i64(d.line) + ",\"character\":0},\"end\":{\"line\":" + str.from_i64(d.line) + ",\"character\":4}},\"newText\":\"\"}]}}}"
+    }
+
+    loop d2 in diags
+    {
+        if d2.code != "DOTS004" { continue }
+        let cands = parse_did_you_mean_items(d2.message)
+        if cands.len == 0 { continue }
+        let limit = package_quickfix_limit()
+        let ltxt = line_at(doc.text, d2.line)
+        let i: i32 = 0
+        loop while i < cands.len && i < limit
+        {
+            out = append_quickfix_replace_package(out, doc.uri, d2, cands[i], first, ltxt)
+            first = false
+            i = i + 1
+        }
     }
     out = out + "]"
     give out

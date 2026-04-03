@@ -3,6 +3,7 @@ space stdlib/io/logger
 pull core/fs
 pull core/io
 pull core/str
+pull core/time
 
 proc log_file() -> string
 {
@@ -16,18 +17,39 @@ proc ensure_dir() -> void
 
 proc info(message: string) -> void
 {
-    ensure_dir()
-    fs.append_file(log_file(), "INFO " + message + "\n")
+    write_level("INFO", message)
 }
 
 proc error(message: string) -> void
 {
+    write_level("ERROR", message)
+}
+
+proc warn(message: string) -> void
+{
+    write_level("WARN", message)
+}
+
+proc debug(message: string) -> void
+{
+    write_level("DEBUG", message)
+}
+
+proc write_level(level: string, message: string) -> void
+{
     ensure_dir()
-    fs.append_file(log_file(), "ERROR " + message + "\n")
+    let ts = str.from_i64(time.now_ms())
+    fs.append_file(log_file(), ts + " " + level + " " + message + "\n")
 }
 
 proc print_and_log(message: string) -> void
 {
     io.print(message)
     info(message)
+}
+
+proc error_and_log(message: string) -> void
+{
+    io.print(message)
+    error(message)
 }

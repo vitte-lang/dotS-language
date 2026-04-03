@@ -1,12 +1,17 @@
 space core/semantic
 
 pull core/str
+pull core/process
 pull core/diagnostics
 pull core/parser
 pull core/semantic/scope
 pull core/semantic/resolver
 pull core/semantic/symbol_table
 pull modules/loader/resolver
+pull modules/loader/stdlib_catalog
+
+const MAX_PACKAGE_SUGGESTIONS_DEFAULT: i32 = 8
+const MAX_PACKAGE_QUICKFIXES_DEFAULT: i32 = 3
 
 form AnalysisResult
 {
@@ -30,6 +35,221 @@ proc symbol_exists(sym: symbol_table.SymbolTable, name: string) -> bool
     let tail = last_qualified_segment(name)
     if tail != name && symbol_table.find_any(sym, tail) != null { give true }
     give false
+}
+
+proc list_has(items: [string], v: string) -> bool
+{
+    loop it in items
+    {
+        if it == v { give true }
+    }
+    give false
+}
+
+proc push_unique(items: [string], v: string) -> [string]
+{
+    if v == "" { give items }
+    if list_has(items, v) { give items }
+    give items.push(v)
+}
+
+proc clamp_i32(v: i32, lo: i32, hi: i32) -> i32
+{
+    if v < lo { give lo }
+    if v > hi { give hi }
+    give v
+}
+
+proc suggestion_limit() -> i32
+{
+    let raw = process.env("DOTS_SUGGEST_MAX")
+    if raw == "" { give MAX_PACKAGE_SUGGESTIONS_DEFAULT }
+    let n = str.to_i64(raw)
+    give clamp_i32(n, 1, 32)
+}
+
+proc quickfix_limit() -> i32
+{
+    let raw = process.env("DOTS_SUGGEST_QUICKFIX_MAX")
+    if raw == "" { give MAX_PACKAGE_QUICKFIXES_DEFAULT }
+    let n = str.to_i64(raw)
+    give clamp_i32(n, 1, 8)
+}
+
+proc unquote(raw: string) -> string
+{
+    if str.starts_with(raw, "\"") && str.ends_with(raw, "\"") && raw.len >= 2
+    {
+        let p = str.split(raw, "\"")
+        if p.len >= 2 { give p[1] }
+    }
+    if str.starts_with(raw, "'") && str.ends_with(raw, "'") && raw.len >= 2
+    {
+        let p2 = str.split(raw, "'")
+        if p2.len >= 2 { give p2[1] }
+    }
+    give raw
+}
+
+proc package_candidate_pool() -> [string]
+{
+    let pool: [string] = []
+    loop s in stdlib_catalog.candidates()
+    {
+        pool = push_unique(pool, s)
+    }
+    loop p in resolver.discover_packages("")
+    {
+        pool = push_unique(pool, p)
+    }
+    give stdlib_catalog.sort_strings(pool)
+}
+
+proc pkg_is_stdlib(c: string) -> bool
+{
+    give stdlib_catalog.looks_stdlib(c)
+}
+
+proc min3(a: i32, b: i32, c: i32) -> i32
+{
+    let m = a
+    if b < m { m = b }
+    if c < m { m = c }
+    give m
+}
+
+proc levenshtein(a: string, b: string) -> i32
+{
+    if a == b { give 0 }
+    if a.len == 0 { give b.len }
+    if b.len == 0 { give a.len }
+
+    let prev: [i32] = []
+    let j: i32 = 0
+    loop while j <= b.len
+    {
+        prev = prev.push(j)
+        j = j + 1
+    }
+
+    let i: i32 = 1
+    loop while i <= a.len
+    {
+        let cur: [i32] = [i]
+        let k: i32 = 1
+        loop while k <= b.len
+        {
+            let cost: i32 = 1
+            if a[i - 1] == b[k - 1] { cost = 0 }
+            let ins = cur[k - 1] + 1
+            let del = prev[k] + 1
+            let sub = prev[k - 1] + cost
+            cur = cur.push(min3(ins, del, sub))
+            k = k + 1
+        }
+        prev = cur
+        i = i + 1
+    }
+
+    give prev[b.len]
+}
+
+proc last_segment(name: string) -> string
+{
+    if !str.contains(name, ".") { give name }
+    let p = str.split(name, ".")
+    if p.len == 0 { give name }
+    give p[p.len - 1]
+}
+
+proc suggest_packages(name_in: string, max_items: i32, pool: [string]) -> [string]
+{
+    if max_items <= 0 { give [] }
+
+    let name = unquote(name_in)
+    let tail = last_segment(name)
+
+    let out: [string] = []
+    let max_score: i32 = 3
+
+    loop while out.len < max_items
+    {
+        let best = ""
+        let best_score: i32 = 9999
+        let best_pref = false
+        let best_cont = false
+        let best_std = false
+
+        loop c in pool
+        {
+            if list_has(out, c) { continue }
+
+            let pref = str.starts_with(c, name) || str.starts_with(c, tail)
+            let cont = str.contains(c, name) || str.contains(c, tail)
+            let d1 = levenshtein(name, c)
+            let d2 = levenshtein(tail, c)
+            let d = d1
+            if d2 < d { d = d2 }
+            let std = pkg_is_stdlib(c)
+
+            let pick = false
+            if d < best_score { pick = true }
+            else if d == best_score
+            {
+                if std && !best_std { pick = true }
+                else if std == best_std && pref && !best_pref { pick = true }
+                else if std == best_std && pref == best_pref && cont && !best_cont { pick = true }
+            }
+
+            if pick
+            {
+                best = c
+                best_score = d
+                best_pref = pref
+                best_cont = cont
+                best_std = std
+            }
+        }
+
+        if best == "" { break }
+        if !best_pref && !best_cont && best_score > max_score { break }
+        out = out.push(best)
+    }
+
+    give out
+}
+
+proc quoted_list(items: [string]) -> string
+{
+    let q: [string] = []
+    loop s in items
+    {
+        q = q.push("'" + s + "'")
+    }
+    give str.join(q, ", ")
+}
+
+proc attach_package_suggestion_fixes(d: diagnostics.Diagnostic, s: [string]) -> diagnostics.Diagnostic
+{
+    let out = d
+    let max_fx = quickfix_limit()
+    let i: i32 = 0
+    loop while i < s.len && i < max_fx
+    {
+        out = diagnostics.with_quick_fix(out, "replace", "Replace package with '" + s[i] + "'", s[i])
+        i = i + 1
+    }
+    give out
+}
+
+proc attach_package_suggestion_related(d: diagnostics.Diagnostic, file: string, line: i32, col: i32, s: [string]) -> diagnostics.Diagnostic
+{
+    let out = d
+    loop it in s
+    {
+        out = diagnostics.with_related(out, file, line, col, "candidate package: " + it)
+    }
+    give out
 }
 
 proc collect_undeclared_calls(n: parser.AstNode, sym: symbol_table.SymbolTable, file: string) -> [diagnostics.Diagnostic]
@@ -98,6 +318,7 @@ proc check_undeclared_calls(root: parser.AstNode, sym: symbol_table.SymbolTable,
 proc check_package_imports(root: parser.AstNode, file: string) -> [diagnostics.Diagnostic]
 {
     let out: [diagnostics.Diagnostic] = []
+    let pool = package_candidate_pool()
     loop n in root.children
     {
         if n.kind == "use_stmt" || n.kind == "import_stmt"
@@ -105,9 +326,22 @@ proc check_package_imports(root: parser.AstNode, file: string) -> [diagnostics.D
             let pkg = n.value
             if !resolver.has_package(pkg, "")
             {
-                let d = diagnostics.make("DOTS0003", "missing package: " + pkg, file, n.line, n.col, n.line, n.col + pkg.len, "semantic")
+                let s = suggest_packages(pkg, suggestion_limit(), pool)
+                let msg = "missing package: " + pkg
+                if s.len == 1
+                {
+                    msg = msg + " (did you mean '" + s[0] + "'?)"
+                }
+                if s.len > 1
+                {
+                    msg = msg + " (did you mean " + quoted_list(s) + "?)"
+                }
+
+                let d = diagnostics.make("DOTS0003", msg, file, n.line, n.col, n.line, n.col + pkg.len, "semantic")
                 let d2 = diagnostics.with_quick_fix(d, "manifest", "Set vitte package root", "\"vitte_packages_root\":\"../vitte/src/vitte/packages\"")
-                out = out.push(d2)
+                let d3 = attach_package_suggestion_fixes(d2, s)
+                let d4 = attach_package_suggestion_related(d3, file, n.line, n.col, s)
+                out = out.push(d4)
             }
         }
     }

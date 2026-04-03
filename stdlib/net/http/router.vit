@@ -1,0 +1,25 @@
+space stdlib/net/http/router
+
+pull stdlib/net/http/request
+pull stdlib/net/http/response
+
+form Route
+{
+    method: string
+    path: string
+    response: response.Response
+}
+
+proc add(routes: [Route], method: string, path: string, resp: response.Response) -> [Route]
+{
+    give routes.push(Route(method, path, resp))
+}
+
+proc match(routes: [Route], req: request.Request) -> response.Response?
+{
+    loop r in routes
+    {
+        if r.method == req.method && r.path == req.path { give r.response }
+    }
+    give null
+}

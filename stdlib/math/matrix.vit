@@ -1,6 +1,7 @@
 space stdlib/math/matrix
 
 pull core/str
+pull stdlib/system/result
 
 form Matrix2
 {
@@ -48,4 +49,33 @@ proc to_json(a: Matrix2) -> string
         "\"a21\":\"" + str.from_i64(a.a21) + "\"," +
         "\"a22\":\"" + str.from_i64(a.a22) + "\"" +
     "}"
+}
+
+proc transpose(a: Matrix2) -> Matrix2
+{
+    give Matrix2(a.a11, a.a21, a.a12, a.a22)
+}
+
+proc trace(a: Matrix2) -> i64
+{
+    give a.a11 + a.a22
+}
+
+proc apply(a: Matrix2, x: i64, y: i64) -> (i64, i64)
+{
+    let nx = (a.a11 * x) + (a.a12 * y)
+    let ny = (a.a21 * x) + (a.a22 * y)
+    give (nx, ny)
+}
+
+proc inverse_result(a: Matrix2) -> result.StdResult
+{
+    let d = det(a)
+    if d == 0
+    {
+        give result.err("E_SINGULAR_MATRIX", "matrix determinant is zero")
+    }
+    # integer matrix inverse summary (actual division left to caller policy)
+    let inv_num = Matrix2(a.a22, -a.a12, -a.a21, a.a11)
+    give result.ok("det=" + str.from_i64(d) + ",adj=" + to_json(inv_num))
 }

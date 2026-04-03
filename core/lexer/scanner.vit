@@ -4,6 +4,7 @@ pull core/str
 pull core/lexer/cursor
 pull core/lexer/literal
 pull core/lexer/keyword
+pull core/lexer/suggestions
 pull core/lexer/token
 pull core/lexer/token_kind
 pull core/lexer/trivia
@@ -76,7 +77,7 @@ proc read_ident(c: cursor.Cursor) -> (string, cursor.Cursor)
 {
     let out = ""
     let cur = c
-    loop while !cursor.eof(cur) && literal.is_alnum(cursor.peek(cur, 0))
+    loop while !cursor.eof(cur) && is_ident_continue(cursor.peek(cur, 0))
     {
         out = out + str.from_i64(cursor.peek(cur, 0))
         cur = cursor.bump(cur, 1)
@@ -84,28 +85,282 @@ proc read_ident(c: cursor.Cursor) -> (string, cursor.Cursor)
     give (out, cur)
 }
 
-proc read_number(c: cursor.Cursor) -> (string, cursor.Cursor)
+proc is_ident_start(ch: i64) -> bool
+{
+    if literal.is_alpha(ch) { give true }
+    # Accept non-ASCII bytes as identifier starts for broader source compatibility.
+    give ch >= 128
+}
+
+proc is_ident_continue(ch: i64) -> bool
+{
+    give is_ident_start(ch) || literal.is_digit(ch)
+}
+
+proc read_digits_dec(c: cursor.Cursor) -> (string, cursor.Cursor, bool, bool)
 {
     let out = ""
     let cur = c
-    loop while !cursor.eof(cur) && literal.is_digit(cursor.peek(cur, 0))
+    let had_digit = false
+    let bad_sep = false
+    let prev_sep = false
+
+    loop while !cursor.eof(cur)
     {
-        out = out + str.from_i64(cursor.peek(cur, 0))
+        let ch = cursor.peek(cur, 0)
+        if ch == 95
+        {
+            if !had_digit || prev_sep
+            {
+                bad_sep = true
+            }
+            out = out + "_"
+            prev_sep = true
+            cur = cursor.bump(cur, 1)
+            continue
+        }
+
+        if !literal.is_digit(ch) { break }
+
+        had_digit = true
+        prev_sep = false
+        out = out + str.from_i64(ch)
         cur = cursor.bump(cur, 1)
+    }
+
+    if prev_sep
+    {
+        bad_sep = true
+    }
+    give (out, cur, had_digit, bad_sep)
+}
+
+proc read_digits_hex(c: cursor.Cursor) -> (string, cursor.Cursor, bool, bool)
+{
+    let out = ""
+    let cur = c
+    let had_digit = false
+    let bad_sep = false
+    let prev_sep = false
+
+    loop while !cursor.eof(cur)
+    {
+        let ch = cursor.peek(cur, 0)
+        if ch == 95
+        {
+            if !had_digit || prev_sep { bad_sep = true }
+            out = out + "_"
+            prev_sep = true
+            cur = cursor.bump(cur, 1)
+            continue
+        }
+
+        if !literal.is_hex_digit(ch) { break }
+        had_digit = true
+        prev_sep = false
+        out = out + str.from_i64(ch)
+        cur = cursor.bump(cur, 1)
+    }
+
+    if prev_sep { bad_sep = true }
+    give (out, cur, had_digit, bad_sep)
+}
+
+proc read_digits_bin(c: cursor.Cursor) -> (string, cursor.Cursor, bool, bool)
+{
+    let out = ""
+    let cur = c
+    let had_digit = false
+    let bad_sep = false
+    let prev_sep = false
+
+    loop while !cursor.eof(cur)
+    {
+        let ch = cursor.peek(cur, 0)
+        if ch == 95
+        {
+            if !had_digit || prev_sep { bad_sep = true }
+            out = out + "_"
+            prev_sep = true
+            cur = cursor.bump(cur, 1)
+            continue
+        }
+
+        if !literal.is_bin_digit(ch) { break }
+        had_digit = true
+        prev_sep = false
+        out = out + str.from_i64(ch)
+        cur = cursor.bump(cur, 1)
+    }
+
+    if prev_sep { bad_sep = true }
+    give (out, cur, had_digit, bad_sep)
+}
+
+proc read_digits_oct(c: cursor.Cursor) -> (string, cursor.Cursor, bool, bool)
+{
+    let out = ""
+    let cur = c
+    let had_digit = false
+    let bad_sep = false
+    let prev_sep = false
+
+    loop while !cursor.eof(cur)
+    {
+        let ch = cursor.peek(cur, 0)
+        if ch == 95
+        {
+            if !had_digit || prev_sep { bad_sep = true }
+            out = out + "_"
+            prev_sep = true
+            cur = cursor.bump(cur, 1)
+            continue
+        }
+
+        if !literal.is_oct_digit(ch) { break }
+        had_digit = true
+        prev_sep = false
+        out = out + str.from_i64(ch)
+        cur = cursor.bump(cur, 1)
+    }
+
+    if prev_sep { bad_sep = true }
+    give (out, cur, had_digit, bad_sep)
+}
+
+proc read_number(c: cursor.Cursor) -> (string, cursor.Cursor, diagnostics.Diagnostic?)
+{
+    let out = ""
+    let cur = c
+    let diag: diagnostics.Diagnostic? = null
+
+    if cursor.peek(cur, 0) == 48
+    {
+        let p1 = cursor.peek(cur, 1)
+        if p1 == 120 || p1 == 88
+        {
+            out = "0x"
+            cur = cursor.bump(cur, 2)
+            let body, c2, ok, bad = read_digits_hex(cur)
+            out = out + body
+            cur = c2
+            if !ok || bad
+            {
+                let p = location.offset_to_position(c.idx, c.line_starts)
+                diag = diagnostics.make("DOTS0001", "invalid hexadecimal literal", "<memory>", p.line, p.col, p.line, p.col + 2, "lexer")
+            }
+            give (out, cur, diag)
+        }
+
+        if p1 == 98 || p1 == 66
+        {
+            out = "0b"
+            cur = cursor.bump(cur, 2)
+            let body2, c3, ok2, bad2 = read_digits_bin(cur)
+            out = out + body2
+            cur = c3
+            if !ok2 || bad2
+            {
+                let p2 = location.offset_to_position(c.idx, c.line_starts)
+                diag = diagnostics.make("DOTS0001", "invalid binary literal", "<memory>", p2.line, p2.col, p2.line, p2.col + 2, "lexer")
+            }
+            give (out, cur, diag)
+        }
+
+        if p1 == 111 || p1 == 79
+        {
+            out = "0o"
+            cur = cursor.bump(cur, 2)
+            let body3, c4, ok3, bad3 = read_digits_oct(cur)
+            out = out + body3
+            cur = c4
+            if !ok3 || bad3
+            {
+                let p3 = location.offset_to_position(c.idx, c.line_starts)
+                diag = diagnostics.make("DOTS0001", "invalid octal literal", "<memory>", p3.line, p3.col, p3.line, p3.col + 2, "lexer")
+            }
+            give (out, cur, diag)
+        }
+    }
+
+    let head, c5, head_ok, bad_head = read_digits_dec(cur)
+    out = out + head
+    cur = c5
+    if bad_head || !head_ok
+    {
+        let p4 = location.offset_to_position(c.idx, c.line_starts)
+        diag = diagnostics.make("DOTS0001", "invalid underscore placement in number", "<memory>", p4.line, p4.col, p4.line, p4.col + 1, "lexer")
     }
 
     if !cursor.eof(cur) && cursor.peek(cur, 0) == 46 && literal.is_digit(cursor.peek(cur, 1))
     {
         out = out + "."
         cur = cursor.bump(cur, 1)
-        loop while !cursor.eof(cur) && literal.is_digit(cursor.peek(cur, 0))
+        let frac, c6, frac_ok, bad_frac = read_digits_dec(cur)
+        out = out + frac
+        cur = c6
+        if (!frac_ok || bad_frac) && diag == null
         {
-            out = out + str.from_i64(cursor.peek(cur, 0))
-            cur = cursor.bump(cur, 1)
+            let p5 = location.offset_to_position(c.idx, c.line_starts)
+            diag = diagnostics.make("DOTS0001", "invalid underscore placement in float literal", "<memory>", p5.line, p5.col, p5.line, p5.col + 1, "lexer")
         }
     }
 
-    give (out, cur)
+    let e = cursor.peek(cur, 0)
+    if e == 101 || e == 69
+    {
+        out = out + str.from_i64(e)
+        cur = cursor.bump(cur, 1)
+        let sign = cursor.peek(cur, 0)
+        if sign == 43 || sign == 45
+        {
+            out = out + str.from_i64(sign)
+            cur = cursor.bump(cur, 1)
+        }
+
+        let exp, c7, exp_ok, exp_bad = read_digits_dec(cur)
+        out = out + exp
+        cur = c7
+        if (!exp_ok || exp_bad) && diag == null
+        {
+            let p6 = location.offset_to_position(c.idx, c.line_starts)
+            diag = diagnostics.make("DOTS0001", "invalid exponent in numeric literal", "<memory>", p6.line, p6.col, p6.line, p6.col + 1, "lexer")
+        }
+    }
+
+    give (out, cur, diag)
+}
+
+proc read_hex_escape(cur: cursor.Cursor, n: i64) -> (string, cursor.Cursor, bool)
+{
+    let out = ""
+    let c2 = cur
+    let i: i64 = 0
+    loop while i < n
+    {
+        let ch = cursor.peek(c2, 0)
+        if !literal.is_hex_digit(ch)
+        {
+            give (out, c2, false)
+        }
+        out = out + str.from_i64(ch)
+        c2 = cursor.bump(c2, 1)
+        i = i + 1
+    }
+    give (out, c2, true)
+}
+
+proc decode_simple_escape(ch: i64) -> string
+{
+    if ch == 110 { give "\n" }
+    if ch == 116 { give "\t" }
+    if ch == 114 { give "\r" }
+    if ch == 98 { give "\b" }
+    if ch == 102 { give "\f" }
+    if ch == 34 { give "\"" }
+    if ch == 39 { give "'" }
+    if ch == 92 { give "\\" }
+    give ""
 }
 
 proc read_string(c: cursor.Cursor) -> (string, cursor.Cursor, diagnostics.Diagnostic?)
@@ -120,7 +375,7 @@ proc read_string(c: cursor.Cursor) -> (string, cursor.Cursor, diagnostics.Diagno
         if ch == 34
         {
             cur = cursor.bump(cur, 1)
-            give (literal.unescape(out), cur, diag)
+            give (out, cur, diag)
         }
 
         if ch == 92
@@ -131,7 +386,39 @@ proc read_string(c: cursor.Cursor) -> (string, cursor.Cursor, diagnostics.Diagno
                 let p = location.offset_to_position(cur.idx, cur.line_starts)
                 diag = diagnostics.make("DOTS0001", "invalid string escape", "<memory>", p.line, p.col, p.line, p.col + 1, "lexer")
             }
-            out = out + "\\" + str.from_i64(n)
+            if n == 117
+            {
+                let hx, c2, ok = read_hex_escape(cursor.bump(cur, 2), 4)
+                out = out + "\\u" + hx
+                cur = c2
+                if !ok
+                {
+                    let p2 = location.offset_to_position(cur.idx, cur.line_starts)
+                    diag = diagnostics.make("DOTS0001", "invalid unicode escape, expected 4 hex digits", "<memory>", p2.line, p2.col, p2.line, p2.col + 1, "lexer")
+                }
+                continue
+            }
+            if n == 120
+            {
+                let hx2, c3, ok2 = read_hex_escape(cursor.bump(cur, 2), 2)
+                out = out + "\\x" + hx2
+                cur = c3
+                if !ok2
+                {
+                    let p3 = location.offset_to_position(cur.idx, cur.line_starts)
+                    diag = diagnostics.make("DOTS0001", "invalid hex escape, expected 2 hex digits", "<memory>", p3.line, p3.col, p3.line, p3.col + 1, "lexer")
+                }
+                continue
+            }
+            let dec = decode_simple_escape(n)
+            if dec == ""
+            {
+                out = out + "\\" + str.from_i64(n)
+            }
+            else
+            {
+                out = out + dec
+            }
             cur = cursor.bump(cur, 2)
             continue
         }
@@ -152,7 +439,7 @@ proc read_string(c: cursor.Cursor) -> (string, cursor.Cursor, diagnostics.Diagno
     {
         diag = diagnostics.make("DOTS0001", "unterminated string literal", "<memory>", p3.line, p3.col, p3.line, p3.col + 1, "lexer")
     }
-    give (literal.unescape(out), cur, diag)
+    give (out, cur, diag)
 }
 
 proc next(c: cursor.Cursor) -> ScanResult
@@ -173,7 +460,7 @@ proc next(c: cursor.Cursor) -> ScanResult
         give ScanResult(token.make(token_kind.TK_NEWLINE, "\n", make_span(cur, start, cur.idx), tv), cur, null)
     }
 
-    if literal.is_alpha(ch)
+    if is_ident_start(ch)
     {
         let raw, c2 = read_ident(cur)
         let k = token_kind.TK_IDENT
@@ -183,8 +470,8 @@ proc next(c: cursor.Cursor) -> ScanResult
 
     if literal.is_digit(ch)
     {
-        let num, c3 = read_number(cur)
-        give ScanResult(token.make(token_kind.TK_NUMBER, num, make_span(c3, start, c3.idx), tv), c3, null)
+        let num, c3, dnum = read_number(cur)
+        give ScanResult(token.make(token_kind.TK_NUMBER, num, make_span(c3, start, c3.idx), tv), c3, dnum)
     }
 
     if ch == 34
@@ -206,6 +493,23 @@ proc next(c: cursor.Cursor) -> ScanResult
 
     let c14 = cursor.bump(cur, 1)
     let p = location.offset_to_position(start, c.line_starts)
-    let d2 = diagnostics.make("DOTS0001", "unknown token", "<memory>", p.line, p.col, p.line, p.col + 1, "lexer")
+    let unknown = str.from_i64(ch)
+    let msg = "unknown token '" + unknown + "'"
+    let hint = suggestions.from_unknown_token(cur, ch)
+    if hint.ok
+    {
+        msg = msg + " (did you mean '" + hint.replacement + "'?)"
+        if hint.detail != ""
+        {
+            msg = msg + " " + hint.detail
+        }
+    }
+    let d2 = diagnostics.make("DOTS0001", msg, "<memory>", p.line, p.col, p.line, p.col + 1, "lexer")
+    if hint.ok
+    {
+        let title = "Replace with suggested token"
+        if hint.title != "" { title = hint.title }
+        d2 = diagnostics.with_quick_fix(d2, "replace", title, hint.replacement)
+    }
     give ScanResult(token.make(token_kind.TK_UNKNOWN, str.from_i64(ch), make_span(c14, start, c14.idx), tv), c14, d2)
 }

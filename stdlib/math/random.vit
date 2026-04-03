@@ -1,6 +1,8 @@
 space stdlib/math/random
 
+pull core/str
 pull runtime/common/prng
+pull stdlib/system/result
 
 proc seed(seed: i64) -> prng.Prng
 {
@@ -24,4 +26,52 @@ proc between(min_inclusive: i64, max_inclusive: i64) -> i64
 proc bool() -> bool
 {
     give int(2) == 1
+}
+
+proc choice(items: [string]) -> string?
+{
+    if items.len == 0 { give null }
+    let i = int(items.len)
+    give items[i]
+}
+
+proc choice_or(items: [string], fallback: string) -> string
+{
+    let v = choice(items)
+    if v == null { give fallback }
+    give v
+}
+
+proc shuffle(items: [string]) -> [string]
+{
+    let out = items
+    if out.len <= 1 { give out }
+    let i: i32 = out.len - 1
+    loop while i > 0
+    {
+        let j = int(i + 1)
+        let t = out[i]
+        out[i] = out[j]
+        out[j] = t
+        i = i - 1
+    }
+    give out
+}
+
+proc between_result(min_inclusive: i64, max_inclusive: i64) -> result.StdResult
+{
+    if max_inclusive < min_inclusive
+    {
+        give result.err("E_RANGE_INVALID", "max_inclusive must be >= min_inclusive")
+    }
+    give result.ok(str.from_i64(between(min_inclusive, max_inclusive)))
+}
+
+proc int_result(max_exclusive: i64) -> result.StdResult
+{
+    if max_exclusive <= 0
+    {
+        give result.err("E_RANGE_INVALID", "max_exclusive must be > 0")
+    }
+    give result.ok(str.from_i64(int(max_exclusive)))
 }

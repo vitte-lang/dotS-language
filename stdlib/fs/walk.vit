@@ -1,7 +1,9 @@
 space stdlib/fs/walk
 
 pull core/fs
+pull core/str
 pull stdlib/fs/path
+pull stdlib/system/result
 
 proc files(root: string) -> [string]
 {
@@ -19,4 +21,21 @@ proc files(root: string) -> [string]
         }
     }
     give out
+}
+
+proc files_with_ext(root: string, ext: string) -> [string]
+{
+    let out: [string] = []
+    loop p in files(root)
+    {
+        if path.ext(p) == ext { out = out.push(p) }
+    }
+    give out
+}
+
+proc files_result(root: string) -> result.StdResult
+{
+    if root == "" { give result.err("E_PATH_EMPTY", "root path is empty") }
+    let out = files(root)
+    give result.ok(str.join(out, ","))
 }

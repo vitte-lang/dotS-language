@@ -2,6 +2,8 @@ space stdlib/fs/read
 
 pull core/fs
 pull core/str
+pull stdlib/json/parser
+pull stdlib/system/result
 
 proc text(path: string) -> string
 {
@@ -16,7 +18,61 @@ proc lines(path: string) -> [string]
     give str.split(raw, "\n")
 }
 
+proc non_empty_lines(path: string) -> [string]
+{
+    let out: [string] = []
+    loop it in lines(path)
+    {
+        if str.trim(it) == "" { continue }
+        out = out.push(it)
+    }
+    give out
+}
+
+proc first_line(path: string) -> string?
+{
+    let ls = lines(path)
+    if ls.len == 0 { give null }
+    give ls[0]
+}
+
+proc first_line_or(path: string, fallback: string) -> string
+{
+    let line = first_line(path)
+    if line == null { give fallback }
+    give line
+}
+
+proc text_or(path: string, fallback: string) -> string
+{
+    let raw = text(path)
+    if raw == "" { give fallback }
+    give raw
+}
+
 proc exists(path: string) -> bool
 {
     give fs.exists(path)
+}
+
+proc text_result(path: string) -> result.StdResult
+{
+    if str.trim(path) == "" { give result.err("E_PATH_EMPTY", "path is empty") }
+    if !exists(path) { give result.err("E_PATH_NOT_FOUND", "path not found: " + path) }
+    give result.ok(text(path))
+}
+
+proc json_text(path: string) -> string?
+{
+    let raw = text(path)
+    if raw == "" { give null }
+    if !parser.is_json(raw) { give null }
+    give raw
+}
+
+proc json_text_or(path: string, fallback: string) -> string
+{
+    let raw = json_text(path)
+    if raw == null { give fallback }
+    give raw
 }

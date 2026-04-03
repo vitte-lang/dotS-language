@@ -1,26 +1,37 @@
 # DotS Stdlib
 
-The stdlib is intentionally thin and layered over core/runtime primitives.
+The stdlib is a batteries-included layer over stable `core/*` contracts.
+It keeps runtime-facing APIs simple, explicit, and deterministic.
 
-Current implemented slices:
+## Conventions
 
-- `stdlib/fs/*`
-- `stdlib/io/*`
-- `stdlib/text/*`
+- Prefer pure helpers returning plain values when failure is impossible.
+- Use `*_or` for fallback/default behavior.
+- Use `*_result` for validated/error-aware behavior via `stdlib/system/result`.
+- Keep heavy parsing/network/runtime logic in `core/*` and expose thin wrappers here.
 
-Design rule:
+## Implemented Modules
 
-- stdlib modules should mostly wrap stable `core/*` contracts
-- avoid duplicating heavy logic already present in CLI/runtime modules
+- `stdlib/text/*`: string search/split/replace, line helpers, padding, formatting.
+- `stdlib/collections/*`: list/set/map/queue/graph containers and utility operations.
+- `stdlib/fs/*`: read/write/copy/remove/stat/path/walk with safe variants.
+- `stdlib/json/*`: JSON shape checks and typed field extraction helpers.
+- `stdlib/time/*`: timestamps, duration parse/format, elapsed/remaining helpers.
+- `stdlib/math/*`: aggregates, stats, matrix helpers, random helpers.
+- `stdlib/net/http/*`: request/response/router/middleware/server/client policy helpers.
+- `stdlib/io/*`: console/input/print/logger/terminal wrappers.
+- `stdlib/system/*`: environment/process/os/result primitives.
 
-Important dependencies:
+## Dependency Rules
 
-- `stdlib/fs/*` depends on `core/fs`
-- `stdlib/io/*` depends on `core/io`, `core/fs`, `core/process`
-- `stdlib/text/*` depends on `core/str`
+- `stdlib/fs/*` -> `core/fs`
+- `stdlib/io/*` -> `core/io`, `core/fs`, `core/process`, `core/time`
+- `stdlib/text/*` -> `core/str`
+- `stdlib/time/*` -> `core/time`, `core/str`
+- `stdlib/math/random` -> `runtime/common/prng`
 
-Recommended next slices:
+## API Stability Notes
 
-- `stdlib/system/*`
-- `stdlib/json/*`
-- `stdlib/time/*`
+- Keep function names action-first and lowercase (`read`, `set`, `parse_*`).
+- Prefer additive evolution (new proc) over signature breaks.
+- If a proc can fail with actionable diagnostics, add a sibling `*_result`.

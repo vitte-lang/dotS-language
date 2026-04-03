@@ -25,3 +25,17 @@
 .assert.contains.$out."ok".
 .ret.
 .end.
+
+.test.cli.high_priority.stdlib.catalog.shared.present.
+.begin.
+.sys.exec.capture."bash -lc 'test -s modules/loader/stdlib_catalog.vit && rg -n \"modules/loader/stdlib_catalog\" core/semantic/analyzer.vit lsp/diagnostics.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.cli.high_priority.runtime.shallow.documented.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"preflight-oriented|still preflight\" docs/modules.md docs/runtime.md && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

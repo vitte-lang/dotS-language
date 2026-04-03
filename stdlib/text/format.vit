@@ -1,6 +1,7 @@
 space stdlib/text/format
 
 pull core/str
+pull stdlib/system/result
 
 proc int(v: i64) -> string
 {
@@ -31,4 +32,10 @@ proc lines(items: [string]) -> string
 proc repeat(s: string, n: i32) -> string
 {
     give str.repeat(s, n)
+}
+
+proc repeat_result(s: string, n: i32) -> result.StdResult
+{
+    if n < 0 { give result.err("E_REPEAT_NEGATIVE", "repeat count must be >= 0") }
+    give result.ok(repeat(s, n))
 }

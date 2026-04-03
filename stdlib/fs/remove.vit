@@ -1,6 +1,7 @@
 space stdlib/fs/remove
 
 pull core/fs
+pull stdlib/system/result
 
 proc file(path: string) -> bool
 {
@@ -14,4 +15,16 @@ proc tree(path: string) -> bool
     if !fs.exists(path) { give false }
     fs.remove_all(path)
     give true
+}
+
+proc file_result(path: string) -> result.StdResult
+{
+    if !file(path) { give result.err("E_PATH_NOT_FOUND", "path not found: " + path) }
+    give result.ok(path)
+}
+
+proc tree_result(path: string) -> result.StdResult
+{
+    if !tree(path) { give result.err("E_PATH_NOT_FOUND", "path not found: " + path) }
+    give result.ok(path)
 }

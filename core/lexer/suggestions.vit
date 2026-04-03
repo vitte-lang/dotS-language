@@ -1,0 +1,95 @@
+space core/lexer/suggestions
+
+pull core/str
+pull core/lexer/cursor
+
+form Suggestion
+{
+    ok: bool
+    replacement: string
+    title: string
+    detail: string
+}
+
+form TokenRule
+{
+    token: string
+    replacement: string
+    title: string
+    detail: string
+}
+
+form CodepointRule
+{
+    code: i64
+    replacement: string
+    title: string
+    detail: string
+}
+
+proc none() -> Suggestion
+{
+    give Suggestion(false, "", "", "")
+}
+
+proc token_rules() -> [TokenRule]
+{
+    give [
+        TokenRule(";", ".", "Replace ';' with '.'", "DotS uses dot-delimited statements."),
+        TokenRule("'", "\"", "Use double quotes", "DotS strings are double-quoted."),
+        TokenRule("`", "\"", "Use double quotes", "Backticks are not string delimiters in DotS."),
+        TokenRule("//", "#", "Use '#'", "DotS comments start with '#'.")
+    ]
+}
+
+proc codepoint_rules() -> [CodepointRule]
+{
+    give [
+        # Curly double quotes
+        CodepointRule(8220, "\"", "Replace smart quote", "Use plain ASCII double quote."),
+        CodepointRule(8221, "\"", "Replace smart quote", "Use plain ASCII double quote."),
+        # Curly single quotes
+        CodepointRule(8216, "\"", "Replace smart quote", "Use plain ASCII double quote."),
+        CodepointRule(8217, "\"", "Replace smart quote", "Use plain ASCII double quote."),
+        # Fullwidth punctuation
+        CodepointRule(65294, ".", "Replace fullwidth dot", "Use ASCII '.'."),
+        CodepointRule(65307, ".", "Replace fullwidth semicolon", "DotS uses '.'."),
+        CodepointRule(65292, ",", "Replace fullwidth comma", "Use ASCII ','."),
+        CodepointRule(65306, ":", "Replace fullwidth colon", "Use ASCII ':'."),
+        CodepointRule(65309, "=", "Replace fullwidth equals", "Use ASCII '='."),
+        # Ideographic full stop
+        CodepointRule(12290, ".", "Replace ideographic full stop", "Use ASCII '.'.")
+    ]
+}
+
+proc from_unknown_token(c: cursor.Cursor, ch: i64) -> Suggestion
+{
+    let one = str.from_i64(ch)
+    let two = one + str.from_i64(cursor.peek(c, 1))
+
+    loop r2 in token_rules()
+    {
+        if r2.token == two
+        {
+            give Suggestion(true, r2.replacement, r2.title, r2.detail)
+        }
+    }
+
+    loop r1 in token_rules()
+    {
+        if r1.token == one
+        {
+            give Suggestion(true, r1.replacement, r1.title, r1.detail)
+        }
+    }
+
+    loop cp in codepoint_rules()
+    {
+        if cp.code == ch
+        {
+            give Suggestion(true, cp.replacement, cp.title, cp.detail)
+        }
+    }
+
+    give none()
+}

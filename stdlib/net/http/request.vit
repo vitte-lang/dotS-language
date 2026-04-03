@@ -1,0 +1,70 @@
+space stdlib/net/http/request
+
+pull core/str
+pull stdlib/system/result
+
+form Request
+{
+    method: string
+    path: string
+    body: string
+}
+
+proc make_core(method: string, path: string, body: string) -> Request
+{
+    give Request(str.upper(str.trim(method)), path, body)
+}
+
+proc make(method: string, path: string, body: string) -> Request
+{
+    let r = make_result(method, path, body)
+    if !r.ok
+    {
+        give Request("GET", "/", "")
+    }
+    give make_core(method, path, body)
+}
+
+proc summary(r: Request) -> string
+{
+    give r.method + " " + r.path + " body_bytes=" + str.from_i64(r.body.len)
+}
+
+proc make_result(method: string, path: string, body: string) -> result.StdResult
+{
+    if str.trim(method) == "" { give result.err("E_METHOD_EMPTY", "method is empty") }
+    if str.trim(path) == "" { give result.err("E_PATH_EMPTY", "path is empty") }
+    let r = make_core(method, path, body)
+    give result.ok(summary(r))
+}
+
+proc get(path: string) -> Request
+{
+    give make("GET", path, "")
+}
+
+proc post(path: string, body: string) -> Request
+{
+    give make("POST", path, body)
+}
+
+proc put(path: string, body: string) -> Request
+{
+    give make("PUT", path, body)
+}
+
+proc delete(path: string) -> Request
+{
+    give make("DELETE", path, "")
+}
+
+proc with_body(r: Request, body: string) -> Request
+{
+    r.body = body
+    give r
+}
+
+proc is_method(r: Request, method: string) -> bool
+{
+    give r.method == str.upper(str.trim(method))
+}

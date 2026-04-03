@@ -1,0 +1,54 @@
+space stdlib/system/result
+
+pull core/str
+
+form StdResult
+{
+    ok: bool
+    code: string
+    message: string
+    value: string
+}
+
+proc ok(value: string) -> StdResult
+{
+    give StdResult(true, "", "", value)
+}
+
+proc err(code: string, message: string) -> StdResult
+{
+    give StdResult(false, code, message, "")
+}
+
+proc with_value(r: StdResult, value: string) -> StdResult
+{
+    r.value = value
+    give r
+}
+
+proc is_ok(r: StdResult) -> bool
+{
+    give r.ok
+}
+
+proc is_err(r: StdResult) -> bool
+{
+    give !r.ok
+}
+
+proc summary(r: StdResult) -> string
+{
+    if r.ok
+    {
+        give "ok value=" + r.value
+    }
+    give "error code=" + r.code + " message=" + r.message
+}
+
+proc to_json(r: StdResult) -> string
+{
+    give "{\"ok\":" + str.from_bool(r.ok) +
+        ",\"code\":\"" + str.replace(r.code, "\"", "'") + "\"" +
+        ",\"message\":\"" + str.replace(r.message, "\"", "'") + "\"" +
+        ",\"value\":\"" + str.replace(r.value, "\"", "'") + "\"}"
+}

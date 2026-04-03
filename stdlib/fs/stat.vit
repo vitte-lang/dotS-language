@@ -1,6 +1,8 @@
 space stdlib/fs/stat
 
 pull core/fs
+pull core/str
+pull stdlib/system/result
 
 form FileStat
 {
@@ -15,4 +17,26 @@ proc get(path: string) -> FileStat
     let ex = fs.exists(path)
     if !ex { give FileStat(path, false, false, 0) }
     give FileStat(path, true, fs.is_file(path), fs.mtime_ms(path))
+}
+
+proc is_dir(path: string) -> bool
+{
+    if !fs.exists(path) { give false }
+    give !fs.is_file(path)
+}
+
+proc summary(path: string) -> string
+{
+    let s = get(path)
+    give "path=" + s.path +
+        ",exists=" + str.from_bool(s.exists) +
+        ",is_file=" + str.from_bool(s.is_file) +
+        ",mtime_ms=" + str.from_i64(s.mtime_ms)
+}
+
+proc get_result(path: string) -> result.StdResult
+{
+    let s = get(path)
+    if !s.exists { give result.err("E_PATH_NOT_FOUND", "path not found: " + path) }
+    give result.ok(summary(path))
 }

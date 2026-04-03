@@ -1,0 +1,62 @@
+space stdlib/net/http/response
+
+pull core/str
+pull stdlib/system/result
+
+form Response
+{
+    status: i64
+    body: string
+}
+
+proc ok(body: string) -> Response
+{
+    give Response(200, body)
+}
+
+proc error(status: i64, body: string) -> Response
+{
+    if status < 400 { status = 500 }
+    give Response(status, body)
+}
+
+proc summary(r: Response) -> string
+{
+    give "status=" + str.from_i64(r.status) + " body_bytes=" + str.from_i64(r.body.len)
+}
+
+proc validate(r: Response) -> result.StdResult
+{
+    if r.status < 100 || r.status > 599
+    {
+        give result.err("E_STATUS_INVALID", "status out of range: " + str.from_i64(r.status))
+    }
+    give result.ok(summary(r))
+}
+
+proc is_success(r: Response) -> bool
+{
+    give r.status >= 200 && r.status <= 299
+}
+
+proc is_client_error(r: Response) -> bool
+{
+    give r.status >= 400 && r.status <= 499
+}
+
+proc is_server_error(r: Response) -> bool
+{
+    give r.status >= 500 && r.status <= 599
+}
+
+proc with_status(r: Response, status: i64) -> Response
+{
+    r.status = status
+    give r
+}
+
+proc with_status_result(r: Response, status: i64) -> result.StdResult
+{
+    let out = with_status(r, status)
+    give validate(out)
+}

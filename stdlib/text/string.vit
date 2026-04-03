@@ -1,6 +1,7 @@
 space stdlib/text/string
 
 pull core/str
+pull stdlib/system/result
 
 proc trim(raw: string) -> string
 {
@@ -40,4 +41,186 @@ proc lower(raw: string) -> string
 proc join(items: [string], sep: string) -> string
 {
     give str.join(items, sep)
+}
+
+proc repeat(raw: string, n: i64) -> string
+{
+    if n <= 0 { give "" }
+    let out = ""
+    let i: i32 = 0
+    loop while i < n
+    {
+        out = out + raw
+        i = i + 1
+    }
+    give out
+}
+
+proc split_result(raw: string, sep: string) -> result.StdResult
+{
+    if sep == "" { give result.err("E_SEP_EMPTY", "separator is empty") }
+    give result.ok(str.join(split(raw, sep), ","))
+}
+
+proc replace_result(raw: string, from: string, to: string) -> result.StdResult
+{
+    if from == "" { give result.err("E_FROM_EMPTY", "from pattern is empty") }
+    give result.ok(replace(raw, from, to))
+}
+
+proc split_lines(raw: string) -> [string]
+{
+    let v = str.replace(raw, "\r\n", "\n")
+    v = str.replace(v, "\r", "\n")
+    give str.split(v, "\n")
+}
+
+proc lines_count(raw: string) -> i64
+{
+    if raw == "" { give 0 }
+    give split_lines(raw).len
+}
+
+proc is_blank(raw: string) -> bool
+{
+    give trim(raw) == ""
+}
+
+proc count(raw: string, pat: string) -> i64
+{
+    if pat == "" { give 0 }
+    let parts = split(raw, pat)
+    if parts.len == 0 { give 0 }
+    give parts.len - 1
+}
+
+proc strip_prefix(raw: string, pref: string) -> string
+{
+    if !starts_with(raw, pref) { give raw }
+    let out = ""
+    let i: i32 = pref.len
+    loop while i < raw.len
+    {
+        out = out + str.from_i64(raw[i])
+        i = i + 1
+    }
+    give out
+}
+
+proc strip_suffix(raw: string, suf: string) -> string
+{
+    if !ends_with(raw, suf) { give raw }
+    let out = ""
+    let stop = raw.len - suf.len
+    let i: i32 = 0
+    loop while i < stop
+    {
+        out = out + str.from_i64(raw[i])
+        i = i + 1
+    }
+    give out
+}
+
+proc partition(raw: string, sep: string) -> [string]
+{
+    if sep == "" { give [raw, "", ""] }
+    let p = str.split(raw, sep)
+    if p.len <= 1 { give [raw, "", ""] }
+    let tail: [string] = []
+    let i: i32 = 1
+    loop while i < p.len
+    {
+        tail = tail.push(p[i])
+        i = i + 1
+    }
+    give [p[0], sep, str.join(tail, sep)]
+}
+
+proc find(raw: string, pat: string) -> i64
+{
+    if pat == "" { give 0 }
+    if pat.len > raw.len { give -1 }
+    let i: i32 = 0
+    loop while i <= raw.len - pat.len
+    {
+        let ok = true
+        let j: i32 = 0
+        loop while j < pat.len
+        {
+            if raw[i + j] != pat[j]
+            {
+                ok = false
+                stop
+            }
+            j = j + 1
+        }
+        if ok { give i }
+        i = i + 1
+    }
+    give -1
+}
+
+proc rfind(raw: string, pat: string) -> i64
+{
+    if pat == "" { give raw.len }
+    if pat.len > raw.len { give -1 }
+    let i: i32 = raw.len - pat.len
+    loop while i >= 0
+    {
+        let ok = true
+        let j: i32 = 0
+        loop while j < pat.len
+        {
+            if raw[i + j] != pat[j]
+            {
+                ok = false
+                stop
+            }
+            j = j + 1
+        }
+        if ok { give i }
+        i = i - 1
+    }
+    give -1
+}
+
+proc reverse(raw: string) -> string
+{
+    let out = ""
+    let i: i32 = raw.len - 1
+    loop while i >= 0
+    {
+        out = out + str.from_i64(raw[i])
+        i = i - 1
+    }
+    give out
+}
+
+proc pad_left(raw: string, width: i64, fill: string) -> string
+{
+    if width <= raw.len { give raw }
+    let pad = width - raw.len
+    let f = fill
+    if f == "" { f = " " }
+    give repeat(f, pad) + raw
+}
+
+proc pad_right(raw: string, width: i64, fill: string) -> string
+{
+    if width <= raw.len { give raw }
+    let pad = width - raw.len
+    let f = fill
+    if f == "" { f = " " }
+    give raw + repeat(f, pad)
+}
+
+proc center(raw: string, width: i64, fill: string) -> string
+{
+    if width <= raw.len { give raw }
+    let total = width - raw.len
+    let left = total / 2
+    let right = total - left
+    let f = fill
+    if f == "" { f = " " }
+    give repeat(f, left) + raw + repeat(f, right)
 }

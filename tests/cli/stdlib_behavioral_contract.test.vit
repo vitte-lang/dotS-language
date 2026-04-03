@@ -1,0 +1,27 @@
+.test.cli.stdlib.behavioral.result.helpers.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"form StdResult|proc is_ok\\(|proc is_err\\(|proc summary\\(|proc to_json\\(\" stdlib/system/result.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.cli.stdlib.behavioral.collections.empty_error_paths.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"E_QUEUE_EMPTY|queue is empty|E_KEY_EMPTY|key is empty|E_KEY_MISSING|key not found|E_INDEX_INVALID|index out of bounds|E_NODE_EMPTY|graph node must be non-empty\" stdlib/collections/*.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.cli.stdlib.behavioral.collections.core_logic.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"if q\\.items\\.len == 0|if key_of\\(it\\) == key|str\\.starts_with\\(e, from \\+ \\\"->\\\"\\)|proc has_edge\\(|proc degree_out\\(|proc degree_in\\(|proc node_count\\(|proc edge_count\\(|proc pop\\(m: Map|proc update\\(m: Map|proc union\\(|proc intersection\\(|proc difference\\(|proc symmetric_difference\\(|proc is_disjoint\\(|proc dequeue_n\\(\" stdlib/collections/queue.vit stdlib/collections/map.vit stdlib/collections/graph.vit stdlib/collections/set.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.
+
+.test.cli.stdlib.behavioral.text_json_time_error_paths.contract.
+.begin.
+.sys.exec.capture."bash -lc 'rg -n \"E_SEP_EMPTY|E_FROM_EMPTY|E_REPEAT_NEGATIVE|E_JSON_NOT_OBJECT|E_JSON_KEY_MISSING|E_DURATION_INVALID|E_JSON_INVALID|E_PATH_EMPTY|E_PATH_NOT_FOUND|E_RANGE_INVALID|E_SINGULAR_MATRIX|proc split_lines\\(|proc lines_count\\(|proc is_blank\\(|proc reverse\\(|proc pad_left\\(|proc pad_right\\(|proc center\\(|proc strip_prefix\\(|proc strip_suffix\\(|proc partition\\(\" stdlib/text/*.vit stdlib/json/parser.vit stdlib/time/datetime.vit stdlib/fs/*.vit stdlib/math/*.vit && echo ok'".$out.
+.assert.contains.$out."ok".
+.ret.
+.end.

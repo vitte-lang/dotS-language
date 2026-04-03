@@ -1,8 +1,19 @@
 space stdlib/time/now
 
 pull core/time
+pull core/str
 
 proc ms() -> i64
 {
     give time.now_ms()
+}
+
+proc sec() -> i64
+{
+    give ms() / 1000
+}
+
+proc stamp(prefix: string) -> string
+{
+    give prefix + "-" + str.from_i64(ms())
 }

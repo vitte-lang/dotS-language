@@ -1,6 +1,7 @@
 space stdlib/collections/list
 
 pull core/str
+pull stdlib/system/result
 
 proc empty() -> [string]
 {
@@ -12,9 +13,23 @@ proc push(items: [string], value: string) -> [string]
     give items.push(value)
 }
 
+proc contains(items: [string], value: string) -> bool
+{
+    loop it in items
+    {
+        if it == value { give true }
+    }
+    give false
+}
+
 proc len(items: [string]) -> i64
 {
     give items.len
+}
+
+proc is_empty(items: [string]) -> bool
+{
+    give items.len == 0
 }
 
 proc join(items: [string], sep: string) -> string
@@ -22,17 +37,202 @@ proc join(items: [string], sep: string) -> string
     give str.join(items, sep)
 }
 
-proc contains(items: [string], value: string) -> bool
+proc push_result(items: [string], value: string) -> result.StdResult
 {
-    loop x in items
-    {
-        if x == value { give true }
-    }
-    give false
+    let out = push(items, value)
+    give result.ok(str.join(out, ","))
 }
 
-proc first(items: [string]) -> string
+proc first(items: [string]) -> string?
 {
-    if items.len == 0 { give "" }
+    if items.len == 0 { give null }
     give items[0]
+}
+
+proc last(items: [string]) -> string?
+{
+    if items.len == 0 { give null }
+    give items[items.len - 1]
+}
+
+proc pop(items: [string]) -> ([string], string?)
+{
+    if items.len == 0 { give (items, null) }
+    let v = items[items.len - 1]
+    let out: [string] = []
+    let i: i32 = 0
+    loop while i < items.len - 1
+    {
+        out = out.push(items[i])
+        i = i + 1
+    }
+    give (out, v)
+}
+
+proc pop_or(items: [string], fallback: string) -> ([string], string)
+{
+    let out, v = pop(items)
+    if v == null { give (out, fallback) }
+    give (out, v)
+}
+
+proc index_of(items: [string], value: string) -> i64
+{
+    let i: i32 = 0
+    loop while i < items.len
+    {
+        if items[i] == value { give i }
+        i = i + 1
+    }
+    give -1
+}
+
+proc slice(items: [string], start: i64, end: i64) -> [string]
+{
+    let s = start
+    let e = end
+    if s < 0 { s = items.len + s }
+    if e < 0 { e = items.len + e }
+    if s < 0 { s = 0 }
+    if s > items.len { s = items.len }
+    if e < 0 { e = 0 }
+    if e < s { e = s }
+    if e > items.len { e = items.len }
+    let out: [string] = []
+    let i: i32 = s
+    loop while i < e
+    {
+        out = out.push(items[i])
+        i = i + 1
+    }
+    give out
+}
+
+proc unique(items: [string]) -> [string]
+{
+    let out: [string] = []
+    loop it in items
+    {
+        if !contains(out, it) { out = out.push(it) }
+    }
+    give out
+}
+
+proc sort_asc(items: [string]) -> [string]
+{
+    let out = items
+    let i: i32 = 0
+    loop while i < out.len
+    {
+        let j: i32 = i + 1
+        loop while j < out.len
+        {
+            if out[i] > out[j]
+            {
+                let t = out[i]
+                out[i] = out[j]
+                out[j] = t
+            }
+            j = j + 1
+        }
+        i = i + 1
+    }
+    give out
+}
+
+proc concat(a: [string], b: [string]) -> [string]
+{
+    let out = a
+    loop it in b
+    {
+        out = out.push(it)
+    }
+    give out
+}
+
+proc reverse(items: [string]) -> [string]
+{
+    let out: [string] = []
+    let i: i32 = items.len - 1
+    loop while i >= 0
+    {
+        out = out.push(items[i])
+        i = i - 1
+    }
+    give out
+}
+
+proc count(items: [string], value: string) -> i64
+{
+    let n: i32 = 0
+    loop it in items
+    {
+        if it == value { n = n + 1 }
+    }
+    give n
+}
+
+proc remove_first(items: [string], value: string) -> [string]
+{
+    let out: [string] = []
+    let removed = false
+    loop it in items
+    {
+        if !removed && it == value
+        {
+            removed = true
+            continue
+        }
+        out = out.push(it)
+    }
+    give out
+}
+
+proc remove_all(items: [string], value: string) -> [string]
+{
+    let out: [string] = []
+    loop it in items
+    {
+        if it == value { continue }
+        out = out.push(it)
+    }
+    give out
+}
+
+proc sort_desc(items: [string]) -> [string]
+{
+    give reverse(sort_asc(items))
+}
+
+proc insert(items: [string], index: i64, value: string) -> [string]
+{
+    let idx = index
+    if idx < 0 { idx = items.len + idx }
+    if idx < 0 { idx = 0 }
+    if idx > items.len { idx = items.len }
+    let out: [string] = []
+    let i: i32 = 0
+    loop while i < items.len
+    {
+        if i == idx { out = out.push(value) }
+        out = out.push(items[i])
+        i = i + 1
+    }
+    if idx == items.len { out = out.push(value) }
+    give out
+}
+
+proc insert_result(items: [string], index: i64, value: string) -> result.StdResult
+{
+    if index < -items.len || index > items.len
+    {
+        give result.err("E_INDEX_INVALID", "index out of bounds")
+    }
+    let out = insert(items, index, value)
+    give result.ok(str.join(out, ","))
+}
+
+proc extend(items: [string], values: [string]) -> [string]
+{
+    give concat(items, values)
 }

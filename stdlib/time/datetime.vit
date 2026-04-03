@@ -2,6 +2,7 @@ space stdlib/time/datetime
 
 pull core/time
 pull core/str
+pull stdlib/system/result
 
 proc timestamp_ms() -> string
 {
@@ -11,4 +12,89 @@ proc timestamp_ms() -> string
 proc stamp(prefix: string) -> string
 {
     give prefix + "-" + timestamp_ms()
+}
+
+proc parse_duration_ms_core(raw: string) -> i64?
+{
+    let v = str.trim(raw)
+    if v == "" { give null }
+
+    if str.ends_with(v, "ms")
+    {
+        let n = str.to_i64(str.replace(v, "ms", ""))
+        if n < 0 { give null }
+        give n
+    }
+
+    if str.ends_with(v, "s")
+    {
+        let sec = str.to_i64(str.replace(v, "s", ""))
+        if sec < 0 { give null }
+        give sec * 1000
+    }
+
+    if str.ends_with(v, "m")
+    {
+        let min = str.to_i64(str.replace(v, "m", ""))
+        if min < 0 { give null }
+        give min * 60000
+    }
+
+    if str.ends_with(v, "h")
+    {
+        let h = str.to_i64(str.replace(v, "h", ""))
+        if h < 0 { give null }
+        give h * 3600000
+    }
+
+    let ms = str.to_i64(v)
+    if ms < 0 { give null }
+    give ms
+}
+
+proc parse_duration_ms(raw: string) -> i64?
+{
+    let r = parse_duration_ms_result(raw)
+    if !r.ok { give null }
+    give str.to_i64(r.value)
+}
+
+proc format_duration_ms(ms: i64) -> string
+{
+    if ms < 1000 { give str.from_i64(ms) + "ms" }
+    if ms % 3600000 == 0 { give str.from_i64(ms / 3600000) + "h" }
+    if ms % 60000 == 0 { give str.from_i64(ms / 60000) + "m" }
+    if ms % 1000 == 0 { give str.from_i64(ms / 1000) + "s" }
+    give str.from_i64(ms) + "ms"
+}
+
+proc parse_duration_ms_result(raw: string) -> result.StdResult
+{
+    let d = parse_duration_ms_core(raw)
+    if d == null
+    {
+        give result.err("E_DURATION_INVALID", "invalid duration: " + raw)
+    }
+    give result.ok(str.from_i64(d))
+}
+
+proc add_duration_ms(base_ms: i64, delta_raw: string) -> i64?
+{
+    let d = parse_duration_ms(delta_raw)
+    if d == null { give null }
+    give base_ms + d
+}
+
+proc since_ms(start_ms: i64) -> i64
+{
+    let now = time.now_ms()
+    if now <= start_ms { give 0 }
+    give now - start_ms
+}
+
+proc until_ms(target_ms: i64) -> i64
+{
+    let now = time.now_ms()
+    if target_ms <= now { give 0 }
+    give target_ms - now
 }

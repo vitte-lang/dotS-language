@@ -1,707 +1,231 @@
+<<< =========================================================
+    Module: core/config
+    Description: Global configuration system (DotS runtime)
+========================================================= >>>
+
 space core/config
 
-pull core/str
-pull core/fs
-pull core/time
-pull core/process
+<<< =========================================================
+    TYPES — BASICS
+========================================================= >>>
 
-const CONFIG_SCHEMA_VERSION: string = "1.1.0"
-const CONFIG_SCHEMA_MIN: string = "1.1.0"
-const CONFIG_SCHEMA_MAX: string = "1.1.0"
-
-const ERR_MISSING: string = "MISSING"
-const ERR_INVALID_TYPE: string = "INVALID_TYPE"
-const ERR_OUT_OF_RANGE: string = "OUT_OF_RANGE"
-const ERR_UNKNOWN_KEY: string = "UNKNOWN_KEY"
-const ERR_PATH_INVALID: string = "PATH_INVALID"
-const ERR_URL_INVALID: string = "URL_INVALID"
-const ERR_ENUM_INVALID: string = "ENUM_INVALID"
-const ERR_CONFLICT: string = "CONFLICT"
-
-form Config
-{
-    schema_version: string
-    mode: string
-    color: string
-    profile: string
-    workspace_root: string
-    cache_dir: string
-    registry_url: string
-    include: [string]
-    retries: i32
-    workers: i32
-    timeout_request_ms: i64
-    timeout_overall_ms: i64
-    strict: bool
-    dry_run_config: bool
+pick Value {
+    case String(v: string),
+    case Int(v: i64),
+    case Bool(v: bool),
+    case Float(v: string),
+    case List(v: [Value]),
+    case Map(v: [Pair]),
+    case Null
 }
 
-form ConfigKV
-{
-    key: string
-    value: string
-    source: string
-    source_path: string
+form Pair {
+    key: string,
+    value: Value
 }
 
-form ConfigError
-{
-    code: string
-    key: string
-    message: string
-    source: string
-    source_path: string
+form Config {
+    data: [Pair]
 }
 
-form ConfigResult
-{
-    ok: bool
-    config: Config
-    errors: [ConfigError]
-    warnings: [string]
-    provenance: [ConfigKV]
-    fingerprint: string
+pick ConfigResult {
+    case Ok(cfg: Config),
+    case Error(message: string)
 }
 
-form ConfigBuilder
-{
-    defaults: [ConfigKV]
-    file: [ConfigKV]
-    env: [ConfigKV]
-    cli: [ConfigKV]
+<<< =========================================================
+    CORE API
+========================================================= >>>
+
+proc new() -> Config {
+    return Config { data: [] }
 }
 
-proc default_config() -> Config
-{
-    give Config(
-        CONFIG_SCHEMA_VERSION,
-        "dev",
-        "auto",
-        "dev",
-        process.cwd(),
-        ".dots-cache",
-        "https://registry.example.invalid:443",
-        [],
-        2,
-        4,
-        30000,
-        120000,
-        false,
-        false
-    )
-}
+proc set(cfg: Config, key: string, value: Value) -> Config {
+    make found = false
+    make out = []
 
-proc known_keys() -> [string]
-{
-    give [
-        "schema_version",
-        "mode",
-        "color",
-        "profile",
-        "workspace_root",
-        "cache_dir",
-        "registry_url",
-        "include",
-        "retries",
-        "workers",
-        "timeout_request_ms",
-        "timeout_overall_ms",
-        "strict",
-        "dry_run_config"
-    ]
-}
-
-proc in_known_keys(key: string) -> bool
-{
-    loop k in known_keys()
-    {
-        if key == k { give true }
-    }
-    give false
-}
-
-proc is_true(v: string) -> bool
-{
-    let x = str.trim(v)
-    give x == "1" || x == "true" || x == "TRUE" || x == "on" || x == "ON" || x == "yes" || x == "YES"
-}
-
-proc is_false(v: string) -> bool
-{
-    let x = str.trim(v)
-    give x == "0" || x == "false" || x == "FALSE" || x == "off" || x == "OFF" || x == "no" || x == "NO"
-}
-
-proc parse_bool(value: string) -> bool?
-{
-    if is_true(value) { give true }
-    if is_false(value) { give false }
-    give null
-}
-
-proc parse_i64_strict(value: string) -> i64?
-{
-    let t = str.trim(value)
-    if t == "" { give null }
-    let n = str.to_i64(t)
-    if str.from_i64(n) == t { give n }
-    if str.starts_with(t, "-")
-    {
-        if str.from_i64(n) == str.replace(t, "-", "") { give 0 - n }
-    }
-    give null
-}
-
-proc parse_i64_bounded(value: string, min_v: i64, max_v: i64) -> i64?
-{
-    let n = parse_i64_strict(value)
-    if n == null { give null }
-    if n < min_v || n > max_v { give null }
-    give n
-}
-
-proc contains_control_chars(raw: string) -> bool
-{
-    let i: i32 = 0
-    loop while i < raw.len
-    {
-        let c = raw[i]
-        if c < 32 && c != 9 && c != 10 && c != 13 { give true }
-        i = i + 1
-    }
-    give false
-}
-
-proc sanitize_text(raw: string) -> string
-{
-    let out = ""
-    let i: i32 = 0
-    loop while i < raw.len
-    {
-        let c = raw[i]
-        if c == 9 || c == 10 || c == 13 || c >= 32
-        {
-            out = out + str.from_i64(c)
-        }
-        i = i + 1
-    }
-    give str.trim(out)
-}
-
-proc contains_shell_expansion(raw: string) -> bool
-{
-    if str.contains(raw, "$(") { give true }
-    if str.contains(raw, "`") { give true }
-    give false
-}
-
-proc normalize_csv_list(raw: string) -> [string]
-{
-    let out: [string] = []
-    let parts = str.split(raw, ",")
-    loop p in parts
-    {
-        let v = str.trim(p)
-        if v == "" { continue }
-
-        let exists = false
-        loop e in out
-        {
-            if e == v { exists = true }
-        }
-
-        if !exists { out = out.push(v) }
-    }
-    give out
-}
-
-proc join_csv(items: [string]) -> string
-{
-    give str.join(items, ",")
-}
-
-proc validate_path(path: string, strict: bool, workspace_root: string) -> string?
-{
-    let p = str.trim(path)
-    if p == "" { give null }
-
-    if str.contains(p, "../") || str.contains(p, "..\\")
-    {
-        give ERR_PATH_INVALID
-    }
-
-    if strict && str.starts_with(p, "/")
-    {
-        if workspace_root != "" && !str.starts_with(p, workspace_root)
-        {
-            give ERR_PATH_INVALID
+    for p in cfg.data {
+        if p.key == key {
+            out.push(Pair { key: key, value: value })
+            set found = true
+        } else {
+            out.push(p)
         }
     }
 
-    give null
+    if not found {
+        out.push(Pair { key: key, value: value })
+    }
+
+    return Config { data: out }
 }
 
-proc validate_url(url: string) -> string?
-{
-    let u = str.trim(url)
-    if u == "" { give ERR_URL_INVALID }
-
-    let ok_scheme = str.starts_with(u, "http://") || str.starts_with(u, "https://")
-    if !ok_scheme { give ERR_URL_INVALID }
-
-    if !str.contains(u, "://") { give ERR_URL_INVALID }
-    let right = str.split(u, "://")
-    if right.len < 2 { give ERR_URL_INVALID }
-    let host_and_path = right[1]
-    if host_and_path == "" { give ERR_URL_INVALID }
-
-    let host = str.split(host_and_path, "/")[0]
-    if host == "" { give ERR_URL_INVALID }
-    if str.contains(host, " ") { give ERR_URL_INVALID }
-
-    if str.contains(host, ":")
-    {
-        let hp = str.split(host, ":")
-        if hp.len < 2 { give ERR_URL_INVALID }
-        let pn = parse_i64_strict(hp[1])
-        if pn == null || pn <= 0 || pn > 65535 { give ERR_URL_INVALID }
-    }
-
-    give null
-}
-
-proc validate_enum(value: string, allowed: [string]) -> bool
-{
-    loop a in allowed
-    {
-        if value == a { give true }
-    }
-    give false
-}
-
-proc strict_mode_from_builder(b: ConfigBuilder) -> bool
-{
-    loop kv in b.cli
-    {
-        if kv.key == "strict" && is_true(kv.value) { give true }
-    }
-
-    loop kv in b.env
-    {
-        if kv.key == "strict" && is_true(kv.value) { give true }
-    }
-
-    loop kv in b.file
-    {
-        if kv.key == "strict" && is_true(kv.value) { give true }
-    }
-
-    loop kv in b.defaults
-    {
-        if kv.key == "strict" && is_true(kv.value) { give true }
-    }
-
-    give false
-}
-
-proc merge_precedence(defaults: [ConfigKV], file: [ConfigKV], env: [ConfigKV], cli: [ConfigKV]) -> [ConfigKV]
-{
-    let out: [ConfigKV] = []
-
-    loop kv in defaults { out = out.push(kv) }
-
-    loop kv in file
-    {
-        out = kv_upsert(out, kv)
-    }
-
-    loop kv in env
-    {
-        out = kv_upsert(out, kv)
-    }
-
-    loop kv in cli
-    {
-        out = kv_upsert(out, kv)
-    }
-
-    give out
-}
-
-proc kv_upsert(items: [ConfigKV], next: ConfigKV) -> [ConfigKV]
-{
-    let out: [ConfigKV] = []
-    let replaced = false
-
-    loop kv in items
-    {
-        if kv.key == next.key
-        {
-            out = out.push(next)
-            replaced = true
-        }
-        else
-        {
-            out = out.push(kv)
+proc get(cfg: Config, key: string) -> Value {
+    for p in cfg.data {
+        if p.key == key {
+            return p.value
         }
     }
+    return Value.Null
+}
 
-    if !replaced
-    {
-        out = out.push(next)
+proc has(cfg: Config, key: string) -> bool {
+    for p in cfg.data {
+        if p.key == key {
+            return true
+        }
+    }
+    return false
+}
+
+<<< =========================================================
+    TYPE HELPERS
+========================================================= >>>
+
+proc get_string(cfg: Config, key: string) -> string {
+    make v = get(cfg, key)
+
+    match v {
+        case Value.String(s) { return s }
+        otherwise { return "" }
+    }
+}
+
+proc get_int(cfg: Config, key: string) -> i64 {
+    make v = get(cfg, key)
+
+    match v {
+        case Value.Int(i) { return i }
+        otherwise { return 0 }
+    }
+}
+
+proc get_bool(cfg: Config, key: string) -> bool {
+    make v = get(cfg, key)
+
+    match v {
+        case Value.Bool(b) { return b }
+        otherwise { return false }
+    }
+}
+
+<<< =========================================================
+    MERGE / COMPOSE
+========================================================= >>>
+
+proc merge(a: Config, b: Config) -> Config {
+    make out = a
+
+    for p in b.data {
+        set out = set(out, p.key, p.value)
     }
 
-    give out
+    return out
 }
 
-proc default_kv() -> [ConfigKV]
-{
-    let d = default_config()
-    give [
-        ConfigKV("schema_version", d.schema_version, "default", "<default>"),
-        ConfigKV("mode", d.mode, "default", "<default>"),
-        ConfigKV("color", d.color, "default", "<default>"),
-        ConfigKV("profile", d.profile, "default", "<default>"),
-        ConfigKV("workspace_root", d.workspace_root, "default", "<default>"),
-        ConfigKV("cache_dir", d.cache_dir, "default", "<default>"),
-        ConfigKV("registry_url", d.registry_url, "default", "<default>"),
-        ConfigKV("include", join_csv(d.include), "default", "<default>"),
-        ConfigKV("retries", str.from_i64(d.retries), "default", "<default>"),
-        ConfigKV("workers", str.from_i64(d.workers), "default", "<default>"),
-        ConfigKV("timeout_request_ms", str.from_i64(d.timeout_request_ms), "default", "<default>"),
-        ConfigKV("timeout_overall_ms", str.from_i64(d.timeout_overall_ms), "default", "<default>"),
-        ConfigKV("strict", str.from_bool(d.strict), "default", "<default>"),
-        ConfigKV("dry_run_config", str.from_bool(d.dry_run_config), "default", "<default>")
-    ]
+<<< =========================================================
+    ENV SUPPORT
+========================================================= >>>
+
+proc load_env(env: [Pair]) -> Config {
+    make cfg = new()
+
+    for p in env {
+        set cfg = set(cfg, p.key, p.value)
+    }
+
+    return cfg
 }
 
-proc build_config(b: ConfigBuilder) -> ConfigResult
-{
-    let strict_mode = strict_mode_from_builder(b)
-    let all = merge_precedence(b.defaults, b.file, b.env, b.cli)
+<<< =========================================================
+    DOTS PARSER BRIDGE
+========================================================= >>>
 
-    let cfg = default_config()
-    let errors: [ConfigError] = []
-    let warnings: [string] = []
+proc from_pairs(pairs: [Pair]) -> Config {
+    return Config { data: pairs }
+}
 
-    loop kv in all
-    {
-        let key = str.trim(kv.key)
-        let value = sanitize_text(kv.value)
+proc to_pairs(cfg: Config) -> [Pair] {
+    return cfg.data
+}
 
-        if contains_shell_expansion(value)
-        {
-            errors = errors.push(ConfigError(ERR_INVALID_TYPE, key, "shell expansion not allowed", kv.source, kv.source_path))
-            continue
+<<< =========================================================
+    VALIDATION
+========================================================= >>>
+
+proc require(cfg: Config, key: string) -> ConfigResult {
+    if has(cfg, key) {
+        return ConfigResult.Ok(cfg)
+    } else {
+        return ConfigResult.Error("Missing key: " + key)
+    }
+}
+
+proc require_all(cfg: Config, keys: [string]) -> ConfigResult {
+    for k in keys {
+        if not has(cfg, k) {
+            return ConfigResult.Error("Missing key: " + k)
         }
+    }
+    return ConfigResult.Ok(cfg)
+}
 
-        if contains_control_chars(kv.value)
-        {
-            errors = errors.push(ConfigError(ERR_INVALID_TYPE, key, "control chars are not allowed", kv.source, kv.source_path))
-            continue
-        }
+<<< =========================================================
+    SERIALIZATION (BASIC)
+========================================================= >>>
 
-        if !in_known_keys(key)
-        {
-            if strict_mode
-            {
-                errors = errors.push(ConfigError(ERR_UNKNOWN_KEY, key, "unknown key in strict mode", kv.source, kv.source_path))
+proc to_string(v: Value) -> string {
+    match v {
+        case Value.String(s) { return "\"" + s + "\"" }
+        case Value.Int(i) { return i as string }
+        case Value.Bool(b) { return b as string }
+        case Value.Float(f) { return f }
+        case Value.Null { return "null" }
+
+        case Value.List(lst) {
+            make out = "["
+            for x in lst {
+                set out = out + to_string(x) + ","
             }
-            else
-            {
-                warnings = warnings.push("config fallback: unknown key ignored " + key + " from " + kv.source)
-            }
-            continue
+            return out + "]"
         }
 
-        if key == "schema_version"
-        {
-            cfg.schema_version = value
-        }
-        else if key == "mode"
-        {
-            if !validate_enum(value, ["dev", "ci", "perf", "release"])
-            {
-                errors = errors.push(ConfigError(ERR_ENUM_INVALID, key, "mode must be dev|ci|perf|release", kv.source, kv.source_path))
-                continue
+        case Value.Map(map) {
+            make out = "{"
+            for p in map {
+                set out = out + p.key + ":" + to_string(p.value) + ","
             }
-            cfg.mode = value
-        }
-        else if key == "color"
-        {
-            if !validate_enum(value, ["auto", "always", "never"])
-            {
-                errors = errors.push(ConfigError(ERR_ENUM_INVALID, key, "color must be auto|always|never", kv.source, kv.source_path))
-                continue
-            }
-            cfg.color = value
-        }
-        else if key == "profile"
-        {
-            cfg.profile = value
-        }
-        else if key == "workspace_root"
-        {
-            let perr = validate_path(value, strict_mode, process.cwd())
-            if perr != null
-            {
-                errors = errors.push(ConfigError(perr, key, "invalid workspace_root path", kv.source, kv.source_path))
-                continue
-            }
-            cfg.workspace_root = value
-        }
-        else if key == "cache_dir"
-        {
-            let perr2 = validate_path(value, strict_mode, cfg.workspace_root)
-            if perr2 != null
-            {
-                errors = errors.push(ConfigError(perr2, key, "invalid cache_dir path", kv.source, kv.source_path))
-                continue
-            }
-            cfg.cache_dir = value
-        }
-        else if key == "registry_url"
-        {
-            let uerr = validate_url(value)
-            if uerr != null
-            {
-                errors = errors.push(ConfigError(uerr, key, "invalid registry_url", kv.source, kv.source_path))
-                continue
-            }
-            cfg.registry_url = value
-        }
-        else if key == "include"
-        {
-            cfg.include = normalize_csv_list(value)
-        }
-        else if key == "retries"
-        {
-            let n = parse_i64_bounded(value, 0, 100)
-            if n == null
-            {
-                errors = errors.push(ConfigError(ERR_OUT_OF_RANGE, key, "retries must be in [0..100]", kv.source, kv.source_path))
-                continue
-            }
-            cfg.retries = n
-        }
-        else if key == "workers"
-        {
-            let w = parse_i64_bounded(value, 1, 4096)
-            if w == null
-            {
-                errors = errors.push(ConfigError(ERR_OUT_OF_RANGE, key, "workers must be in [1..4096]", kv.source, kv.source_path))
-                continue
-            }
-            cfg.workers = w
-        }
-        else if key == "timeout_request_ms"
-        {
-            let t1 = parse_i64_bounded(value, 1, 3600000)
-            if t1 == null
-            {
-                errors = errors.push(ConfigError(ERR_OUT_OF_RANGE, key, "timeout_request_ms must be in [1..3600000]", kv.source, kv.source_path))
-                continue
-            }
-            cfg.timeout_request_ms = t1
-        }
-        else if key == "timeout_overall_ms"
-        {
-            let t2 = parse_i64_bounded(value, 1, 7200000)
-            if t2 == null
-            {
-                errors = errors.push(ConfigError(ERR_OUT_OF_RANGE, key, "timeout_overall_ms must be in [1..7200000]", kv.source, kv.source_path))
-                continue
-            }
-            cfg.timeout_overall_ms = t2
-        }
-        else if key == "strict"
-        {
-            let b0 = parse_bool(value)
-            if b0 == null
-            {
-                errors = errors.push(ConfigError(ERR_INVALID_TYPE, key, "strict must be a boolean", kv.source, kv.source_path))
-                continue
-            }
-            cfg.strict = b0
-        }
-        else if key == "dry_run_config"
-        {
-            let b1 = parse_bool(value)
-            if b1 == null
-            {
-                errors = errors.push(ConfigError(ERR_INVALID_TYPE, key, "dry_run_config must be a boolean", kv.source, kv.source_path))
-                continue
-            }
-            cfg.dry_run_config = b1
+            return out + "}"
         }
     }
+}
 
-    if cfg.timeout_overall_ms < cfg.timeout_request_ms
-    {
-        errors = errors.push(ConfigError(ERR_CONFLICT, "timeout_overall_ms", "timeout_overall_ms must be >= timeout_request_ms", "computed", "<effective>"))
+proc dump(cfg: Config) -> string {
+    make out = "{"
+
+    for p in cfg.data {
+        set out = out + p.key + "=" + to_string(p.value) + "\n"
     }
 
-    if cfg.schema_version < CONFIG_SCHEMA_MIN || cfg.schema_version > CONFIG_SCHEMA_MAX
-    {
-        errors = errors.push(ConfigError(ERR_OUT_OF_RANGE, "schema_version", "schema_version out of supported range", "computed", "<effective>"))
-    }
-
-    let ok = errors.len == 0
-    let fp = config_fingerprint(cfg)
-    give ConfigResult(ok, freeze(cfg), errors, warnings, all, fp)
+    return out + "}"
 }
 
-proc freeze(cfg: Config) -> Config
-{
-    # Freeze boundary: clone normalized values to prevent accidental mutation by caller.
-    give Config(
-        cfg.schema_version,
-        cfg.mode,
-        cfg.color,
-        cfg.profile,
-        cfg.workspace_root,
-        cfg.cache_dir,
-        cfg.registry_url,
-        normalize_csv_list(join_csv(cfg.include)),
-        cfg.retries,
-        cfg.workers,
-        cfg.timeout_request_ms,
-        cfg.timeout_overall_ms,
-        cfg.strict,
-        cfg.dry_run_config
-    )
-}
+<<< =========================================================
+    DEFAULT CONFIG (DOTS RUNTIME)
+========================================================= >>>
 
-proc to_json_stable(cfg: Config, run_id: string, request_id: string) -> string
-{
-    give "{" +
-        "\"schema_version\":\"" + cfg.schema_version + "\"," +
-        "\"run_id\":\"" + str.replace(run_id, "\"", "'") + "\"," +
-        "\"request_id\":\"" + str.replace(request_id, "\"", "'") + "\"," +
-        "\"mode\":\"" + cfg.mode + "\"," +
-        "\"color\":\"" + cfg.color + "\"," +
-        "\"profile\":\"" + cfg.profile + "\"," +
-        "\"workspace_root\":\"" + str.replace(cfg.workspace_root, "\"", "'") + "\"," +
-        "\"cache_dir\":\"" + str.replace(cfg.cache_dir, "\"", "'") + "\"," +
-        "\"registry_url\":\"" + str.replace(cfg.registry_url, "\"", "'") + "\"," +
-        "\"include\":\"" + str.replace(join_csv(cfg.include), "\"", "'") + "\"," +
-        "\"retries\":\"" + str.from_i64(cfg.retries) + "\"," +
-        "\"workers\":\"" + str.from_i64(cfg.workers) + "\"," +
-        "\"timeout_request_ms\":\"" + str.from_i64(cfg.timeout_request_ms) + "\"," +
-        "\"timeout_overall_ms\":\"" + str.from_i64(cfg.timeout_overall_ms) + "\"," +
-        "\"strict\":\"" + str.from_bool(cfg.strict) + "\"," +
-        "\"dry_run_config\":\"" + str.from_bool(cfg.dry_run_config) + "\"" +
-    "}"
-}
+proc default() -> Config {
+    make cfg = new()
 
-proc config_fingerprint(cfg: Config) -> string
-{
-    let raw = to_json_stable(cfg, process.env("DOTS_RUN_ID"), process.env("DOTS_REQUEST_ID"))
-    let sum: i64 = 0
-    let i: i32 = 0
-    loop while i < raw.len
-    {
-        sum = (sum * 131 + raw[i]) % 2147483647
-        i = i + 1
-    }
-    give "cfg_" + str.from_i64(sum)
-}
+    set cfg = set(cfg, "runtime.mode", Value.String("dev"))
+    set cfg = set(cfg, "runtime.debug", Value.Bool(true))
+    set cfg = set(cfg, "runtime.max_threads", Value.Int(4))
 
-proc config_diff(defaults: Config, effective: Config) -> [ConfigKV]
-{
-    let out: [ConfigKV] = []
+    set cfg = set(cfg, "dots.optimize", Value.Bool(false))
+    set cfg = set(cfg, "dots.strict", Value.Bool(false))
 
-    if defaults.mode != effective.mode { out = out.push(ConfigKV("mode", effective.mode, "effective", "<effective>")) }
-    if defaults.color != effective.color { out = out.push(ConfigKV("color", effective.color, "effective", "<effective>")) }
-    if defaults.profile != effective.profile { out = out.push(ConfigKV("profile", effective.profile, "effective", "<effective>")) }
-    if defaults.workspace_root != effective.workspace_root { out = out.push(ConfigKV("workspace_root", effective.workspace_root, "effective", "<effective>")) }
-    if defaults.cache_dir != effective.cache_dir { out = out.push(ConfigKV("cache_dir", effective.cache_dir, "effective", "<effective>")) }
-    if defaults.registry_url != effective.registry_url { out = out.push(ConfigKV("registry_url", effective.registry_url, "effective", "<effective>")) }
-    if join_csv(defaults.include) != join_csv(effective.include) { out = out.push(ConfigKV("include", join_csv(effective.include), "effective", "<effective>")) }
-    if defaults.retries != effective.retries { out = out.push(ConfigKV("retries", str.from_i64(effective.retries), "effective", "<effective>")) }
-    if defaults.workers != effective.workers { out = out.push(ConfigKV("workers", str.from_i64(effective.workers), "effective", "<effective>")) }
-    if defaults.timeout_request_ms != effective.timeout_request_ms { out = out.push(ConfigKV("timeout_request_ms", str.from_i64(effective.timeout_request_ms), "effective", "<effective>")) }
-    if defaults.timeout_overall_ms != effective.timeout_overall_ms { out = out.push(ConfigKV("timeout_overall_ms", str.from_i64(effective.timeout_overall_ms), "effective", "<effective>")) }
-    if defaults.strict != effective.strict { out = out.push(ConfigKV("strict", str.from_bool(effective.strict), "effective", "<effective>")) }
-    if defaults.dry_run_config != effective.dry_run_config { out = out.push(ConfigKV("dry_run_config", str.from_bool(effective.dry_run_config), "effective", "<effective>")) }
+    set cfg = set(cfg, "io.buffer_size", Value.Int(4096))
 
-    give out
-}
-
-proc explain(result: ConfigResult, key: string) -> string
-{
-    loop p in result.provenance
-    {
-        if p.key == key
-        {
-            give key + "=" + p.value + " (source=" + p.source + ", path=" + p.source_path + ")"
-        }
-    }
-
-    give key + "=<unknown>"
-}
-
-proc schema_compat(version: string) -> bool
-{
-    give version >= CONFIG_SCHEMA_MIN && version <= CONFIG_SCHEMA_MAX
-}
-
-proc migrate_v1_to_v2(lines: [ConfigKV]) -> [ConfigKV]
-{
-    let out: [ConfigKV] = []
-    let seen_schema = false
-
-    loop kv in lines
-    {
-        if kv.key == "schema_version"
-        {
-            out = out.push(ConfigKV("schema_version", CONFIG_SCHEMA_VERSION, kv.source, kv.source_path))
-            seen_schema = true
-            continue
-        }
-
-        if kv.key == "threads"
-        {
-            out = out.push(ConfigKV("workers", kv.value, kv.source, kv.source_path))
-            continue
-        }
-
-        out = out.push(kv)
-    }
-
-    if !seen_schema
-    {
-        out = out.push(ConfigKV("schema_version", CONFIG_SCHEMA_VERSION, "migration", "<migration>"))
-    }
-
-    give out
-}
-
-proc with_file_lock(path: string, token: string, timeout_ms: i64) -> bool
-{
-    let lock_dir = path + ".lock"
-    let start = time.now_ms()
-
-    loop while time.now_ms() - start <= timeout_ms
-    {
-        if !fs.exists(lock_dir)
-        {
-            fs.mkdir_p(lock_dir)
-            if fs.exists(lock_dir)
-            {
-                fs.write_file(lock_dir + "/owner", token + "\n")
-                give true
-            }
-        }
-
-        time.sleep_ms(20)
-    }
-
-    give false
-}
-
-proc release_file_lock(path: string) -> void
-{
-    let lock_dir = path + ".lock"
-    if fs.exists(lock_dir) { fs.remove_all(lock_dir) }
+    return cfg
 }
