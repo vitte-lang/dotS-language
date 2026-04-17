@@ -4,7 +4,7 @@ pull core/str
 pull runtime/common/metrics
 pull runtime/common/config
 pull runtime/common/events
-pull runtime/vm
+pull runtime/vm/vm
 pull runtime/memory/gc
 
 proc runtime_status_json() -> string

@@ -1,0 +1,15 @@
+space core/list
+
+proc contains(items: [string], value: string) -> bool
+{
+    loop item in items
+    {
+        if item == value { give true }
+    }
+    give false
+}
+
+proc push(items: [string], value: string) -> [string]
+{
+    give items + [value]
+}

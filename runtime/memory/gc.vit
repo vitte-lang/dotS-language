@@ -55,11 +55,14 @@ proc collect(g: GcState, live_bytes: i64) -> GcState
     give g
 }
 
-proc write_barrier(obj_id: i64, field: string) -> bool
+proc write_barrier(obj_id: i64, name: string) -> bool
 {
     if obj_id < 0 { give false }
-    if field == "" { give false }
-    if config.load().strict && field == "raw_ptr_unsafe" { give false }
+    if name == "" { give false }
+    if config.load().strict
+    {
+        if name == "raw_ptr_unsafe" { give false }
+    }
     give true
 }
 

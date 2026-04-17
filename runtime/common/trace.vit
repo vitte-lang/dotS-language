@@ -35,7 +35,7 @@ proc replay_lines(max_n: i32) -> [string]
     let start = lines.len - max_n
     if start < 0 { start = 0 }
     let i = start
-    loop while i < lines.len
+    while i < lines.len
     {
         let l = str.trim(lines[i])
         if l != "" { out = out.push(l) }

@@ -1,0 +1,11 @@
+space core/io
+
+proc print(message: string) -> void
+{
+    give
+}
+
+proc read_stdin_all() -> string
+{
+    give ""
+}

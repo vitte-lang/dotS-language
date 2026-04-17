@@ -14,7 +14,10 @@ proc file() -> string
 proc ensure() -> void
 {
     fs.mkdir_p(".dots")
-    if !fs.exists(file()) { fs.write_file(file(), "") }
+    if !fs.exists(file())
+    {
+        fs.write_file(file(), "")
+    }
 }
 
 proc append(component: string, severity: string, message: string) -> void
@@ -35,10 +38,16 @@ proc append(component: string, severity: string, message: string) -> void
 
 proc rotate_if_needed(max_bytes: i64, max_age_ms: i64) -> void
 {
-    if !fs.exists(file()) { give }
+    if !fs.exists(file())
+    {
+        give
+    }
     let age = time.now_ms() - fs.mtime_ms(file())
     let raw = fs.read_file(file())
-    if raw.len < max_bytes && age < max_age_ms { give }
+    if raw.len < max_bytes && age < max_age_ms
+    {
+        give
+    }
 
     let archived = ".dots/runtime_events." + str.from_i64(time.now_ms()) + ".jsonl"
     fs.write_file(archived, raw)
@@ -47,13 +56,16 @@ proc rotate_if_needed(max_bytes: i64, max_age_ms: i64) -> void
 
 proc tail(n: i32) -> string
 {
-    if !fs.exists(file()) { give "" }
+    if !fs.exists(file())
+    {
+        give ""
+    }
     let lines = str.split(fs.read_file(file()), "\n")
     let start = lines.len - n
     if start < 0 { start = 0 }
     let out = ""
     let i = start
-    loop while i < lines.len
+    while i < lines.len
     {
         let line = str.trim(lines[i])
         if line != "" { out = out + line + "\n" }

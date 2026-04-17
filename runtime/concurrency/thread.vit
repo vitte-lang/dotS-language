@@ -56,7 +56,7 @@ proc create(rt: ThreadRuntime, owner_request_id: string) -> (ThreadRuntime, Thre
     rt.next_id = rt.next_id + 1
     rt.handles = rt.handles.push(h)
     metrics.inc_ops("thread.create")
-    log.emit("info", "runtime.thread", "thread created id=" + str.from_i64(h.id))
+    log.record("info", "runtime.thread", "thread created id=" + str.from_i64(h.id))
     trace.append("thread.create", "id=" + str.from_i64(h.id))
     give (rt, h)
 }

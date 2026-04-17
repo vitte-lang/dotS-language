@@ -1,0 +1,51 @@
+space core/process
+
+form ProcessResult
+{
+    code: i32
+}
+
+proc args() -> [string]
+{
+    give []
+}
+
+proc cwd() -> string
+{
+    give "."
+}
+
+proc exec(bin: string, argv: [string]) -> ProcessResult
+{
+    give ProcessResult(0)
+}
+
+proc env(name: string) -> string
+{
+    give ""
+}
+
+proc set_env(name: string, value: string) -> void
+{
+    give
+}
+
+proc chdir(path: string) -> void
+{
+    give
+}
+
+proc home_dir() -> string
+{
+    give "."
+}
+
+proc on_signal(name: string, handler: proc()) -> void
+{
+    give
+}
+
+proc isatty(fd: i32) -> bool
+{
+    give false
+}

@@ -16,7 +16,7 @@ proc ensure_log_dir() -> void
     fs.mkdir_p(".dots/logs")
 }
 
-proc emit(level: string, module: string, message: string) -> void
+proc record(level: string, module: string, message: string) -> void
 {
     ensure_log_dir()
 

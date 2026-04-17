@@ -6,13 +6,15 @@ pull runtime/vm/opcode
 proc encode(lines: [string]) -> [string]
 {
     let out: [string] = []
-    loop l in lines
+    let i: i32 = 0
+    while i < lines.len
     {
-        let line = str.trim(l)
+        let line = str.trim(lines[i])
         if line == "" { continue }
         if str.starts_with(line, "#") { continue }
         let op = opcode.normalize(line)
         out = out.push(op)
+        i = i + 1
     }
     give out
 }
@@ -24,9 +26,11 @@ proc decode(code: [string]) -> string
 
 proc validate(code: [string]) -> bool
 {
-    loop op in code
+    let i: i32 = 0
+    while i < code.len
     {
-        if !opcode.is_known(opcode.normalize(op)) { give false }
+        if !opcode.is_known(opcode.normalize(code[i])) { give false }
+        i = i + 1
     }
     give true
 }

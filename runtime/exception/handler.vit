@@ -25,7 +25,7 @@ proc capture(h: Handler, ex: exception.Exception, st: stacktrace.StackTrace) -> 
     {
         msg = msg + " top=" + stacktrace.top(st)
     }
-    log.emit("error", "runtime.exception", msg)
+    log.record("error", "runtime.exception", msg)
     events.append("exception", "error", h.scope + ":" + ex.code)
     if h.strict && ex.code == result.E_PANIC
     {

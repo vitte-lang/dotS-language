@@ -1,0 +1,11 @@
+space core/time
+
+proc now_ms() -> i64
+{
+    give 0
+}
+
+proc sleep_ms(ms: i64) -> void
+{
+    give
+}

@@ -153,7 +153,7 @@ proc compile(b: JitBuilder, m: node.IRModule, ir_hash: string, tok: cancel.Cance
         metrics.inc_errors("jit.compile", result.E_PANIC)
         metrics.inc_ops("jit.compile_fail")
         events.append("jit", "error", "IR verify failed before JIT")
-        log.emit("error", "runtime.jit", "IR verify failed before JIT")
+        log.record("error", "runtime.jit", "IR verify failed before JIT")
         give (b, result.err(result.E_PANIC, "ir verify failed", false))
     }
 
@@ -189,7 +189,7 @@ proc compile_with_fallback(b: JitBuilder, m: node.IRModule, ir_hash: string, tok
     metrics.inc_ops("jit.fallback_interpreter")
     metrics.inc_errors("jit.fallback", r.error.code)
     events.append("jit", "warn", "fallback interpreter used")
-    log.emit("warn", "runtime.jit", "fallback to interpreter")
+    log.record("warn", "runtime.jit", "fallback to interpreter")
     let ir = interpreter.execute_fallback(ir_hash)
     if ir.ok { give (b2, ir) }
     let e = result.err(result.E_PANIC, "fallback interpreter failed", false)

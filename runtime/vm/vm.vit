@@ -60,7 +60,7 @@ proc execute(vm: VM, code_in: [string], tok: cancel.CancelToken, timeout_ms: i64
     }
     let i: i32 = 0
 
-    loop while i < code.len
+    while i < code.len
     {
         vm.instruction_budget = vm.instruction_budget - 1
         if vm.instruction_budget <= 0
@@ -136,7 +136,7 @@ proc doctor(vm: VM) -> result.RuntimeResult
 {
     if vm.strict && vm.interrupted_total > 0
     {
-        log.emit("warn", "runtime.vm", "strict mode + interruptions detected")
+        log.record("warn", "runtime.vm", "strict mode + interruptions detected")
     }
     give result.ok("runtime doctor ok")
 }

@@ -49,7 +49,7 @@ proc execute(it: Interpreter, fr: frame.Frame, ir_hash: string) -> (Interpreter,
     trace.append("interpreter.execute", route)
     if !r.ok
     {
-        log.emit("error", "runtime.interpreter", "execute failed for " + ir_hash)
+        log.record("error", "runtime.interpreter", "execute failed for " + ir_hash)
         give (it, r)
     }
     give (it, result.with_value(r, "interpreted:" + ir_hash))

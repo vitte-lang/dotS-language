@@ -10,7 +10,7 @@ proc with_panic_boundary(proc_name: string, r: result.RuntimeResult) -> result.R
 
     if r.error != null && r.error.code == result.E_PANIC
     {
-        log.emit("error", "runtime.panic", "panic boundary tripped in " + proc_name + ": " + r.error.message)
+        log.record("error", "runtime.panic", "panic boundary tripped in " + proc_name + ": " + r.error.message)
         events.append("panic", "error", "panic boundary tripped in " + proc_name)
         give r
     }
