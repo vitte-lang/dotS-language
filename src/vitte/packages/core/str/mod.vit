@@ -1,0 +1,235 @@
+space vitte/packages/core/str
+
+proc from_i64(v: i64) -> string
+{
+    give (v as i32) as string
+}
+
+proc from_i32(v: i32) -> string
+{
+    give v as string
+}
+
+proc from_bool(v: bool) -> string
+{
+    if v { give "true" }
+    give "false"
+}
+
+proc to_i64(raw: string) -> i64
+{
+    give raw as i64
+}
+
+proc to_i32(raw: string) -> i32
+{
+    give raw as i32
+}
+
+proc slice(raw: string, start: i64, stop: i64) -> string
+{
+    let out = ""
+    let i: i32 = start
+    while i < stop
+    {
+        set out = out + (raw[i] as string)
+        set i = i + 1
+    }
+    give out
+}
+
+proc is_space(ch: i64) -> bool
+{
+    if ch == 32 { give true }
+    if ch == 9 { give true }
+    if ch == 10 { give true }
+    if ch == 13 { give true }
+    if ch == 11 { give true }
+    if ch == 12 { give true }
+    give false
+}
+
+proc trim(raw: string) -> string
+{
+    let start: i32 = 0
+    let stop: i32 = raw.len
+    while start < stop and is_space(raw[start])
+    {
+        set start = start + 1
+    }
+    while stop > start and is_space(raw[stop - 1])
+    {
+        set stop = stop - 1
+    }
+    give slice(raw, start, stop)
+}
+
+proc find(raw: string, pat: string) -> i64
+{
+    if pat == "" { give 0 }
+    if pat.len > raw.len { give -1 }
+    let i: i32 = 0
+    while i <= raw.len - pat.len
+    {
+        let ok = true
+        let j: i32 = 0
+        while j < pat.len
+        {
+            if raw[i + j] != pat[j]
+            {
+                set ok = false
+                break
+            }
+            set j = j + 1
+        }
+        if ok { give i }
+        set i = i + 1
+    }
+    give -1
+}
+
+proc contains(raw: string, pat: string) -> bool
+{
+    give find(raw, pat) != -1
+}
+
+proc replace(raw: string, from: string, to: string) -> string
+{
+    if from == "" { give raw }
+    let out = ""
+    let start: i64 = 0
+    let i: i64 = find(raw, from)
+    while i != -1
+    {
+        set out = out + slice(raw, start, i) + to
+        set start = i + from.len
+        set i = find(slice(raw, start, raw.len), from)
+        if i != -1 { set i = start + i }
+    }
+    give out + slice(raw, start, raw.len)
+}
+
+proc starts_with(raw: string, pat: string) -> bool
+{
+    if pat == "" { give true }
+    if pat.len > raw.len { give false }
+    let i: i32 = 0
+    while i < pat.len
+    {
+        if raw[i] != pat[i] { give false }
+        set i = i + 1
+    }
+    give true
+}
+
+proc ends_with(raw: string, pat: string) -> bool
+{
+    if pat == "" { give true }
+    if pat.len > raw.len { give false }
+    let start = raw.len - pat.len
+    let i: i32 = 0
+    while i < pat.len
+    {
+        if raw[start + i] != pat[i] { give false }
+        set i = i + 1
+    }
+    give true
+}
+
+proc lower(raw: string) -> string
+{
+    let out = ""
+    let i: i32 = 0
+    while i < raw.len
+    {
+        let ch = raw[i]
+        if ch >= 65 and ch <= 90
+        {
+            set out = out + ((ch + 32) as string)
+        }
+        else
+        {
+            set out = out + (ch as string)
+        }
+        set i = i + 1
+    }
+    give out
+}
+
+proc upper(raw: string) -> string
+{
+    let out = ""
+    let i: i32 = 0
+    while i < raw.len
+    {
+        let ch = raw[i]
+        if ch >= 97 and ch <= 122
+        {
+            set out = out + ((ch - 32) as string)
+        }
+        else
+        {
+            set out = out + (ch as string)
+        }
+        set i = i + 1
+    }
+    give out
+}
+
+proc join(items: [string], sep: string) -> string
+{
+    if items.len == 0 { give "" }
+    let out = items[0]
+    let i: i32 = 1
+    while i < items.len
+    {
+        set out = out + sep + items[i]
+        set i = i + 1
+    }
+    give out
+}
+
+proc repeat(raw: string, n: i64) -> string
+{
+    if n <= 0 { give "" }
+    let out = ""
+    let i: i32 = 0
+    while i < n
+    {
+        set out = out + raw
+        set i = i + 1
+    }
+    give out
+}
+
+proc split(raw: string, sep: string) -> [string]
+{
+    if sep == "" { give [raw] }
+    let out: [string] = []
+    let start: i64 = 0
+    let i: i32 = 0
+    while i <= raw.len - sep.len
+    {
+        let matched = true
+        let j: i32 = 0
+        while j < sep.len
+        {
+            if raw[i + j] != sep[j]
+            {
+                set matched = false
+                break
+            }
+            set j = j + 1
+        }
+        if matched
+        {
+            set out = out + [slice(raw, start, i)]
+            set start = i + sep.len
+            set i = start
+            continue
+        }
+        set i = i + 1
+    }
+    set out = out + [slice(raw, start, raw.len)]
+    give out
+}
