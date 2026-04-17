@@ -3,7 +3,10 @@ set -euo pipefail
 
 mkdir -p docs/man
 
-mapfile -t lines < <(rg 'CommandDef\(' cmd/dots/registry.vit)
+lines=()
+while IFS= read -r line; do
+  [[ -n "$line" ]] && lines+=("$line")
+done < <(rg 'CommandDef\(' cmd/dots/registry.vit)
 
 {
   echo "DOTS(1)"

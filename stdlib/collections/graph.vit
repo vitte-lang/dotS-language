@@ -1,12 +1,26 @@
 space stdlib/collections/graph
 
-pull core/str
-pull stdlib/collections/list
-pull stdlib/system/result
+pick MaybeString
+{
+    case Some(value: string)
+    case None
+}
+
+pick GraphResult
+{
+    case Ok(value: string)
+    case Err(code: string, message: string)
+}
+
+form Edge
+{
+    from: string,
+    to: string,
+}
 
 form Graph
 {
-    edges: [string]
+    edges: [Edge],
 }
 
 proc empty() -> Graph
@@ -14,17 +28,34 @@ proc empty() -> Graph
     give Graph([])
 }
 
-proc edge(from: string, to: string) -> string
+proc edge(from: string, to: string) -> Edge
 {
-    give from + "->" + to
+    give Edge(from, to)
+}
+
+proc contains_edge(items: [Edge], from: string, to: string) -> bool
+{
+    for it in items
+    {
+        if it.from == from and it.to == to { give true }
+    }
+    give false
+}
+
+proc contains_string(items: [string], value: string) -> bool
+{
+    for it in items
+    {
+        if it == value { give true }
+    }
+    give false
 }
 
 proc add_edge(g: Graph, from: string, to: string) -> Graph
 {
-    let e = edge(from, to)
-    if !list.contains(g.edges, e)
+    if not contains_edge(g.edges, from, to)
     {
-        g.edges = g.edges.push(e)
+        give Graph(g.edges + [Edge(from, to)])
     }
     give g
 }
@@ -32,29 +63,25 @@ proc add_edge(g: Graph, from: string, to: string) -> Graph
 proc neighbors(g: Graph, from: string) -> [string]
 {
     let out: [string] = []
-    loop e in g.edges
+    for e in g.edges
     {
-        if !str.starts_with(e, from + "->") { continue }
-        let p = str.split(e, "->")
-        if p.len >= 2 { out = out.push(p[1]) }
+        if e.from == from { set out = out + [e.to] }
     }
     give out
 }
 
-proc add_edge_result(g: Graph, from: string, to: string) -> result.StdResult
+proc add_edge_result(g: Graph, from: string, to: string) -> GraphResult
 {
-    if str.trim(from) == "" || str.trim(to) == ""
+    if from == "" or to == ""
     {
-        give result.err("E_NODE_EMPTY", "graph node must be non-empty")
+        give GraphResult.Err("E_NODE_EMPTY", "graph node must be non-empty")
     }
-    let out = add_edge(g, from, to)
-    give result.ok(str.join(out.edges, ","))
+    give GraphResult.Ok("ok")
 }
 
 proc has_edge(g: Graph, from: string, to: string) -> bool
 {
-    let e = edge(from, to)
-    give list.contains(g.edges, e)
+    give contains_edge(g.edges, from, to)
 }
 
 proc degree_out(g: Graph, from: string) -> i64
@@ -65,10 +92,9 @@ proc degree_out(g: Graph, from: string) -> i64
 proc degree_in(g: Graph, to: string) -> i64
 {
     let n: i32 = 0
-    loop e in g.edges
+    for e in g.edges
     {
-        let p = str.split(e, "->")
-        if p.len >= 2 && p[1] == to { n = n + 1 }
+        if e.to == to { set n = n + 1 }
     }
     give n
 }
@@ -76,29 +102,23 @@ proc degree_in(g: Graph, to: string) -> i64
 proc nodes(g: Graph) -> [string]
 {
     let out: [string] = []
-    loop e in g.edges
+    for e in g.edges
     {
-        let p = str.split(e, "->")
-        if p.len >= 2
-        {
-            if !list.contains(out, p[0]) { out = out.push(p[0]) }
-            if !list.contains(out, p[1]) { out = out.push(p[1]) }
-        }
+        if not contains_string(out, e.from) { set out = out + [e.from] }
+        if not contains_string(out, e.to) { set out = out + [e.to] }
     }
     give out
 }
 
 proc remove_edge(g: Graph, from: string, to: string) -> Graph
 {
-    let target = edge(from, to)
-    let out: [string] = []
-    loop e in g.edges
+    let out: [Edge] = []
+    for e in g.edges
     {
-        if e == target { continue }
-        out = out.push(e)
+        if e.from == from and e.to == to { continue }
+        set out = out + [e]
     }
-    g.edges = out
-    give g
+    give Graph(out)
 }
 
 proc edge_count(g: Graph) -> i64

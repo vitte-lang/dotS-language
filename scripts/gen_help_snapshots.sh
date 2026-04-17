@@ -3,7 +3,10 @@ set -euo pipefail
 
 mkdir -p tests/snapshots/cli_help tests/snapshots/cli_json
 
-mapfile -t cmds < <(rg -o 'CommandDef\("([a-z0-9-]+)"' cmd/dots/registry.vit | sed -E 's/.*"([a-z0-9-]+)"/\1/' | sort -u)
+cmds=()
+while IFS= read -r cmd; do
+  [[ -n "$cmd" ]] && cmds+=("$cmd")
+done < <(rg -o 'CommandDef\("([a-z0-9-]+)"' cmd/dots/registry.vit | sed -E 's/.*"([a-z0-9-]+)"/\1/' | sort -u)
 
 cat > tests/snapshots/cli_help/main.snapshot.txt <<MAIN
 DotS CLI

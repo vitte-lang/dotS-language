@@ -5,7 +5,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REG="$ROOT/cmd/dots/registry.vit"
 OUT="$ROOT/tests/cli/parser_each_command.test.vit"
 
-mapfile -t cmds < <(
+cmds=()
+while IFS= read -r cmd; do
+  [[ -n "$cmd" ]] && cmds+=("$cmd")
+done < <(
   rg -o 'CommandDef\("([a-z0-9-]+)"' "$REG" \
     | sed -E 's/.*"([a-z0-9-]+)"/\1/' \
     | sort -u

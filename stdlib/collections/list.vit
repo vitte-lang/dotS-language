@@ -1,7 +1,16 @@
 space stdlib/collections/list
 
-pull core/str
-pull stdlib/system/result
+pick MaybeString
+{
+    case Some(value: string)
+    case None
+}
+
+pick ListResult
+{
+    case Ok(value: string)
+    case Err(code: string, message: string)
+}
 
 proc empty() -> [string]
 {
@@ -10,12 +19,12 @@ proc empty() -> [string]
 
 proc push(items: [string], value: string) -> [string]
 {
-    give items.push(value)
+    give items + [value]
 }
 
 proc contains(items: [string], value: string) -> bool
 {
-    loop it in items
+    for it in items
     {
         if it == value { give true }
     }
@@ -34,55 +43,57 @@ proc is_empty(items: [string]) -> bool
 
 proc join(items: [string], sep: string) -> string
 {
-    give str.join(items, sep)
-}
-
-proc push_result(items: [string], value: string) -> result.StdResult
-{
-    let out = push(items, value)
-    give result.ok(str.join(out, ","))
-}
-
-proc first(items: [string]) -> string?
-{
-    if items.len == 0 { give null }
-    give items[0]
-}
-
-proc last(items: [string]) -> string?
-{
-    if items.len == 0 { give null }
-    give items[items.len - 1]
-}
-
-proc pop(items: [string]) -> ([string], string?)
-{
-    if items.len == 0 { give (items, null) }
-    let v = items[items.len - 1]
-    let out: [string] = []
-    let i: i32 = 0
-    loop while i < items.len - 1
+    if items.len == 0 { give "" }
+    let out = items[0]
+    let i: i32 = 1
+    while i < items.len
     {
-        out = out.push(items[i])
-        i = i + 1
+        set out = out + sep + items[i]
+        set i = i + 1
     }
-    give (out, v)
+    give out
 }
 
-proc pop_or(items: [string], fallback: string) -> ([string], string)
+proc push_result(items: [string], value: string) -> ListResult
 {
-    let out, v = pop(items)
-    if v == null { give (out, fallback) }
-    give (out, v)
+    give ListResult.Ok(join(push(items, value), ","))
+}
+
+proc first(items: [string]) -> MaybeString
+{
+    if items.len == 0 { give MaybeString.None }
+    give MaybeString.Some(items[0])
+}
+
+proc last(items: [string]) -> MaybeString
+{
+    if items.len == 0 { give MaybeString.None }
+    give MaybeString.Some(items[items.len - 1])
+}
+
+proc pop(items: [string]) -> MaybeString
+{
+    if items.len == 0 { give MaybeString.None }
+    give MaybeString.Some(items[items.len - 1])
+}
+
+proc pop_or(items: [string], fallback: string) -> string
+{
+    let out = pop(items)
+    match out
+    {
+        case MaybeString.Some(value) { give value }
+        else { give fallback }
+    }
 }
 
 proc index_of(items: [string], value: string) -> i64
 {
     let i: i32 = 0
-    loop while i < items.len
+    while i < items.len
     {
         if items[i] == value { give i }
-        i = i + 1
+        set i = i + 1
     }
     give -1
 }
@@ -91,19 +102,19 @@ proc slice(items: [string], start: i64, end: i64) -> [string]
 {
     let s = start
     let e = end
-    if s < 0 { s = items.len + s }
-    if e < 0 { e = items.len + e }
-    if s < 0 { s = 0 }
-    if s > items.len { s = items.len }
-    if e < 0 { e = 0 }
-    if e < s { e = s }
-    if e > items.len { e = items.len }
+    if s < 0 { set s = items.len + s }
+    if e < 0 { set e = items.len + e }
+    if s < 0 { set s = 0 }
+    if s > items.len { set s = items.len }
+    if e < 0 { set e = 0 }
+    if e < s { set e = s }
+    if e > items.len { set e = items.len }
     let out: [string] = []
     let i: i32 = s
-    loop while i < e
+    while i < e
     {
-        out = out.push(items[i])
-        i = i + 1
+        set out = out + [items[i]]
+        set i = i + 1
     }
     give out
 }
@@ -111,53 +122,51 @@ proc slice(items: [string], start: i64, end: i64) -> [string]
 proc unique(items: [string]) -> [string]
 {
     let out: [string] = []
-    loop it in items
+    for it in items
     {
-        if !contains(out, it) { out = out.push(it) }
+        if not contains(out, it) { set out = out + [it] }
     }
+    give out
+}
+
+proc insert_sorted(items: [string], value: string) -> [string]
+{
+    let out: [string] = []
+    let inserted = false
+    for it in items
+    {
+        if not inserted and value < it
+        {
+            set out = out + [value]
+            set inserted = true
+        }
+        set out = out + [it]
+    }
+    if not inserted { set out = out + [value] }
     give out
 }
 
 proc sort_asc(items: [string]) -> [string]
 {
-    let out = items
-    let i: i32 = 0
-    loop while i < out.len
+    let out: [string] = []
+    for it in items
     {
-        let j: i32 = i + 1
-        loop while j < out.len
-        {
-            if out[i] > out[j]
-            {
-                let t = out[i]
-                out[i] = out[j]
-                out[j] = t
-            }
-            j = j + 1
-        }
-        i = i + 1
+        set out = insert_sorted(out, it)
     }
     give out
 }
 
 proc concat(a: [string], b: [string]) -> [string]
 {
-    let out = a
-    loop it in b
-    {
-        out = out.push(it)
-    }
-    give out
+    give a + b
 }
 
 proc reverse(items: [string]) -> [string]
 {
     let out: [string] = []
-    let i: i32 = items.len - 1
-    loop while i >= 0
+    for it in items
     {
-        out = out.push(items[i])
-        i = i - 1
+        set out = [it] + out
     }
     give out
 }
@@ -165,9 +174,9 @@ proc reverse(items: [string]) -> [string]
 proc count(items: [string], value: string) -> i64
 {
     let n: i32 = 0
-    loop it in items
+    for it in items
     {
-        if it == value { n = n + 1 }
+        if it == value { set n = n + 1 }
     }
     give n
 }
@@ -176,14 +185,14 @@ proc remove_first(items: [string], value: string) -> [string]
 {
     let out: [string] = []
     let removed = false
-    loop it in items
+    for it in items
     {
-        if !removed && it == value
+        if not removed and it == value
         {
-            removed = true
+            set removed = true
             continue
         }
-        out = out.push(it)
+        set out = out + [it]
     }
     give out
 }
@@ -191,10 +200,10 @@ proc remove_first(items: [string], value: string) -> [string]
 proc remove_all(items: [string], value: string) -> [string]
 {
     let out: [string] = []
-    loop it in items
+    for it in items
     {
         if it == value { continue }
-        out = out.push(it)
+        set out = out + [it]
     }
     give out
 }
@@ -207,29 +216,20 @@ proc sort_desc(items: [string]) -> [string]
 proc insert(items: [string], index: i64, value: string) -> [string]
 {
     let idx = index
-    if idx < 0 { idx = items.len + idx }
-    if idx < 0 { idx = 0 }
-    if idx > items.len { idx = items.len }
-    let out: [string] = []
-    let i: i32 = 0
-    loop while i < items.len
-    {
-        if i == idx { out = out.push(value) }
-        out = out.push(items[i])
-        i = i + 1
-    }
-    if idx == items.len { out = out.push(value) }
-    give out
+    if idx < 0 { set idx = items.len + idx }
+    if idx < 0 { set idx = 0 }
+    if idx > items.len { set idx = items.len }
+    give concat(slice(items, 0, idx), concat([value], slice(items, idx, items.len)))
 }
 
-proc insert_result(items: [string], index: i64, value: string) -> result.StdResult
+proc insert_result(items: [string], index: i64, value: string) -> ListResult
 {
-    if index < -items.len || index > items.len
+    if index < -items.len or index > items.len
     {
-        give result.err("E_INDEX_INVALID", "index out of bounds")
+        give ListResult.Err("E_INDEX_INVALID", "index out of bounds")
     }
     let out = insert(items, index, value)
-    give result.ok(str.join(out, ","))
+    give ListResult.Ok(join(out, ","))
 }
 
 proc extend(items: [string], values: [string]) -> [string]

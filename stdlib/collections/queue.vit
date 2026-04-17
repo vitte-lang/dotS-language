@@ -1,11 +1,32 @@
 space stdlib/collections/queue
 
-pull core/str
-pull stdlib/system/result
+pick MaybeString
+{
+    case Some(value: string)
+    case None
+}
+
+pick QueueResult
+{
+    case Ok(value: string)
+    case Err(code: string, message: string)
+}
 
 form Queue
 {
-    items: [string]
+    items: [string],
+}
+
+form DequeueResult
+{
+    queue: Queue,
+    value: MaybeString,
+}
+
+form DequeueManyResult
+{
+    queue: Queue,
+    items: [string],
 }
 
 proc empty() -> Queue
@@ -15,23 +36,22 @@ proc empty() -> Queue
 
 proc enqueue(q: Queue, value: string) -> Queue
 {
-    q.items = q.items.push(value)
-    give q
+    give Queue(q.items + [value])
 }
 
-proc dequeue(q: Queue) -> (Queue, string?)
+proc dequeue(q: Queue) -> DequeueResult
 {
-    if q.items.len == 0 { give (q, null) }
+    if q.items.len == 0 { give DequeueResult(q, MaybeString.None) }
+
     let v = q.items[0]
     let out: [string] = []
     let i: i32 = 1
-    loop while i < q.items.len
+    while i < q.items.len
     {
-        out = out.push(q.items[i])
-        i = i + 1
+        set out = out + [q.items[i]]
+        set i = i + 1
     }
-    q.items = out
-    give (q, v)
+    give DequeueResult(Queue(out), MaybeString.Some(v))
 }
 
 proc len(q: Queue) -> i64
@@ -44,23 +64,26 @@ proc is_empty(q: Queue) -> bool
     give q.items.len == 0
 }
 
-proc dequeue_result(q: Queue) -> result.StdResult
+proc dequeue_result(q: Queue) -> QueueResult
 {
-    let q2, v = dequeue(q)
-    if v == null { give result.err("E_QUEUE_EMPTY", "queue is empty") }
-    give result.ok(v + " remaining=" + str.from_i64(q2.items.len))
+    let out = dequeue(q)
+    match out.value
+    {
+        case MaybeString.None { give QueueResult.Err("E_QUEUE_EMPTY", "queue is empty") }
+        case MaybeString.Some(value) { give QueueResult.Ok(value) }
+        else { give QueueResult.Err("E_QUEUE_EMPTY", "queue is empty") }
+    }
 }
 
-proc peek(q: Queue) -> string?
+proc peek(q: Queue) -> MaybeString
 {
-    if q.items.len == 0 { give null }
-    give q.items[0]
+    if q.items.len == 0 { give MaybeString.None }
+    give MaybeString.Some(q.items[0])
 }
 
 proc clear(q: Queue) -> Queue
 {
-    q.items = []
-    give q
+    give Queue([])
 }
 
 proc to_list(q: Queue) -> [string]
@@ -70,25 +93,32 @@ proc to_list(q: Queue) -> [string]
 
 proc enqueue_many(q: Queue, values: [string]) -> Queue
 {
-    loop it in values
+    for it in values
     {
-        q = enqueue(q, it)
+        set q = enqueue(q, it)
     }
     give q
 }
 
-proc dequeue_n(q: Queue, n: i64) -> (Queue, [string])
+proc dequeue_n(q: Queue, n: i64) -> DequeueManyResult
 {
-    if n <= 0 { give (q, []) }
+    if n <= 0 { give DequeueManyResult(q, []) }
+
     let out: [string] = []
     let i: i32 = 0
-    loop while i < n
+    while i < n
     {
-        let q2, v = dequeue(q)
-        q = q2
-        if v == null { stop }
-        out = out.push(v)
-        i = i + 1
+        let d = dequeue(q)
+        set q = d.queue
+        match d.value
+        {
+            case MaybeString.None { break }
+            case MaybeString.Some(value)
+            {
+                set out = out + [value]
+            }
+        }
+        set i = i + 1
     }
-    give (q, out)
+    give DequeueManyResult(q, out)
 }

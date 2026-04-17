@@ -4,7 +4,10 @@ set -euo pipefail
 reg="cmd/dots/registry.vit"
 
 # commands defined in registry
-mapfile -t cmds < <(rg -o 'CommandDef\("([a-z-]+)"' "$reg" | sed -E 's/.*"([a-z-]+)"/\1/' | sort -u)
+cmds=()
+while IFS= read -r cmd; do
+  [[ -n "$cmd" ]] && cmds+=("$cmd")
+done < <(rg -o 'CommandDef\("([a-z-]+)"' "$reg" | sed -E 's/.*"([a-z-]+)"/\1/' | sort -u)
 
 fail=0
 for c in "${cmds[@]}"; do
