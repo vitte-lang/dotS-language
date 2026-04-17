@@ -30,6 +30,11 @@
 .ret.
 .end.
 
+.begin.
+.sys.exec.capture."bash -lc 'scripts/fake_registry.sh init .dots/e2e-reg; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg dots install --json unknown_pkg'".$out.
+.assert.contains.$out."PACKAGE_NOT_FOUND".
+.ret.
+.end.
 .test.cli.e2e.fake_registry.package_not_found.
 .begin.
 .sys.exec.capture."bash -lc 'scripts/fake_registry.sh init .dots/e2e-reg; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg dots install --json unknown_pkg'".$out.
