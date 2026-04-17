@@ -1,13 +1,19 @@
 space stdlib/fs/read
 
-pull core/fs
-pull core/str
-pull stdlib/json/parser
-pull stdlib/system/result
+use core/fs as fs
+use core/str as str
+use stdlib/json/parser as parser
+use stdlib/system/result as result
+
+pick MaybeString
+{
+    case Some(value: string)
+    case None
+}
 
 proc text(path: string) -> string
 {
-    if !fs.exists(path) { give "" }
+    if not fs.exists(path) { give "" }
     give fs.read_file(path)
 }
 
@@ -21,26 +27,29 @@ proc lines(path: string) -> [string]
 proc non_empty_lines(path: string) -> [string]
 {
     let out: [string] = []
-    loop it in lines(path)
+    for it in lines(path)
     {
         if str.trim(it) == "" { continue }
-        out = out.push(it)
+        set out = out + [it]
     }
     give out
 }
 
-proc first_line(path: string) -> string?
+proc first_line(path: string) -> MaybeString
 {
     let ls = lines(path)
-    if ls.len == 0 { give null }
-    give ls[0]
+    if ls.len == 0 { give MaybeString.None }
+    give MaybeString.Some(ls[0])
 }
 
 proc first_line_or(path: string, fallback: string) -> string
 {
     let line = first_line(path)
-    if line == null { give fallback }
-    give line
+    match line
+    {
+        case MaybeString.Some(value) { give value }
+        else { give fallback }
+    }
 }
 
 proc text_or(path: string, fallback: string) -> string
@@ -58,21 +67,24 @@ proc exists(path: string) -> bool
 proc text_result(path: string) -> result.StdResult
 {
     if str.trim(path) == "" { give result.err("E_PATH_EMPTY", "path is empty") }
-    if !exists(path) { give result.err("E_PATH_NOT_FOUND", "path not found: " + path) }
+    if not exists(path) { give result.err("E_PATH_NOT_FOUND", "path not found: " + path) }
     give result.ok(text(path))
 }
 
-proc json_text(path: string) -> string?
+proc json_text(path: string) -> MaybeString
 {
     let raw = text(path)
-    if raw == "" { give null }
-    if !parser.is_json(raw) { give null }
-    give raw
+    if raw == "" { give MaybeString.None }
+    if not parser.is_json(raw) { give MaybeString.None }
+    give MaybeString.Some(raw)
 }
 
 proc json_text_or(path: string, fallback: string) -> string
 {
     let raw = json_text(path)
-    if raw == null { give fallback }
-    give raw
+    match raw
+    {
+        case MaybeString.Some(value) { give value }
+        else { give fallback }
+    }
 }

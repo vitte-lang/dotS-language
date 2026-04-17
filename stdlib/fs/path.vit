@@ -1,8 +1,8 @@
 space stdlib/fs/path
 
-pull core/fs
-pull core/str
-pull stdlib/system/result
+use core/fs as fs
+use core/str as str
+use stdlib/system/result as result
 
 proc base(path: string) -> string
 {
@@ -25,7 +25,7 @@ proc join(a: string, b: string) -> string
 proc ext(path: string) -> string
 {
     let b = base(path)
-    if !str.contains(b, ".") { give "" }
+    if not str.contains(b, ".") { give "" }
     let p = str.split(b, ".")
     if p.len < 2 { give "" }
     give p[p.len - 1]
@@ -34,7 +34,7 @@ proc ext(path: string) -> string
 proc stem(path: string) -> string
 {
     let b = base(path)
-    if !str.contains(b, ".") { give b }
+    if not str.contains(b, ".") { give b }
     let p = str.split(b, ".")
     if p.len == 0 { give b }
     give p[0]
@@ -43,18 +43,18 @@ proc stem(path: string) -> string
 proc normalize(path: string) -> string
 {
     let v = str.replace(path, "\\", "/")
-    loop while str.contains(v, "//")
+    while str.contains(v, "//")
     {
-        v = str.replace(v, "//", "/")
+        set v = str.replace(v, "//", "/")
     }
-    v = str.replace(v, "/./", "/")
-    if str.ends_with(v, "/.") { v = str.replace(v, "/.", "") }
+    set v = str.replace(v, "/./", "/")
+    if str.ends_with(v, "/.") { set v = str.replace(v, "/.", "") }
     give v
 }
 
 proc join_result(a: string, b: string) -> result.StdResult
 {
-    if str.trim(a) == "" && str.trim(b) == ""
+    if str.trim(a) == "" and str.trim(b) == ""
     {
         give result.err("E_PATH_EMPTY", "both path segments are empty")
     }
