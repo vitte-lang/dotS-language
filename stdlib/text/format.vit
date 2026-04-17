@@ -1,14 +1,14 @@
 space stdlib/text/format
 
-pull core/str
-pull stdlib/system/result
+use core/str as str
+use stdlib/system/result as result
 
-proc int(v: i64) -> string
+proc int_text(v: i64) -> string
 {
     give str.from_i64(v)
 }
 
-proc bool(v: bool) -> string
+proc bool_text(v: bool) -> string
 {
     give str.from_bool(v)
 }

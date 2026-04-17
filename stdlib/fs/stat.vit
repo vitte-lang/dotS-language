@@ -1,28 +1,28 @@
 space stdlib/fs/stat
 
-pull core/fs
-pull core/str
-pull stdlib/system/result
+use core/fs as fs
+use core/str as str
+use stdlib/system/result as result
 
 form FileStat
 {
-    path: string
-    exists: bool
-    is_file: bool
-    mtime_ms: i64
+    path: string,
+    exists: bool,
+    is_file: bool,
+    mtime_ms: i64,
 }
 
 proc get(path: string) -> FileStat
 {
     let ex = fs.exists(path)
-    if !ex { give FileStat(path, false, false, 0) }
+    if not ex { give FileStat(path, false, false, 0) }
     give FileStat(path, true, fs.is_file(path), fs.mtime_ms(path))
 }
 
 proc is_dir(path: string) -> bool
 {
-    if !fs.exists(path) { give false }
-    give !fs.is_file(path)
+    if not fs.exists(path) { give false }
+    give not fs.is_file(path)
 }
 
 proc summary(path: string) -> string
@@ -37,6 +37,6 @@ proc summary(path: string) -> string
 proc get_result(path: string) -> result.StdResult
 {
     let s = get(path)
-    if !s.exists { give result.err("E_PATH_NOT_FOUND", "path not found: " + path) }
+    if not s.exists { give result.err("E_PATH_NOT_FOUND", "path not found: " + path) }
     give result.ok(summary(path))
 }

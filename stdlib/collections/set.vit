@@ -1,8 +1,8 @@
-space stdlib/collections/set
+space stdlib/collections/set_
 
-pull core/str
-pull stdlib/collections/list
-pull stdlib/system/result
+use core/str as str
+use stdlib/collections/list as list
+use stdlib/system/result as result
 
 proc empty() -> [string]
 {
@@ -12,7 +12,7 @@ proc empty() -> [string]
 proc add(items: [string], value: string) -> [string]
 {
     if list.contains(items, value) { give items }
-    give items.push(value)
+    give list.push(items, value)
 }
 
 proc contains(items: [string], value: string) -> bool
@@ -39,10 +39,10 @@ proc add_result(items: [string], value: string) -> result.StdResult
 proc remove(items: [string], value: string) -> [string]
 {
     let out: [string] = []
-    loop it in items
+    for it in items
     {
         if it == value { continue }
-        out = out.push(it)
+        set out = list.push(out, it)
     }
     give out
 }
@@ -50,9 +50,9 @@ proc remove(items: [string], value: string) -> [string]
 proc union(a: [string], b: [string]) -> [string]
 {
     let out = a
-    loop it in b
+    for it in b
     {
-        out = add(out, it)
+        set out = add(out, it)
     }
     give out
 }
@@ -60,9 +60,9 @@ proc union(a: [string], b: [string]) -> [string]
 proc intersection(a: [string], b: [string]) -> [string]
 {
     let out: [string] = []
-    loop it in a
+    for it in a
     {
-        if contains(b, it) { out = add(out, it) }
+        if contains(b, it) { set out = list.push(out, it) }
     }
     give out
 }
@@ -70,18 +70,18 @@ proc intersection(a: [string], b: [string]) -> [string]
 proc difference(a: [string], b: [string]) -> [string]
 {
     let out: [string] = []
-    loop it in a
+    for it in a
     {
-        if !contains(b, it) { out = add(out, it) }
+        if not contains(b, it) { set out = list.push(out, it) }
     }
     give out
 }
 
 proc is_subset(a: [string], b: [string]) -> bool
 {
-    loop it in a
+    for it in a
     {
-        if !contains(b, it) { give false }
+        if not contains(b, it) { give false }
     }
     give true
 }
@@ -93,15 +93,15 @@ proc is_superset(a: [string], b: [string]) -> bool
 
 proc equals(a: [string], b: [string]) -> bool
 {
-    give len(a) == len(b) && is_subset(a, b)
+    give len(a) == len(b) and is_subset(a, b)
 }
 
 proc copy(items: [string]) -> [string]
 {
     let out: [string] = []
-    loop it in items
+    for it in items
     {
-        out = add(out, it)
+        set out = list.push(out, it)
     }
     give out
 }
@@ -113,7 +113,7 @@ proc symmetric_difference(a: [string], b: [string]) -> [string]
 
 proc is_disjoint(a: [string], b: [string]) -> bool
 {
-    loop it in a
+    for it in a
     {
         if contains(b, it) { give false }
     }

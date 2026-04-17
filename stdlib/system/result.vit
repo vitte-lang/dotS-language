@@ -1,13 +1,13 @@
 space stdlib/system/result
 
-pull core/str
+use core/str as str
 
 form StdResult
 {
-    ok: bool
-    code: string
-    message: string
-    value: string
+    ok: bool,
+    code: string,
+    message: string,
+    value: string,
 }
 
 proc ok(value: string) -> StdResult
@@ -22,8 +22,7 @@ proc err(code: string, message: string) -> StdResult
 
 proc with_value(r: StdResult, value: string) -> StdResult
 {
-    r.value = value
-    give r
+    give StdResult(r.ok, r.code, r.message, value)
 }
 
 proc is_ok(r: StdResult) -> bool
@@ -33,7 +32,7 @@ proc is_ok(r: StdResult) -> bool
 
 proc is_err(r: StdResult) -> bool
 {
-    give !r.ok
+    give not r.ok
 }
 
 proc summary(r: StdResult) -> string

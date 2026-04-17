@@ -1,23 +1,23 @@
 space stdlib/fs/walk
 
-pull core/fs
-pull core/str
-pull stdlib/fs/path
-pull stdlib/system/result
+use core/fs as fs
+use core/str as str
+use stdlib/fs/path as path
+use stdlib/system/result as result
 
 proc files(root: string) -> [string]
 {
-    if !fs.exists(root) { give [] }
+    if not fs.exists(root) { give [] }
     if fs.is_file(root) { give [root] }
 
     let out: [string] = []
     let names = fs.read_dir(root)
-    loop n in names
+    for n in names
     {
         let p = path.join(root, n)
         if fs.is_file(p)
         {
-            out = out.push(p)
+            set out = out + [p]
         }
     }
     give out
@@ -26,9 +26,9 @@ proc files(root: string) -> [string]
 proc files_with_ext(root: string, ext: string) -> [string]
 {
     let out: [string] = []
-    loop p in files(root)
+    for p in files(root)
     {
-        if path.ext(p) == ext { out = out.push(p) }
+        if path.ext(p) == ext { set out = out + [p] }
     }
     give out
 }
