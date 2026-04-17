@@ -1,7 +1,13 @@
 space stdlib/math/basic
 
-pull core/str
-pull stdlib/system/result
+use core/str as str
+use stdlib/system/result as result
+
+form MinMax
+{
+    lo: i64,
+    hi: i64,
+}
 
 proc abs(v: i64) -> i64
 {
@@ -31,9 +37,9 @@ proc clamp(v: i64, lo: i64, hi: i64) -> i64
 proc sum(items: [i64]) -> i64
 {
     let out: i64 = 0
-    loop x in items
+    for x in items
     {
-        out = out + x
+        set out = out + x
     }
     give out
 }
@@ -44,6 +50,43 @@ proc avg(items: [i64]) -> i64
     give sum(items) / items.len
 }
 
+proc insert_sorted(items: [i64], value: i64) -> [i64]
+{
+    let out: [i64] = []
+    let inserted = false
+    for it in items
+    {
+        if not inserted and value < it
+        {
+            set out = out + [value]
+            set inserted = true
+        }
+        set out = out + [it]
+    }
+    if not inserted { set out = out + [value] }
+    give out
+}
+
+proc sort_asc(items: [i64]) -> [i64]
+{
+    let out: [i64] = []
+    for it in items
+    {
+        set out = insert_sorted(out, it)
+    }
+    give out
+}
+
+proc sort_desc(items: [i64]) -> [i64]
+{
+    let out: [i64] = []
+    for it in sort_asc(items)
+    {
+        set out = [it] + out
+    }
+    give out
+}
+
 proc median(items: [i64]) -> i64
 {
     if items.len == 0 { give 0 }
@@ -51,44 +94,6 @@ proc median(items: [i64]) -> i64
     let n = s.len
     if n % 2 == 1 { give s[n / 2] }
     give (s[(n / 2) - 1] + s[n / 2]) / 2
-}
-
-proc sort_asc(items: [i64]) -> [i64]
-{
-    let out = items
-    let i: i32 = 0
-    loop while i < out.len
-    {
-        let j: i32 = i + 1
-        loop while j < out.len
-        {
-            if out[i] > out[j]
-            {
-                let t = out[i]
-                out[i] = out[j]
-                out[j] = t
-            }
-            j = j + 1
-        }
-        i = i + 1
-    }
-    give out
-}
-
-proc sort_desc(items: [i64]) -> [i64]
-{
-    let out = sort_asc(items)
-    let i: i32 = 0
-    let j: i32 = out.len - 1
-    loop while i < j
-    {
-        let t = out[i]
-        out[i] = out[j]
-        out[j] = t
-        i = i + 1
-        j = j - 1
-    }
-    give out
 }
 
 proc p90(items: [i64]) -> i64
@@ -106,19 +111,19 @@ proc range(items: [i64]) -> i64
     give s[s.len - 1] - s[0]
 }
 
-proc minmax(items: [i64]) -> (i64, i64)
+proc minmax(items: [i64]) -> MinMax
 {
-    if items.len == 0 { give (0, 0) }
+    if items.len == 0 { give MinMax(0, 0) }
     let lo = items[0]
     let hi = items[0]
     let i: i32 = 1
-    loop while i < items.len
+    while i < items.len
     {
-        if items[i] < lo { lo = items[i] }
-        if items[i] > hi { hi = items[i] }
-        i = i + 1
+        if items[i] < lo { set lo = items[i] }
+        if items[i] > hi { set hi = items[i] }
+        set i = i + 1
     }
-    give (lo, hi)
+    give MinMax(lo, hi)
 }
 
 proc percentile(items: [i64], p: i64) -> i64
@@ -133,9 +138,9 @@ proc percentile(items: [i64], p: i64) -> i64
 proc count_non_zero(items: [i64]) -> i64
 {
     let n: i32 = 0
-    loop it in items
+    for it in items
     {
-        if it != 0 { n = n + 1 }
+        if it != 0 { set n = n + 1 }
     }
     give n
 }
