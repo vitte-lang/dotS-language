@@ -1,0 +1,7 @@
+space stdlib/math
+
+use stdlib/math/basic as basic
+use stdlib/math/matrix as matrix
+use stdlib/math/random as random
+
+share basic, matrix, random

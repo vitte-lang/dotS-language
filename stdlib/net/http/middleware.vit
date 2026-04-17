@@ -1,12 +1,12 @@
 space stdlib/net/http/middleware
 
-pull core/str
-pull stdlib/net/http/request
+use core/str as str
+use stdlib/net/http/request as request
 
 form Context
 {
-    request_id: string
-    req: request.Request
+    request_id: string,
+    req: request.Request,
 }
 
 proc with_request_id(req: request.Request, request_id: string) -> Context
@@ -17,6 +17,6 @@ proc with_request_id(req: request.Request, request_id: string) -> Context
 proc redact_authorization(raw: string) -> string
 {
     if raw == "" { give raw }
-    if !str.contains(raw, "Authorization:") { give raw }
+    if not str.contains(raw, "Authorization:") { give raw }
     give str.replace(raw, "Authorization:", "Authorization:[REDACTED]")
 }

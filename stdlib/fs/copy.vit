@@ -1,40 +1,39 @@
 space stdlib/fs/copy
 
-pull core/fs
-pull core/str
-pull stdlib/fs/read
-pull stdlib/fs/write
-pull stdlib/fs/path
-pull stdlib/system/result
+use std/io/fs as fs
+use core/str as str
+use stdlib/fs/read as read
+use stdlib/fs/write as write
+use stdlib/fs/path as path
+use stdlib/system/result as result
 
 proc file(src: string, dst: string) -> bool
 {
-    if !read.exists(src) { give false }
+    if not read.exists(src) { give false }
     write.text(dst, read.text(src))
     give true
 }
 
 proc tree(src_dir: string, dst_dir: string) -> i64
 {
-    if !fs.exists(src_dir) { give 0 }
+    if not fs.exists(src_dir) { give 0 }
     let copied: i64 = 0
-    loop rel in fs.read_dir(src_dir)
+    for rel in fs.read_dir(src_dir)
     {
         let src = path.join(src_dir, rel)
         let dst = path.join(dst_dir, rel)
         if fs.is_file(src)
         {
-            if file(src, dst) { copied = copied + 1 }
+            if file(src, dst) { set copied = copied + 1 }
             continue
         }
-        # one-level nested tree copy
-        loop leaf in fs.read_dir(src)
+        for leaf in fs.read_dir(src)
         {
             let src2 = path.join(src, leaf)
             let dst2 = path.join(dst, leaf)
             if fs.is_file(src2)
             {
-                if file(src2, dst2) { copied = copied + 1 }
+                if file(src2, dst2) { set copied = copied + 1 }
             }
         }
     }
@@ -43,11 +42,11 @@ proc tree(src_dir: string, dst_dir: string) -> i64
 
 proc file_result(src: string, dst: string) -> result.StdResult
 {
-    if str.trim(src) == "" || str.trim(dst) == ""
+    if str.trim(src) == "" or str.trim(dst) == ""
     {
         give result.err("E_PATH_EMPTY", "src/dst path must be non-empty")
     }
-    if !file(src, dst)
+    if not file(src, dst)
     {
         give result.err("E_SRC_NOT_FOUND", "source file not found: " + src)
     }

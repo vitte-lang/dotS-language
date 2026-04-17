@@ -1,12 +1,12 @@
 space stdlib/net/http/response
 
-pull core/str
-pull stdlib/system/result
+use core/str as str
+use stdlib/system/result as result
 
 form Response
 {
-    status: i64
-    body: string
+    status: i64,
+    body: string,
 }
 
 proc ok(body: string) -> Response
@@ -27,7 +27,7 @@ proc summary(r: Response) -> string
 
 proc validate(r: Response) -> result.StdResult
 {
-    if r.status < 100 || r.status > 599
+    if r.status < 100 or r.status > 599
     {
         give result.err("E_STATUS_INVALID", "status out of range: " + str.from_i64(r.status))
     }
@@ -36,23 +36,22 @@ proc validate(r: Response) -> result.StdResult
 
 proc is_success(r: Response) -> bool
 {
-    give r.status >= 200 && r.status <= 299
+    give r.status >= 200 and r.status <= 299
 }
 
 proc is_client_error(r: Response) -> bool
 {
-    give r.status >= 400 && r.status <= 499
+    give r.status >= 400 and r.status <= 499
 }
 
 proc is_server_error(r: Response) -> bool
 {
-    give r.status >= 500 && r.status <= 599
+    give r.status >= 500 and r.status <= 599
 }
 
 proc with_status(r: Response, status: i64) -> Response
 {
-    r.status = status
-    give r
+    give Response(status, r.body)
 }
 
 proc with_status_result(r: Response, status: i64) -> result.StdResult

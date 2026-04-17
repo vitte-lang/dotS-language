@@ -53,12 +53,15 @@ proc trim(raw: string) -> string
 {
     let start: i32 = 0
     let stop: i32 = raw.len
-    while start < stop and is_space(raw[start])
+    while start < stop
     {
+        if not is_space(raw[start]) { break }
         set start = start + 1
     }
-    while stop > start and is_space(raw[stop - 1])
+    while stop > start
     {
+        let tail: i32 = stop - 1
+        if not is_space(raw[tail]) { break }
         set stop = stop - 1
     }
     give slice(raw, start, stop)
@@ -75,7 +78,8 @@ proc find(raw: string, pat: string) -> i64
         let j: i32 = 0
         while j < pat.len
         {
-            if raw[i + j] != pat[j]
+            let idx: i32 = i + j
+            if raw[idx] != pat[j]
             {
                 set ok = false
                 break
@@ -130,7 +134,8 @@ proc ends_with(raw: string, pat: string) -> bool
     let i: i32 = 0
     while i < pat.len
     {
-        if raw[start + i] != pat[i] { give false }
+        let idx: i32 = start + i
+        if raw[idx] != pat[i] { give false }
         set i = i + 1
     }
     give true
@@ -143,9 +148,16 @@ proc lower(raw: string) -> string
     while i < raw.len
     {
         let ch = raw[i]
-        if ch >= 65 and ch <= 90
+        if ch >= 65
         {
-            set out = out + ((ch + 32) as string)
+            if ch <= 90
+            {
+                set out = out + ((ch + 32) as string)
+            }
+            else
+            {
+                set out = out + (ch as string)
+            }
         }
         else
         {
@@ -163,9 +175,16 @@ proc upper(raw: string) -> string
     while i < raw.len
     {
         let ch = raw[i]
-        if ch >= 97 and ch <= 122
+        if ch >= 97
         {
-            set out = out + ((ch - 32) as string)
+            if ch <= 122
+            {
+                set out = out + ((ch - 32) as string)
+            }
+            else
+            {
+                set out = out + (ch as string)
+            }
         }
         else
         {
@@ -214,7 +233,8 @@ proc split(raw: string, sep: string) -> [string]
         let j: i32 = 0
         while j < sep.len
         {
-            if raw[i + j] != sep[j]
+            let idx: i32 = i + j
+            if raw[idx] != sep[j]
             {
                 set matched = false
                 break

@@ -1,0 +1,10 @@
+space stdlib/net/http
+
+use stdlib/net/http/client as client
+use stdlib/net/http/middleware as middleware
+use stdlib/net/http/request as request
+use stdlib/net/http/response as response
+use stdlib/net/http/router as router
+use stdlib/net/http/server as server
+
+share client, middleware, request, response, router, server

@@ -1,0 +1,5 @@
+space stdlib/system
+
+use stdlib/system/result as result
+
+share result

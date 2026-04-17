@@ -1,15 +1,15 @@
 space stdlib/net/http/client
 
-pull core/str
-pull stdlib/system/result
+use core/str as str
+use stdlib/system/result as result
 
 form RetryPolicy
 {
-    retries: i64
-    base_backoff_ms: i64
-    max_backoff_ms: i64
-    retry_on_5xx: bool
-    retry_on_429: bool
+    retries: i64,
+    base_backoff_ms: i64,
+    max_backoff_ms: i64,
+    retry_on_5xx: bool,
+    retry_on_429: bool,
 }
 
 proc default_retry_policy() -> RetryPolicy
@@ -27,16 +27,9 @@ proc clamp_timeout_ms(v: i64) -> i64
 proc should_retry_core(status_code: i64, attempt: i64, policy: RetryPolicy) -> bool
 {
     if attempt >= policy.retries { give false }
-    if policy.retry_on_429 && status_code == 429 { give true }
-    if policy.retry_on_5xx && status_code >= 500 && status_code <= 599 { give true }
+    if policy.retry_on_429 and status_code == 429 { give true }
+    if policy.retry_on_5xx and status_code >= 500 and status_code <= 599 { give true }
     give false
-}
-
-proc should_retry(status_code: i64, attempt: i64, policy: RetryPolicy) -> bool
-{
-    let r = should_retry_result(status_code, attempt, policy)
-    if !r.ok { give false }
-    give r.value == "true"
 }
 
 proc backoff_ms(attempt: i64, policy: RetryPolicy) -> i64
@@ -44,13 +37,13 @@ proc backoff_ms(attempt: i64, policy: RetryPolicy) -> i64
     if attempt <= 0 { give policy.base_backoff_ms }
     let n = policy.base_backoff_ms
     let i: i64 = 0
-    loop while i < attempt
+    while i < attempt
     {
-        n = n * 2
-        i = i + 1
+        set n = n * 2
+        set i = i + 1
     }
-    if n > policy.max_backoff_ms { n = policy.max_backoff_ms }
-    if n < 1 { n = 1 }
+    if n > policy.max_backoff_ms { set n = policy.max_backoff_ms }
+    if n < 1 { set n = 1 }
     give n
 }
 
@@ -74,8 +67,15 @@ proc validate_policy(p: RetryPolicy) -> result.StdResult
 proc should_retry_result(status_code: i64, attempt: i64, policy: RetryPolicy) -> result.StdResult
 {
     let v = validate_policy(policy)
-    if !v.ok { give v }
+    if not v.ok { give v }
     give result.ok(str.from_bool(should_retry_core(status_code, attempt, policy)))
+}
+
+proc should_retry(status_code: i64, attempt: i64, policy: RetryPolicy) -> bool
+{
+    let r = should_retry_result(status_code, attempt, policy)
+    if not r.ok { give false }
+    give r.value == "true"
 }
 
 proc make_policy(retries: i64, base_backoff_ms: i64, max_backoff_ms: i64, retry_on_5xx: bool, retry_on_429: bool) -> RetryPolicy
@@ -85,13 +85,10 @@ proc make_policy(retries: i64, base_backoff_ms: i64, max_backoff_ms: i64, retry_
 
 proc with_retries(p: RetryPolicy, retries: i64) -> RetryPolicy
 {
-    p.retries = retries
-    give p
+    give RetryPolicy(retries, p.base_backoff_ms, p.max_backoff_ms, p.retry_on_5xx, p.retry_on_429)
 }
 
 proc with_backoff(p: RetryPolicy, base_backoff_ms: i64, max_backoff_ms: i64) -> RetryPolicy
 {
-    p.base_backoff_ms = base_backoff_ms
-    p.max_backoff_ms = max_backoff_ms
-    give p
+    give RetryPolicy(p.retries, base_backoff_ms, max_backoff_ms, p.retry_on_5xx, p.retry_on_429)
 }

@@ -1,30 +1,39 @@
 space stdlib/fs/write
 
-use core/fs as fs
+use std/io/fs as fs
 use core/str as str
 use stdlib/json/parser as parser
 use stdlib/system/result as result
 
-proc text(path: string, content: string) -> void
+proc text(path: string, content: string) -> bool
 {
     let dir = fs.dir_name(path)
     if dir != "" { fs.mkdir_p(dir) }
     fs.write_file(path, content)
+    give true
 }
 
-proc lines(path: string, items: [string]) -> void
+proc lines(path: string, items: [string]) -> bool
 {
     text(path, str.join(items, "\n") + "\n")
+    give true
 }
 
-proc append(path: string, content: string) -> void
+proc append(path: string, content: string) -> bool
 {
     let dir = fs.dir_name(path)
     if dir != "" { fs.mkdir_p(dir) }
     fs.append_file(path, content)
+    give true
 }
 
-proc append_lines(path: string, items: [string]) -> void
+proc append_line(path: string, line: string) -> bool
+{
+    append(path, line + "\n")
+    give true
+}
+
+proc append_lines(path: string, items: [string]) -> bool
 {
     let i: i32 = 0
     while i < items.len
@@ -32,6 +41,7 @@ proc append_lines(path: string, items: [string]) -> void
         append_line(path, items[i])
         set i = i + 1
     }
+    give true
 }
 
 proc text_if_changed_core(path: string, content: string) -> bool
@@ -45,6 +55,17 @@ proc text_if_changed_core(path: string, content: string) -> bool
     give true
 }
 
+proc text_if_changed_result(path: string, content: string) -> result.StdResult
+{
+    if str.trim(path) == ""
+    {
+        give result.err("E_PATH_EMPTY", "path is empty")
+    }
+    let changed = text_if_changed_core(path, content)
+    if changed { give result.ok("changed") }
+    give result.ok("unchanged")
+}
+
 proc text_if_changed(path: string, content: string) -> bool
 {
     let r = text_if_changed_result(path, content)
@@ -55,22 +76,6 @@ proc text_if_changed(path: string, content: string) -> bool
 proc lines_if_changed(path: string, items: [string]) -> bool
 {
     give text_if_changed(path, str.join(items, "\n") + "\n")
-}
-
-proc append_line(path: string, line: string) -> void
-{
-    append(path, line + "\n")
-}
-
-proc text_if_changed_result(path: string, content: string) -> result.StdResult
-{
-    if str.trim(path) == ""
-    {
-        give result.err("E_PATH_EMPTY", "path is empty")
-    }
-    let changed = text_if_changed_core(path, content)
-    if changed { give result.ok("changed") }
-    give result.ok("unchanged")
 }
 
 proc json_text(path: string, raw_json: string) -> result.StdResult

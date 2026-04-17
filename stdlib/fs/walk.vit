@@ -1,6 +1,6 @@
 space stdlib/fs/walk
 
-use core/fs as fs
+use std/io/fs as fs
 use core/str as str
 use stdlib/fs/path as path
 use stdlib/system/result as result

@@ -1,163 +1,173 @@
 space stdlib/json/parser
 
-pull core/str
-pull stdlib/system/result
+use core/str as str
+use stdlib/system/result as result
+
+pick MaybeString
+{
+    case Some(value: string)
+    case None
+}
+
+pick MaybeI64
+{
+    case Some(value: i64)
+    case None
+}
+
+pick MaybeBool
+{
+    case Some(value: bool)
+    case None
+}
 
 proc is_object(raw: string) -> bool
 {
     let v = str.trim(raw)
-    if !str.starts_with(v, "{") { give false }
-    if !str.ends_with(v, "}") { give false }
+    if not str.starts_with(v, "{") { give false }
+    if not str.ends_with(v, "}") { give false }
     give true
 }
 
 proc is_array(raw: string) -> bool
 {
     let v = str.trim(raw)
-    if !str.starts_with(v, "[") { give false }
-    if !str.ends_with(v, "]") { give false }
+    if not str.starts_with(v, "[") { give false }
+    if not str.ends_with(v, "]") { give false }
     give true
 }
 
 proc is_json(raw: string) -> bool
 {
-    give is_object(raw) || is_array(raw)
+    give is_object(raw) or is_array(raw)
 }
 
-proc field_string_raw(raw: string, key: string) -> string?
+proc field_string_raw(raw: string, key: string) -> MaybeString
 {
-    if !is_object(raw) { give null }
+    if not is_object(raw) { give MaybeString.None }
     let pat = "\"" + key + "\":\""
-    if !str.contains(raw, pat) { give null }
+    if not str.contains(raw, pat) { give MaybeString.None }
     let p = str.split(raw, pat)
-    if p.len < 2 { give null }
+    if p.len < 2 { give MaybeString.None }
     let q = str.split(p[1], "\"")
-    if q.len < 1 { give null }
-    give q[0]
+    if q.len < 1 { give MaybeString.None }
+    give MaybeString.Some(q[0])
 }
 
-proc field_i64_raw(raw: string, key: string) -> i64?
+proc field_i64_raw(raw: string, key: string) -> MaybeI64
 {
-    if !is_object(raw) { give null }
+    if not is_object(raw) { give MaybeI64.None }
     let pat = "\"" + key + "\":"
-    if !str.contains(raw, pat) { give null }
+    if not str.contains(raw, pat) { give MaybeI64.None }
     let p = str.split(raw, pat)
-    if p.len < 2 { give null }
+    if p.len < 2 { give MaybeI64.None }
     let tail = p[1]
-    let n = ""
-    let i: i32 = 0
-    loop while i < tail.len
-    {
-        let ch = tail[i]
-        if (ch >= 48 && ch <= 57) || (i == 0 && ch == 45)
-        {
-            n = n + str.from_i64(ch)
-            i = i + 1
-            continue
-        }
-        break
-    }
-    if n == "" || n == "-" { give null }
-    give str.to_i64(n)
+    let q = str.split(tail, ",")
+    let n = str.trim(str.replace(q[0], "}", ""))
+    if n == "" or n == "-" { give MaybeI64.None }
+    give MaybeI64.Some(str.to_i64(n))
 }
 
-proc field_bool_raw(raw: string, key: string) -> bool?
+proc field_bool_raw(raw: string, key: string) -> MaybeBool
 {
-    if !is_object(raw) { give null }
+    if not is_object(raw) { give MaybeBool.None }
     let t = "\"" + key + "\":true"
-    if str.contains(raw, t) { give true }
+    if str.contains(raw, t) { give MaybeBool.Some(true) }
     let f = "\"" + key + "\":false"
-    if str.contains(raw, f) { give false }
-    give null
+    if str.contains(raw, f) { give MaybeBool.Some(false) }
+    give MaybeBool.None
 }
 
-proc field_string(raw: string, key: string) -> string?
+proc field_string(raw: string, key: string) -> MaybeString
 {
-    let r = field_string_result(raw, key)
-    if !r.ok { give null }
-    give r.value
+    give field_string_raw(raw, key)
 }
 
-proc field_i64(raw: string, key: string) -> i64?
+proc field_i64(raw: string, key: string) -> MaybeI64
 {
-    let r = field_i64_result(raw, key)
-    if !r.ok { give null }
-    give str.to_i64(r.value)
+    give field_i64_raw(raw, key)
 }
 
-proc field_bool(raw: string, key: string) -> bool?
+proc field_bool(raw: string, key: string) -> MaybeBool
 {
-    let r = field_bool_result(raw, key)
-    if !r.ok { give null }
-    give r.value == "true"
+    give field_bool_raw(raw, key)
 }
 
 proc field_string_or(raw: string, key: string, fallback: string) -> string
 {
     let v = field_string(raw, key)
-    if v == null { give fallback }
-    give v
+    match v
+    {
+        case MaybeString.Some(value) { give value }
+        else { give fallback }
+    }
 }
 
 proc field_i64_or(raw: string, key: string, fallback: i64) -> i64
 {
     let v = field_i64(raw, key)
-    if v == null { give fallback }
-    give v
+    match v
+    {
+        case MaybeI64.Some(value) { give value }
+        else { give fallback }
+    }
 }
 
 proc field_bool_or(raw: string, key: string, fallback: bool) -> bool
 {
     let v = field_bool(raw, key)
-    if v == null { give fallback }
-    give v
+    match v
+    {
+        case MaybeBool.Some(value) { give value }
+        else { give fallback }
+    }
 }
 
 proc has_key(raw: string, key: string) -> bool
 {
-    if !is_object(raw) { give false }
+    if not is_object(raw) { give false }
     let p = "\"" + key + "\":"
     give str.contains(raw, p)
 }
 
 proc field_string_result(raw: string, key: string) -> result.StdResult
 {
-    if !is_object(raw)
+    if not is_object(raw)
     {
         give result.err("E_JSON_NOT_OBJECT", "json value is not an object")
     }
-    let v = field_string_raw(raw, key)
-    if v == null
+    let v = field_string(raw, key)
+    match v
     {
-        give result.err("E_JSON_KEY_MISSING", "missing string key: " + key)
+        case MaybeString.Some(value) { give result.ok(value) }
+        else { give result.err("E_JSON_KEY_MISSING", "missing string key: " + key) }
     }
-    give result.ok(v)
 }
 
 proc field_i64_result(raw: string, key: string) -> result.StdResult
 {
-    if !is_object(raw)
+    if not is_object(raw)
     {
         give result.err("E_JSON_NOT_OBJECT", "json value is not an object")
     }
-    let v = field_i64_raw(raw, key)
-    if v == null
+    let v = field_i64(raw, key)
+    match v
     {
-        give result.err("E_JSON_KEY_MISSING", "missing i64 key: " + key)
+        case MaybeI64.Some(value) { give result.ok(str.from_i64(value)) }
+        else { give result.err("E_JSON_KEY_MISSING", "missing i64 key: " + key) }
     }
-    give result.ok(str.from_i64(v))
 }
 
 proc field_bool_result(raw: string, key: string) -> result.StdResult
 {
-    if !is_object(raw)
+    if not is_object(raw)
     {
         give result.err("E_JSON_NOT_OBJECT", "json value is not an object")
     }
-    let v = field_bool_raw(raw, key)
-    if v == null
+    let v = field_bool(raw, key)
+    match v
     {
-        give result.err("E_JSON_KEY_MISSING", "missing bool key: " + key)
+        case MaybeBool.Some(value) { give result.ok(str.from_bool(value)) }
+        else { give result.err("E_JSON_KEY_MISSING", "missing bool key: " + key) }
     }
-    give result.ok(str.from_bool(v))
 }

@@ -1,28 +1,18 @@
 space stdlib/net/http/request
 
-pull core/str
-pull stdlib/system/result
+use core/str as str
+use stdlib/system/result as result
 
 form Request
 {
-    method: string
-    path: string
-    body: string
+    method: string,
+    path: string,
+    body: string,
 }
 
 proc make_core(method: string, path: string, body: string) -> Request
 {
     give Request(str.upper(str.trim(method)), path, body)
-}
-
-proc make(method: string, path: string, body: string) -> Request
-{
-    let r = make_result(method, path, body)
-    if !r.ok
-    {
-        give Request("GET", "/", "")
-    }
-    give make_core(method, path, body)
 }
 
 proc summary(r: Request) -> string
@@ -38,30 +28,39 @@ proc make_result(method: string, path: string, body: string) -> result.StdResult
     give result.ok(summary(r))
 }
 
+proc make_request(method: string, path: string, body: string) -> Request
+{
+    let r = make_result(method, path, body)
+    if not r.ok
+    {
+        give Request("GET", "/", "")
+    }
+    give make_core(method, path, body)
+}
+
 proc get(path: string) -> Request
 {
-    give make("GET", path, "")
+    give make_request("GET", path, "")
 }
 
 proc post(path: string, body: string) -> Request
 {
-    give make("POST", path, body)
+    give make_request("POST", path, body)
 }
 
 proc put(path: string, body: string) -> Request
 {
-    give make("PUT", path, body)
+    give make_request("PUT", path, body)
 }
 
 proc delete(path: string) -> Request
 {
-    give make("DELETE", path, "")
+    give make_request("DELETE", path, "")
 }
 
 proc with_body(r: Request, body: string) -> Request
 {
-    r.body = body
-    give r
+    give Request(r.method, r.path, body)
 }
 
 proc is_method(r: Request, method: string) -> bool

@@ -1,0 +1,7 @@
+space stdlib/json
+
+use stdlib/json/decode as decode
+use stdlib/json/encode as encode
+use stdlib/json/parser as parser
+
+share decode, encode, parser

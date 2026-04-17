@@ -1,6 +1,6 @@
 space stdlib/fs/path
 
-use core/fs as fs
+use std/io/fs as fs
 use core/str as str
 use stdlib/system/result as result
 

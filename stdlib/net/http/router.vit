@@ -1,25 +1,31 @@
 space stdlib/net/http/router
 
-pull stdlib/net/http/request
-pull stdlib/net/http/response
+use stdlib/net/http/request as request
+use stdlib/net/http/response as response
+
+pick MaybeResponse
+{
+    case Some(value: response.Response)
+    case None
+}
 
 form Route
 {
-    method: string
-    path: string
-    response: response.Response
+    method: string,
+    path: string,
+    response: response.Response,
 }
 
 proc add(routes: [Route], method: string, path: string, resp: response.Response) -> [Route]
 {
-    give routes.push(Route(method, path, resp))
+    give routes + [Route(method, path, resp)]
 }
 
-proc match(routes: [Route], req: request.Request) -> response.Response?
+proc route_match(routes: [Route], req: request.Request) -> MaybeResponse
 {
-    loop r in routes
+    for r in routes
     {
-        if r.method == req.method && r.path == req.path { give r.response }
+        if r.method == req.method and r.path == req.path { give MaybeResponse.Some(r.response) }
     }
-    give null
+    give MaybeResponse.None
 }

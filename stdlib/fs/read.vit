@@ -1,6 +1,6 @@
 space stdlib/fs/read
 
-use core/fs as fs
+use std/io/fs as fs
 use core/str as str
 use stdlib/json/parser as parser
 use stdlib/system/result as result

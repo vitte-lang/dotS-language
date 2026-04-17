@@ -1,11 +1,11 @@
 space stdlib/json/decode
 
-pull core/str
+use core/str as str
 
 proc field(raw: string, key: string) -> string
 {
     let pat = "\"" + key + "\":\""
-    if !str.contains(raw, pat) { give "" }
+    if not str.contains(raw, pat) { give "" }
     let p = str.split(raw, pat)
     if p.len < 2 { give "" }
     let q = str.split(p[1], "\"")
@@ -16,20 +16,20 @@ proc field(raw: string, key: string) -> string
 proc field_i64(raw: string, key: string) -> i64
 {
     let pat = "\"" + key + "\":"
-    if !str.contains(raw, pat) { give 0 }
+    if not str.contains(raw, pat) { give 0 }
     let p = str.split(raw, pat)
     if p.len < 2 { give 0 }
     let q = str.split(p[1], ",")
     let v = q[0]
-    v = str.replace(v, "}", "")
-    v = str.trim(v)
+    set v = str.replace(v, "}", "")
+    set v = str.trim(v)
     give str.to_i64(v)
 }
 
 proc field_bool(raw: string, key: string) -> bool
 {
     let pat = "\"" + key + "\":"
-    if !str.contains(raw, pat) { give false }
+    if not str.contains(raw, pat) { give false }
     let p = str.split(raw, pat)
     if p.len < 2 { give false }
     let q = str.split(p[1], ",")

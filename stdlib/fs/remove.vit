@@ -1,7 +1,7 @@
 space stdlib/fs/remove
 
-pull core/fs
-pull stdlib/system/result
+use std/io/fs as fs
+use stdlib/system/result as result
 
 proc file(path: string) -> bool
 {

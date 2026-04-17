@@ -1,4 +1,4 @@
-space stdlib/text/string
+space stdlib/text/string_
 
 use core/str as str
 use stdlib/system/result as result

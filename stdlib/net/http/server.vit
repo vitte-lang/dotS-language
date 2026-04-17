@@ -1,15 +1,15 @@
 space stdlib/net/http/server
 
-pull core/str
-pull stdlib/net/http/request
-pull stdlib/net/http/response
-pull stdlib/net/http/router
-pull stdlib/system/result
+use core/str as str
+use stdlib/net/http/request as request
+use stdlib/net/http/response as response
+use stdlib/net/http/router as router
+use stdlib/system/result as result
 
 form Server
 {
-    routes: [router.Route]
-    strict: bool
+    routes: [router.Route],
+    strict: bool,
 }
 
 proc create(strict: bool) -> Server
@@ -19,14 +19,17 @@ proc create(strict: bool) -> Server
 
 proc add_route(s: Server, method: string, path: string, resp: response.Response) -> Server
 {
-    s.routes = router.add(s.routes, str.upper(str.trim(method)), path, resp)
-    give s
+    give Server(router.add(s.routes, str.upper(str.trim(method)), path, resp), s.strict)
 }
 
 proc handle(s: Server, req: request.Request) -> response.Response
 {
-    let m = router.match(s.routes, req)
-    if m != null { give m }
+    let m = router.route_match(s.routes, req)
+    match m
+    {
+        case router.MaybeResponse.Some(value) { give value }
+        case router.MaybeResponse.None { }
+    }
     if s.strict { give response.error(404, "not found") }
     give response.ok("")
 }
