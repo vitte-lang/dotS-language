@@ -1,6 +1,6 @@
 .test.ffi.json.schema.snapshot.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"FFI_SCHEMA_VERSION|schema_version|run_id|request_id|ffi_status_print_json|ffi_doctor_print_json\" ffi/c/ffi.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"FFI_SCHEMA_VERSION|schema_version|run_id|request_id|ffi_status_print_json|ffi_doctor_print_json\" ffi/c/ffi.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

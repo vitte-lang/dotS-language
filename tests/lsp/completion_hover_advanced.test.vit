@@ -1,20 +1,20 @@
 .test.lsp.completion.advanced.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"CompletionItemEx|insertTextFormat|sortText|filterText|completionItem/resolve|snippet_for|trigger\" lsp/completion.vit lsp/server.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"CompletionItemEx|insertTextFormat|sortText|filterText|completionItem/resolve|snippet_for|trigger\" lsp/completion.vit lsp/server.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.lsp.hover.markdown.sections.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"Signature|Type|Provenance|Location|hover_markdown\" lsp/hover.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"Signature|Type|Provenance|Location|hover_markdown\" lsp/hover.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.lsp.definition.cross_file.index.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"index.v1.jsonl|load_index_symbols|persist_index\" lsp/model.vit lsp/goto_definition.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"index.v1.jsonl|load_index_symbols|persist_index\" lsp/model.vit lsp/goto_definition.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

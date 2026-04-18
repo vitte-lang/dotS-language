@@ -1,13 +1,13 @@
 .test.ffi.security.path.traversal.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"secure_join|path traversal rejected|allowed_extension|test\\\", \\[\\\"-r\\\"\" ffi/c/ffi.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"secure_join|path traversal rejected|allowed_extension|test\\\", \\[\\\"-r\\\"\" ffi/c/ffi.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.ffi.security.redaction.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"redact_secrets|token=|password=|secret=\" ffi/c/ffi.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"redact_secrets|token=|password=|secret=\" ffi/c/ffi.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

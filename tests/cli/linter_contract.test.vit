@@ -1,13 +1,13 @@
 .test.cli.linter.modules.present.
 .begin.
-.sys.exec.capture."bash -lc 'test -s tools/linter/linter.vit && test -s tools/linter/rules/style.vit && test -s tools/linter/rules/bench.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'test -s tools/linter/linter.vit  and  test -s tools/linter/rules/style.vit  and  test -s tools/linter/rules/bench.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.cli.lint.command.uses_linter.pipeline.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"tools/linter/linter|tools/linter/rules/style|tools/linter/rules/bench|linter.lint_file|style.lint_lines|bench.lint_bench_file\" cmd/dots/lint.vit tools/linter/*.vit tools/linter/rules/*.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"tools/linter/linter|tools/linter/rules/style|tools/linter/rules/bench|linter.lint_file|style.lint_lines|bench.lint_bench_file\" cmd/dots/lint.vit tools/linter/*.vit tools/linter/rules/*.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

@@ -1,34 +1,34 @@
 .test.registry.runtime.lock.native_no_shell_mkdir.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"process.exec\\(\\\"mkdir\\\"\" modules/package/backend/lock.vit && exit 1 || echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"process.exec\\(\\\"mkdir\\\"\" modules/package/backend/lock.vit  and  exit 1  or  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.registry.runtime.lock.owner_jsonl_heartbeat.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"schema_version|last_seen_ms|cmdline|DOTS_LOCK_STALE_MS|heartbeat|lock_wait_ms\" modules/package/backend/lock.vit modules/package/backend/core.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"schema_version|last_seen_ms|cmdline|DOTS_LOCK_STALE_MS|heartbeat|lock_wait_ms\" modules/package/backend/lock.vit modules/package/backend/core.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.registry.runtime.cb.half_open_probe_decay.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"cb_probe.lock.d|cb_half_open_probe_total|cb_probe_fail_total|cb_state_transitions_total_|cb_decay_ms|cb_cooldown_scaled\" modules/package/backend/cb.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"cb_probe.lock.d|cb_half_open_probe_total|cb_probe_fail_total|cb_state_transitions_total_|cb_decay_ms|cb_cooldown_scaled\" modules/package/backend/cb.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.registry.runtime.policy.strict_env.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"bounded_i32|bounded_i64|valid_jitter_policy|DOTS_RETRY_ON|connect_timeout_ms|request_timeout_ms|overall_timeout_ms|retry_budget_spent|is_cancelled\" modules/package/backend/policy.vit modules/package/backend/core.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"bounded_i32|bounded_i64|valid_jitter_policy|DOTS_RETRY_ON|connect_timeout_ms|request_timeout_ms|overall_timeout_ms|retry_budget_spent|is_cancelled\" modules/package/backend/policy.vit modules/package/backend/core.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.registry.runtime.prom.enriched.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"dots_registry_lock_status|dots_registry_cb_state|retry_budget_spent|lock_wait_ms|cb_probe_fail_total|cb_half_open_probe_total\" cmd/dots/main.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"dots_registry_lock_status|dots_registry_cb_state|retry_budget_spent|lock_wait_ms|cb_probe_fail_total|cb_half_open_probe_total\" cmd/dots/main.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

@@ -15,7 +15,7 @@
 
 .test.cli.e2e.registry.migration_v1_to_jsonl_v2.
 .begin.
-.sys.exec.capture."bash -lc 'rm -rf .dots/e2e-reg-mig .dots/e2e-state-mig; mkdir -p .dots/e2e-reg-mig .dots/e2e-state-mig/${#PWD}; cat > .dots/e2e-reg-mig/packages.db <<EOF\nmigrated@1.2.3|checksum=migrated-1.2.3|sig=SIG_MIGRATED_1_2_3\nEOF\ncat > .dots/e2e-reg-mig/failures.db <<EOF\ninstall=0\nupdate=0\npublish=0\nEOF\nDOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-mig DOTS_STATE_DIR=.dots/e2e-state-mig dots install --json migrated; test -f .dots/e2e-reg-mig/packages.v2.jsonl && echo migrated_v2_ok; grep -q \"\\\"name\\\":\\\"migrated\\\"\" .dots/e2e-reg-mig/packages.v2.jsonl && echo migrated_line_ok'".$out.
+.sys.exec.capture."bash -lc 'rm -rf .dots/e2e-reg-mig .dots/e2e-state-mig; mkdir -p .dots/e2e-reg-mig .dots/e2e-state-mig/${#PWD}; cat > .dots/e2e-reg-mig/packages.db <<EOF\nmigrated@1.2.3|checksum=migrated-1.2.3|sig=SIG_MIGRATED_1_2_3\nEOF\ncat > .dots/e2e-reg-mig/failures.db <<EOF\ninstall=0\nupdate=0\npublish=0\nEOF\nDOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-mig DOTS_STATE_DIR=.dots/e2e-state-mig dots install --json migrated; test -f .dots/e2e-reg-mig/packages.v2.jsonl  and  echo migrated_v2_ok; grep -q \"\\\"name\\\":\\\"migrated\\\"\" .dots/e2e-reg-mig/packages.v2.jsonl  and  echo migrated_line_ok'".$out.
 .assert.contains.$out."\"command\":\"install\"".
 .assert.contains.$out."migrated_v2_ok".
 .assert.contains.$out."migrated_line_ok".
@@ -66,14 +66,14 @@
 
 .test.cli.e2e.registry.lock_owner_host_pid_present.
 .begin.
-.sys.exec.capture."bash -lc 'root=.dots/e2e-lock-owner; scripts/fake_registry.sh init .dots/e2e-reg-lock-owner >/dev/null; scripts/fake_registry.sh add-pkg .dots/e2e-reg-lock-owner own 1.0.0 >/dev/null; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-lock-owner DOTS_STATE_DIR=\"$root\" dots install --json own >/dev/null; ws=${#PWD}; test -f \"$root/$ws/mutation.lock.d/owner.v2\" || echo owner_file_not_present_after_release; echo done'".$out.
+.sys.exec.capture."bash -lc 'root=.dots/e2e-lock-owner; scripts/fake_registry.sh init .dots/e2e-reg-lock-owner >/dev/null; scripts/fake_registry.sh add-pkg .dots/e2e-reg-lock-owner own 1.0.0 >/dev/null; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-lock-owner DOTS_STATE_DIR=\"$root\" dots install --json own >/dev/null; ws=${#PWD}; test -f \"$root/$ws/mutation.lock.d/owner.v2\"  or  echo owner_file_not_present_after_release; echo done'".$out.
 .assert.contains.$out."done".
 .ret.
 .end.
 
 .test.cli.e2e.registry.migration_v1_to_v2_extended_files.
 .begin.
-.sys.exec.capture."bash -lc 'rm -rf .dots/e2e-reg-mig2 .dots/e2e-state-mig2; mkdir -p .dots/e2e-reg-mig2 .dots/e2e-state-mig2/${#PWD}; cat > .dots/e2e-reg-mig2/packages.db <<EOF\nx@1.0.0|checksum=x-1.0.0|sig=SIG_X_1_0_0\nEOF\ncat > .dots/e2e-reg-mig2/failures.db <<EOF\ninstall=0\nupdate=0\npublish=0\nEOF\ncat > .dots/e2e-state-mig2/${#PWD}/circuit_breaker.db <<EOF\nfailures=2\nopened_at_ms=10\nEOF\nDOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-mig2 DOTS_STATE_DIR=.dots/e2e-state-mig2 dots update --json >/dev/null; ws=${#PWD}; test -f .dots/e2e-reg-mig2/packages.v2.jsonl && echo pkg_ok; test -f .dots/e2e-state-mig2/$ws/cb.v2.jsonl && echo cb_ok; test -f .dots/e2e-state-mig2/$ws/stats.v2.jsonl && echo stats_ok; test -f .dots/e2e-state-mig2/$ws/published.v2.jsonl && echo pub_ok; test -f .dots/e2e-state-mig2/$ws/installed.v2.jsonl && echo inst_ok'".$out.
+.sys.exec.capture."bash -lc 'rm -rf .dots/e2e-reg-mig2 .dots/e2e-state-mig2; mkdir -p .dots/e2e-reg-mig2 .dots/e2e-state-mig2/${#PWD}; cat > .dots/e2e-reg-mig2/packages.db <<EOF\nx@1.0.0|checksum=x-1.0.0|sig=SIG_X_1_0_0\nEOF\ncat > .dots/e2e-reg-mig2/failures.db <<EOF\ninstall=0\nupdate=0\npublish=0\nEOF\ncat > .dots/e2e-state-mig2/${#PWD}/circuit_breaker.db <<EOF\nfailures=2\nopened_at_ms=10\nEOF\nDOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg-mig2 DOTS_STATE_DIR=.dots/e2e-state-mig2 dots update --json >/dev/null; ws=${#PWD}; test -f .dots/e2e-reg-mig2/packages.v2.jsonl  and  echo pkg_ok; test -f .dots/e2e-state-mig2/$ws/cb.v2.jsonl  and  echo cb_ok; test -f .dots/e2e-state-mig2/$ws/stats.v2.jsonl  and  echo stats_ok; test -f .dots/e2e-state-mig2/$ws/published.v2.jsonl  and  echo pub_ok; test -f .dots/e2e-state-mig2/$ws/installed.v2.jsonl  and  echo inst_ok'".$out.
 .assert.contains.$out."pkg_ok".
 .assert.contains.$out."cb_ok".
 .assert.contains.$out."stats_ok".

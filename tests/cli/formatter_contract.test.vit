@@ -1,13 +1,13 @@
 .test.cli.formatter.modules.present.
 .begin.
-.sys.exec.capture."bash -lc 'test -f tools/formatter/formatter.vit && test -f tools/formatter/printer.vit && test -f tools/formatter/bench_order.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'test -f tools/formatter/formatter.vit  and  test -f tools/formatter/printer.vit  and  test -f tools/formatter/bench_order.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.cli.fmt.command.uses_formatter.pipeline.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"tools/formatter/formatter|tools/formatter/printer|formatter.format_source|printer.unified_diff|formatter.is_idempotent\" cmd/dots/fmt.vit tools/formatter/*.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"tools/formatter/formatter|tools/formatter/printer|formatter.format_source|printer.unified_diff|formatter.is_idempotent\" cmd/dots/fmt.vit tools/formatter/*.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

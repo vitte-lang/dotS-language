@@ -88,14 +88,14 @@
 
 .test.cli.signal.sigint_cancellation.
 .begin.
-.sys.exec.capture."bash -lc 'dots run --watch src/main.dotS & pid=$!; sleep 1; kill -INT $pid; wait $pid || true'".$out.
+.sys.exec.capture."bash -lc 'dots run --watch src/main.dotS & pid=$!; sleep 1; kill -INT $pid; wait $pid  or  true'".$out.
 .assert.contains.$out."interrupted".
 .ret.
 .end.
 
 .test.cli.signal.sigterm_cancellation.
 .begin.
-.sys.exec.capture."bash -lc 'dots run --watch src/main.dotS & pid=$!; sleep 1; kill -TERM $pid; wait $pid || true'".$out.
+.sys.exec.capture."bash -lc 'dots run --watch src/main.dotS & pid=$!; sleep 1; kill -TERM $pid; wait $pid  or  true'".$out.
 .assert.contains.$out."interrupted".
 .ret.
 .end.

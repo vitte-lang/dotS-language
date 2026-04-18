@@ -1,48 +1,48 @@
 .test.ffi.protocol.strict.matrix.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"protocol_version_min|protocol_version_max|protocol_parser_bin|DOTS_FFI_PROTOCOL_STRICT|E_PROTOCOL_PARSE|E_PROTOCOL_FIELD_MISSING\" ffi/protocol.vit ffi/errors.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"protocol_version_min|protocol_version_max|protocol_parser_bin|DOTS_FFI_PROTOCOL_STRICT|E_PROTOCOL_PARSE|E_PROTOCOL_FIELD_MISSING\" ffi/protocol.vit ffi/errors.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.ffi.protocol.field.validations.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"missing endpoint|retryable must be bool|retry_after_ms negative; clamped|missing count in success payload|parse_error|protocol_error\" ffi/protocol.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"missing endpoint|retryable must be bool|retry_after_ms negative; clamped|missing count in success payload|parse_error|protocol_error\" ffi/protocol.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.ffi.transport.deadline.cancel.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"--request-deadline-ms|--cancel-token\" ffi/transport/*.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"--request-deadline-ms|--cancel-token\" ffi/transport/*.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.ffi.mode.fake.seed.chaos.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"DOTS_FFI_MODE|DOTS_BACKEND_SEED|DOTS_FFI_CHAOS\" ffi/c/ffi.vit ffi/transport/fake.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"DOTS_FFI_MODE|DOTS_BACKEND_SEED|DOTS_FFI_CHAOS\" ffi/c/ffi.vit ffi/transport/fake.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.ffi.wasm.cpp.py.matrix.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"DOTS_WASM_FUEL|DOTS_WASM_MEMORY_PAGES|cdecl|stdcall|system|DOTS_FFI_PY_GIL|required|single-thread|none\" ffi/wasm/*.vit ffi/c/ffi.vit ffi/python/py_bridge.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"DOTS_WASM_FUEL|DOTS_WASM_MEMORY_PAGES|cdecl|stdcall|system|DOTS_FFI_PY_GIL|required|single-thread|none\" ffi/wasm/*.vit ffi/c/ffi.vit ffi/python/py_bridge.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.ffi.lock.refcount.cb.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"DOTS_FFI_LOCK_STALE_MS|start_ts_ms|cmdline|refcount|half_open|probe|gc_handles\" ffi/c/ffi.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"DOTS_FFI_LOCK_STALE_MS|start_ts_ms|cmdline|refcount|half_open|probe|gc_handles\" ffi/c/ffi.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.ffi.allowlist.hash.sig.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"DOTS_FFI_ALLOW_DIRS|DOTS_FFI_ALLOWLIST_FILE|sha256|\\|sig|library not authorized by allowlist\" ffi/c/ffi.vit docs/ffi_security.md && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"DOTS_FFI_ALLOW_DIRS|DOTS_FFI_ALLOWLIST_FILE|sha256|\\|sig|library not authorized by allowlist\" ffi/c/ffi.vit docs/ffi_security.md  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

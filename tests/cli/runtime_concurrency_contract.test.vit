@@ -1,13 +1,13 @@
 .test.cli.runtime.concurrency.modules.present.
 .begin.
-.sys.exec.capture."bash -lc 'for f in runtime/concurrency/async.vit runtime/concurrency/future.vit runtime/concurrency/scheduler.vit runtime/concurrency/task.vit; do test -s \"$f\" || exit 1; done; echo ok'".$out.
+.sys.exec.capture."bash -lc 'for f in runtime/concurrency/async.vit runtime/concurrency/future.vit runtime/concurrency/scheduler.vit runtime/concurrency/task.vit; do test -s \"$f\"  or  exit 1; done; echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.cli.runtime.concurrency.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"TASK_FAILED|proc start\\(|proc complete\\(|proc fail\\(|proc summary\\(|proc resolve\\(|proc reject\\(|proc await\\(|to_future|add_runtime_task|status_json|runnable_total|proc peek\\(|proc drain\\(|proc owner\\(|proc list_ids\\(\" runtime/concurrency/*.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"TASK_FAILED|proc start\\(|proc complete\\(|proc fail\\(|proc summary\\(|proc resolve\\(|proc reject\\(|proc await\\(|to_future|add_runtime_task|status_json|runnable_total|proc peek\\(|proc drain\\(|proc owner\\(|proc list_ids\\(\" runtime/concurrency/*.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

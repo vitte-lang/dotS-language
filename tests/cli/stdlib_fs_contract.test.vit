@@ -1,13 +1,13 @@
 .test.cli.stdlib.fs.modules.present.
 .begin.
-.sys.exec.capture."bash -lc 'for f in stdlib/fs/copy.vit stdlib/fs/path.vit stdlib/fs/read.vit stdlib/fs/remove.vit stdlib/fs/stat.vit stdlib/fs/walk.vit stdlib/fs/write.vit; do test -s \"$f\" || exit 1; done; echo ok'".$out.
+.sys.exec.capture."bash -lc 'for f in stdlib/fs/copy.vit stdlib/fs/path.vit stdlib/fs/read.vit stdlib/fs/remove.vit stdlib/fs/stat.vit stdlib/fs/walk.vit stdlib/fs/write.vit; do test -s \"$f\"  or  exit 1; done; echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.cli.stdlib.fs.core_bridge.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"use std/io/fs as fs|use stdlib/system/result as result|use stdlib/json/parser as parser|fs\\.read_file|fs\\.write_file|fs\\.append_file|fs\\.remove|fs\\.remove_all|fs\\.mtime_ms|fs\\.base_name|fs\\.dir_name|fs\\.read_dir|proc non_empty_lines\\(|proc first_line\\(|proc first_line_or\\(|proc text_or\\(|proc json_text_or\\(|proc text_if_changed\\(|proc lines_if_changed\\(|proc append_line\\(|proc append_lines\\(|proc text_if_changed_result\\(|proc json_text\\(|proc json_text_if_changed\\(|proc touch\\(|proc file_result\\(|proc tree_result\\(|proc files_with_ext\\(|proc files_result\\(|proc ext\\(|proc stem\\(|proc normalize\\(|proc join_result\\(|proc text_result\\(|proc get_result\\(|proc summary\\(\" stdlib/fs/*.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"use std/io/fs as fs|use stdlib/system/result as result|use stdlib/json/parser as parser|fs\\.read_file|fs\\.write_file|fs\\.append_file|fs\\.remove|fs\\.remove_all|fs\\.mtime_ms|fs\\.base_name|fs\\.dir_name|fs\\.read_dir|proc non_empty_lines\\(|proc first_line\\(|proc first_line_or\\(|proc text_or\\(|proc json_text_or\\(|proc text_if_changed\\(|proc lines_if_changed\\(|proc append_line\\(|proc append_lines\\(|proc text_if_changed_result\\(|proc json_text\\(|proc json_text_if_changed\\(|proc touch\\(|proc file_result\\(|proc tree_result\\(|proc files_with_ext\\(|proc files_result\\(|proc ext\\(|proc stem\\(|proc normalize\\(|proc join_result\\(|proc text_result\\(|proc get_result\\(|proc summary\\(\" stdlib/fs/*.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

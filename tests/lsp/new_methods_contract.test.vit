@@ -1,13 +1,13 @@
 .test.lsp.semantic_tokens.document_symbols.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"semanticTokensProvider|documentSymbolProvider|workspaceSymbolProvider|codeActionProvider|codeLensProvider|signatureHelpProvider\" lsp/server.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"semanticTokensProvider|documentSymbolProvider|workspaceSymbolProvider|codeActionProvider|codeLensProvider|signatureHelpProvider\" lsp/server.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.lsp.core_json.parser.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"pull core/json|get_string\\(|get_number_or_literal\\(|get_bool\\(|jsonrpc_parse_frames\\(|jsonrpc_is_v2\\(\" lsp/server.vit core/json.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"pull core/json|get_string\\(|get_number_or_literal\\(|get_bool\\(|jsonrpc_parse_frames\\(|jsonrpc_is_v2\\(\" lsp/server.vit core/json.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

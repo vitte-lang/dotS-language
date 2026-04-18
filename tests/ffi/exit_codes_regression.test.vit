@@ -1,6 +1,6 @@
 .test.ffi.error.codes.regression.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"E_FFI_ERROR|E_SYMBOL_NOT_FOUND|E_ABI_MISMATCH|E_CALL_FAILED|E_TIMEOUT\" ffi/c/ffi.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"E_FFI_ERROR|E_SYMBOL_NOT_FOUND|E_ABI_MISMATCH|E_CALL_FAILED|E_TIMEOUT\" ffi/c/ffi.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

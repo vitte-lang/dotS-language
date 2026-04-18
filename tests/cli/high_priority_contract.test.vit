@@ -1,41 +1,41 @@
 .test.cli.high_priority.placeholders.replaced.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"plugin install placeholder|plugin remove placeholder|login placeholder|logout placeholder|self .* placeholder|entry resolution placeholder\" cmd/dots/main.vit cmd/dots/run.vit && exit 1 || echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"plugin install placeholder|plugin remove placeholder|login placeholder|logout placeholder|self .* placeholder|entry resolution placeholder\" cmd/dots/main.vit cmd/dots/run.vit  and  exit 1  or  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.cli.high_priority.docs.present.
 .begin.
-.sys.exec.capture."bash -lc 'for f in docs/architecture.md docs/language_spec.md docs/modules.md docs/runtime.md docs/stdlib.md docs/packaging.md; do test -s \"$f\" || exit 1; done; echo ok'".$out.
+.sys.exec.capture."bash -lc 'for f in docs/architecture.md docs/language_spec.md docs/modules.md docs/runtime.md docs/stdlib.md docs/packaging.md; do test -s \"$f\"  or  exit 1; done; echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.cli.high_priority.main.features.present.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"plugin_manifest_file|session_file|self_doctor_lines|login ok user=|logout ok|self uninstall cleaned local state\" cmd/dots/main.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"plugin_manifest_file|session_file|self_doctor_lines|login ok user=|logout ok|self uninstall cleaned local state\" cmd/dots/main.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.cli.high_priority.run.entry_resolution.present.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"resolve_entry_file|entry resolution:|entry not found:\" cmd/dots/run.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"resolve_entry_file|entry resolution:|entry not found:\" cmd/dots/run.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.cli.high_priority.stdlib.catalog.shared.present.
 .begin.
-.sys.exec.capture."bash -lc 'test -s modules/loader/stdlib_catalog.vit && rg -n \"modules/loader/stdlib_catalog\" core/semantic/analyzer.vit lsp/diagnostics.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'test -s modules/loader/stdlib_catalog.vit  and  rg -n \"modules/loader/stdlib_catalog\" core/semantic/analyzer.vit lsp/diagnostics.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.cli.high_priority.runtime.shallow.documented.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"preflight-oriented|still preflight\" docs/modules.md docs/runtime.md && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"preflight-oriented|still preflight\" docs/modules.md docs/runtime.md  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

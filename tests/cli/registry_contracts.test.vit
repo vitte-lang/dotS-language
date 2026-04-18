@@ -7,7 +7,7 @@
 
 .test.cli.registry.each_command_has_usage_parse_validate_execute.
 .begin.
-.sys.exec.capture."bash -lc 'missing=0; for f in cmd/dots/*.vit; do b=$(basename $f); if [ $b = main.vit ] || [ $b = registry.vit ] || [ $b = _command_template.vit ]; then continue; fi; rg -q ^proc\ usage\( $f || { echo missing_usage:$f; missing=1; }; rg -q ^proc\ parse\( $f || { echo missing_parse:$f; missing=1; }; rg -q ^proc\ validate\( $f || { echo missing_validate:$f; missing=1; }; rg -q ^proc\ execute\( $f || { echo missing_execute:$f; missing=1; }; done; if [ $missing -eq 0 ]; then echo OK; fi'".$out.
+.sys.exec.capture."bash -lc 'missing=0; for f in cmd/dots/*.vit; do b=$(basename $f); if [ $b = main.vit ]  or  [ $b = registry.vit ]  or  [ $b = _command_template.vit ]; then continue; fi; rg -q ^proc\ usage\( $f  or  { echo missing_usage:$f; missing=1; }; rg -q ^proc\ parse\( $f  or  { echo missing_parse:$f; missing=1; }; rg -q ^proc\ validate\( $f  or  { echo missing_validate:$f; missing=1; }; rg -q ^proc\ execute\( $f  or  { echo missing_execute:$f; missing=1; }; done; if [ $missing -eq 0 ]; then echo OK; fi'".$out.
 .assert.contains.$out."OK".
 .ret.
 .end.

@@ -1,13 +1,13 @@
 .test.cli.ir.deep.modules.present.
 .begin.
-.sys.exec.capture."bash -lc 'for f in core/ir/ir.vit core/ir/ir_node.vit core/ir/ir_builder.vit core/ir/ir_pass.vit core/ir/ir_printer.vit; do test -s \"$f\" || exit 1; done; echo ok'".$out.
+.sys.exec.capture."bash -lc 'for f in core/ir/ir.vit core/ir/ir_node.vit core/ir/ir_builder.vit core/ir/ir_pass.vit core/ir/ir_printer.vit; do test -s \"$f\"  or  exit 1; done; echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.cli.ir.deep.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"proc module\\(|proc term_ret\\(|proc summary\\(|emit_assignment|emit_function_call|emit_module_like|emit_pipeline|pipeline_summary|emit_text\" core/ir/*.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"proc module\\(|proc term_ret\\(|proc summary\\(|emit_assignment|emit_function_call|emit_module_like|emit_pipeline|pipeline_summary|emit_text\" core/ir/*.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

@@ -1,13 +1,13 @@
 .test.cli.runtime.vm.modules.present.
 .begin.
-.sys.exec.capture."bash -lc 'for f in runtime/vm/bytecode.vit runtime/vm/opcode.vit runtime/vm/dispatcher.vit runtime/vm/optimizer.vit runtime/vm/vm.vit; do test -s \"$f\" || exit 1; done; echo ok'".$out.
+.sys.exec.capture."bash -lc 'for f in runtime/vm/bytecode.vit runtime/vm/opcode.vit runtime/vm/dispatcher.vit runtime/vm/optimizer.vit runtime/vm/vm.vit; do test -s \"$f\"  or  exit 1; done; echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.cli.runtime.vm.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"OP_JUMP|OP_TRAP|proc is_known\\(|proc normalize\\(|proc explain\\(|proc decode\\(|proc validate\\(|proc execute\\(|optimizer\\.optimize|dispatcher\\.execute|execute_lines\" runtime/vm/*.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"OP_JUMP|OP_TRAP|proc is_known\\(|proc normalize\\(|proc explain\\(|proc decode\\(|proc validate\\(|proc execute\\(|optimizer\\.optimize|dispatcher\\.execute|execute_lines\" runtime/vm/*.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

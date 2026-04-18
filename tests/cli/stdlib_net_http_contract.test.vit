@@ -1,13 +1,13 @@
 .test.cli.stdlib.net_http.modules.present.
 .begin.
-.sys.exec.capture."bash -lc 'for f in stdlib/net/http/client.vit stdlib/net/http/request.vit stdlib/net/http/response.vit stdlib/net/http/router.vit stdlib/net/http/server.vit stdlib/net/http/middleware.vit; do test -s \"$f\" || exit 1; done; echo ok'".$out.
+.sys.exec.capture."bash -lc 'for f in stdlib/net/http/client.vit stdlib/net/http/request.vit stdlib/net/http/response.vit stdlib/net/http/router.vit stdlib/net/http/server.vit stdlib/net/http/middleware.vit; do test -s \"$f\"  or  exit 1; done; echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.cli.stdlib.net_http.client.retry.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"use core/str as str|use stdlib/system/result as result|form RetryPolicy|form Request|form Response|form Route|form Context|form Server|pick MaybeResponse|proc default_retry_policy\\(|proc make_policy\\(|proc with_retries\\(|proc with_backoff\\(|proc clamp_timeout_ms\\(|proc should_retry\\(|proc backoff_ms\\(|proc policy_summary\\(|proc validate_policy\\(|proc should_retry_result\\(|proc make_core\\(|proc make_request\\(|proc make_result\\(|proc get\\(|proc post\\(|proc put\\(|proc delete\\(|proc with_body\\(|proc is_method\\(|proc is_success\\(|proc is_client_error\\(|proc is_server_error\\(|proc with_status\\(|proc with_status_result\\(|proc validate\\(|proc add_route\\(|proc route_match\\(|proc handle_result\\(\" stdlib/net/http/*.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"use core/str as str|use stdlib/system/result as result|form RetryPolicy|form Request|form Response|form Route|form Context|form Server|pick MaybeResponse|proc default_retry_policy\\(|proc make_policy\\(|proc with_retries\\(|proc with_backoff\\(|proc clamp_timeout_ms\\(|proc should_retry\\(|proc backoff_ms\\(|proc policy_summary\\(|proc validate_policy\\(|proc should_retry_result\\(|proc make_core\\(|proc make_request\\(|proc make_result\\(|proc get\\(|proc post\\(|proc put\\(|proc delete\\(|proc with_body\\(|proc is_method\\(|proc is_success\\(|proc is_client_error\\(|proc is_server_error\\(|proc with_status\\(|proc with_status_result\\(|proc validate\\(|proc add_route\\(|proc route_match\\(|proc handle_result\\(\" stdlib/net/http/*.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

@@ -1,20 +1,20 @@
 .test.cli.vitte.packages.loader.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"default_vitte_packages_root|manifest_vitte_packages_root|resolve_package|discover_packages\" modules/loader/resolver.vit modules/package/manifest.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"default_vitte_packages_root|manifest_vitte_packages_root|resolve_package|discover_packages\" modules/loader/resolver.vit modules/package/manifest.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.cli.vitte.packages.commands.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"vitte_imports|resolved_imports|vitte_packages|missing package:|missing vitte package:\" cmd/dots/check.vit cmd/dots/run.vit cmd/dots/build.vit cmd/dots/doc.vit cmd/dots/search.vit lsp/diagnostics.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"vitte_imports|resolved_imports|vitte_packages|missing package:|missing vitte package:\" cmd/dots/check.vit cmd/dots/run.vit cmd/dots/build.vit cmd/dots/doc.vit cmd/dots/search.vit lsp/diagnostics.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.cli.vitte.packages.lint_graph.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"vitte/|missing/|discover_packages|package_mod_file|package_info_file\" cmd/dots/graph.vit cmd/dots/lint.vit cmd/dots/search.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"vitte/|missing/|discover_packages|package_mod_file|package_info_file\" cmd/dots/graph.vit cmd/dots/lint.vit cmd/dots/search.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

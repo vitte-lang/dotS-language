@@ -1,20 +1,20 @@
 .test.cli.profiler.module.present.
 .begin.
-.sys.exec.capture."bash -lc 'test -s tools/profiler/profiler.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'test -s tools/profiler/profiler.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.cli.debugger.modules.present.
 .begin.
-.sys.exec.capture."bash -lc 'test -s tools/debugger/breakpoint.vit && test -s tools/debugger/debugger.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'test -s tools/debugger/breakpoint.vit  and  test -s tools/debugger/debugger.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.cli.profiler_debugger.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"time\\.now_ms|Sample|Breakpoint|DebugSession|add_breakpoint|duration_ms|summary\" tools/profiler/profiler.vit tools/debugger/*.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"time\\.now_ms|Sample|Breakpoint|DebugSession|add_breakpoint|duration_ms|summary\" tools/profiler/profiler.vit tools/debugger/*.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

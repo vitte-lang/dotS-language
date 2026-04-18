@@ -1,13 +1,13 @@
 .test.cli.runtime.exception.modules.present.
 .begin.
-.sys.exec.capture."bash -lc 'for f in runtime/exception/exception.vit runtime/exception/handler.vit runtime/exception/panic.vit runtime/exception/stacktrace.vit; do test -s \"$f\" || exit 1; done; echo ok'".$out.
+.sys.exec.capture."bash -lc 'for f in runtime/exception/exception.vit runtime/exception/handler.vit runtime/exception/panic.vit runtime/exception/stacktrace.vit; do test -s \"$f\"  or  exit 1; done; echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.cli.runtime.exception.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"form Exception|proc summary\\(|proc to_json\\(|form StackFrame|form StackTrace|proc push\\(|proc render\\(|form Handler|proc capture\\(|proc raise\\(|proc rethrow\\(\" runtime/exception/*.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"form Exception|proc summary\\(|proc to_json\\(|form StackFrame|form StackTrace|proc push\\(|proc render\\(|form Handler|proc capture\\(|proc raise\\(|proc rethrow\\(\" runtime/exception/*.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

@@ -7,7 +7,7 @@
 
 .test.cli.e2e.fake_registry.publish_retry.
 .begin.
-.sys.exec.capture."bash -lc 'scripts/fake_registry.sh init .dots/e2e-reg; reg="$(pwd)/.dots/e2e-reg"; rm -rf .dots/e2e-pub2; mkdir -p .dots/e2e-pub2; printf "{\"name\":\"demopub\",\"version\":\"1.1.0\",\"license\":\"MIT\"}\n" > .dots/e2e-pub2/dots.json; printf "# changelog\n" > .dots/e2e-pub2/CHANGELOG.md; scripts/fake_registry.sh set-fail .dots/e2e-reg publish 1; (cd .dots/e2e-pub2 && DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR="$reg" DOTS_PUBLISH_SKIP_GIT=1 dots publish --json --tag next --retries 2)'".$out.
+.sys.exec.capture."bash -lc 'scripts/fake_registry.sh init .dots/e2e-reg; reg="$(pwd)/.dots/e2e-reg"; rm -rf .dots/e2e-pub2; mkdir -p .dots/e2e-pub2; printf "{\"name\":\"demopub\",\"version\":\"1.1.0\",\"license\":\"MIT\"}\n" > .dots/e2e-pub2/dots.json; printf "# changelog\n" > .dots/e2e-pub2/CHANGELOG.md; scripts/fake_registry.sh set-fail .dots/e2e-reg publish 1; (cd .dots/e2e-pub2  and  DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR="$reg" DOTS_PUBLISH_SKIP_GIT=1 dots publish --json --tag next --retries 2)'".$out.
 .assert.contains.$out."\"command\":\"publish\"".
 .ret.
 .end.
@@ -18,7 +18,7 @@
 .assert.contains.$o1."OFFLINE".
 .sys.exec.capture."DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-reg dots update --json --offline".$o2.
 .assert.contains.$o2."OFFLINE".
-.sys.exec.capture."bash -lc 'reg="$(pwd)/.dots/e2e-reg"; rm -rf .dots/e2e-pub3; mkdir -p .dots/e2e-pub3; printf "{\"name\":\"demooff\",\"version\":\"1.0.0\",\"license\":\"MIT\"}\n" > .dots/e2e-pub3/dots.json; printf "# changelog\n" > .dots/e2e-pub3/CHANGELOG.md; (cd .dots/e2e-pub3 && DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR="$reg" DOTS_PUBLISH_SKIP_GIT=1 dots publish --json --offline)'".$o3.
+.sys.exec.capture."bash -lc 'reg="$(pwd)/.dots/e2e-reg"; rm -rf .dots/e2e-pub3; mkdir -p .dots/e2e-pub3; printf "{\"name\":\"demooff\",\"version\":\"1.0.0\",\"license\":\"MIT\"}\n" > .dots/e2e-pub3/dots.json; printf "# changelog\n" > .dots/e2e-pub3/CHANGELOG.md; (cd .dots/e2e-pub3  and  DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR="$reg" DOTS_PUBLISH_SKIP_GIT=1 dots publish --json --offline)'".$o3.
 .assert.contains.$o3."OFFLINE".
 .ret.
 .end.

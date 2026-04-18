@@ -1,34 +1,34 @@
 .test.registry.state.sha256.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"sha256sum|shasum|-sha256|sha256:\" modules/package/backend/state.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"sha256sum|shasum|-sha256|sha256:\" modules/package/backend/state.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.registry.state.schema_and_strict.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"STATE_SCHEMA_MIN|STATE_SCHEMA_MAX|DOTS_BACKEND_STRICT|state_schema_min|state_schema_max|host_fingerprint\" modules/package/backend/state.vit modules/package/backend/core.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"STATE_SCHEMA_MIN|STATE_SCHEMA_MAX|DOTS_BACKEND_STRICT|state_schema_min|state_schema_max|host_fingerprint\" modules/package/backend/state.vit modules/package/backend/core.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.registry.state.recovery_and_lock.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"STATE_RECOVERED|corrupt|state_write.lock.d|with_write_lock|lock_contention_total|stale_lock_recovered_total\" modules/package/backend/state.vit modules/package/backend/lock.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"STATE_RECOVERED|corrupt|state_write.lock.d|with_write_lock|lock_contention_total|stale_lock_recovered_total\" modules/package/backend/state.vit modules/package/backend/lock.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.registry.cli.subcommands.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"registry <status\\|reset\\|doctor\\|events>|reset-safe|events --follow|--component|--severity|--since-ms|--until-ms|backend_state_doctor_checks|backend_events_query_json_array|--fix|--strict\" cmd/dots/main.vit cmd/dots/registry.vit modules/package/backend.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"registry <status\\|reset\\|doctor\\|events>|reset-safe|events --follow|--component|--severity|--since-ms|--until-ms|backend_state_doctor_checks|backend_events_query_json_array|--fix|--strict\" cmd/dots/main.vit cmd/dots/registry.vit modules/package/backend.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.registry.prom.normalized_labels.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"dots_backend_requests_total\\{endpoint=|dots_backend_errors_total\\{error_type=|dots_registry_mode\\{mode=|dots_registry_cb_state\\{state=|dots_backend_latency_ms_bucket\\{phase=\" cmd/dots/main.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"dots_backend_requests_total\\{endpoint=|dots_backend_errors_total\\{error_type=|dots_registry_mode\\{mode=|dots_registry_cb_state\\{state=|dots_backend_latency_ms_bucket\\{phase=\" cmd/dots/main.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

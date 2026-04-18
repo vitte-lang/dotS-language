@@ -1,13 +1,13 @@
 .test.cli.runtime.memory.modules.present.
 .begin.
-.sys.exec.capture."bash -lc 'for f in runtime/memory/gc.vit runtime/memory/gc_mark.vit runtime/memory/gc_sweep.vit runtime/memory/object.vit runtime/memory/reference.vit runtime/memory/value.vit; do test -s \"$f\" || exit 1; done; echo ok'".$out.
+.sys.exec.capture."bash -lc 'for f in runtime/memory/gc.vit runtime/memory/gc_mark.vit runtime/memory/gc_sweep.vit runtime/memory/object.vit runtime/memory/reference.vit runtime/memory/value.vit; do test -s \"$f\"  or  exit 1; done; echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.cli.runtime.memory.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"MarkPlan|SweepPlan|cycle_summary|gc_mark\\.plan|gc_sweep\\.plan|gc_released_bytes|gc_sweep_candidates|proc new\\(|proc is_valid|proc debug\\(\" runtime/memory/*.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"MarkPlan|SweepPlan|cycle_summary|gc_mark\\.plan|gc_sweep\\.plan|gc_released_bytes|gc_sweep_candidates|proc new\\(|proc is_valid|proc debug\\(\" runtime/memory/*.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

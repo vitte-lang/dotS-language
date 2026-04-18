@@ -10,7 +10,7 @@
 
 .test.cli.lsp.gates.scripts.
 .begin.
-.sys.exec.capture."bash -lc 'test -x scripts/ci_lsp_stdout_gate.sh && test -x scripts/ci_lsp_latency_gate.sh && test -x scripts/ci_lsp_schema_gate.sh && test -x scripts/ci_lsp_ttfo_gate.sh && echo ok'".$out.
+.sys.exec.capture."bash -lc 'test -x scripts/ci_lsp_stdout_gate.sh  and  test -x scripts/ci_lsp_latency_gate.sh  and  test -x scripts/ci_lsp_schema_gate.sh  and  test -x scripts/ci_lsp_ttfo_gate.sh  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

@@ -23,7 +23,7 @@
 
 .test.cli.e2e.fake_registry.publish_success.
 .begin.
-.sys.exec.capture."bash -lc 'scripts/fake_registry.sh init .dots/e2e-reg; reg=\"$(pwd)/.dots/e2e-reg\"; rm -rf .dots/e2e-pub; mkdir -p .dots/e2e-pub; printf \"{\\\"name\\\":\\\"demo\\\",\\\"version\\\":\\\"1.0.0\\\",\\\"license\\\":\\\"MIT\\\"}\\n\" > .dots/e2e-pub/dots.json; printf \"# changelog\\n\" > .dots/e2e-pub/CHANGELOG.md; (cd .dots/e2e-pub && DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=\"$reg\" DOTS_PUBLISH_SKIP_GIT=1 dots publish --json --tag next)'".$out.
+.sys.exec.capture."bash -lc 'scripts/fake_registry.sh init .dots/e2e-reg; reg=\"$(pwd)/.dots/e2e-reg\"; rm -rf .dots/e2e-pub; mkdir -p .dots/e2e-pub; printf \"{\\\"name\\\":\\\"demo\\\",\\\"version\\\":\\\"1.0.0\\\",\\\"license\\\":\\\"MIT\\\"}\\n\" > .dots/e2e-pub/dots.json; printf \"# changelog\\n\" > .dots/e2e-pub/CHANGELOG.md; (cd .dots/e2e-pub  and  DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=\"$reg\" DOTS_PUBLISH_SKIP_GIT=1 dots publish --json --tag next)'".$out.
 .assert.contains.$out."\"command\":\"publish\"".
 .assert.contains.$out."\"tag\":\"next\"".
 .ret.

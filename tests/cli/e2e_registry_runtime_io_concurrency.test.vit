@@ -7,7 +7,7 @@
 
 .test.cli.e2e.registry.kill_during_write_recovery.
 .begin.
-.sys.exec.capture."bash -lc 'rm -rf .dots/e2e-kill-state .dots/e2e-kill-reg; scripts/fake_registry.sh init .dots/e2e-kill-reg >/dev/null; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-kill-reg DOTS_STATE_DIR=.dots/e2e-kill-state DOTS_JSONL_BATCH_LINES=99999 dots update --json --retries 0 >/tmp/kill.json & pid=$!; sleep 0.05; kill -9 $pid >/dev/null 2>&1 || true; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-kill-reg DOTS_STATE_DIR=.dots/e2e-kill-state dots update --json --retries 0; echo recovered'".$out.
+.sys.exec.capture."bash -lc 'rm -rf .dots/e2e-kill-state .dots/e2e-kill-reg; scripts/fake_registry.sh init .dots/e2e-kill-reg >/dev/null; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-kill-reg DOTS_STATE_DIR=.dots/e2e-kill-state DOTS_JSONL_BATCH_LINES=99999 dots update --json --retries 0 >/tmp/kill.json & pid=$!; sleep 0.05; kill -9 $pid >/dev/null 2>&1  or  true; DOTS_REGISTRY_MODE=fake DOTS_REGISTRY_DIR=.dots/e2e-kill-reg DOTS_STATE_DIR=.dots/e2e-kill-state dots update --json --retries 0; echo recovered'".$out.
 .assert.contains.$out."recovered".
 .ret.
 .end.

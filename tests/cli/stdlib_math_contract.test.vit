@@ -1,13 +1,13 @@
 .test.cli.stdlib.math.modules.present.
 .begin.
-.sys.exec.capture."bash -lc 'for f in stdlib/math/basic.vit stdlib/math/random.vit stdlib/math/matrix.vit; do test -s \"$f\" || exit 1; done; echo ok'".$out.
+.sys.exec.capture."bash -lc 'for f in stdlib/math/basic.vit stdlib/math/random.vit stdlib/math/matrix.vit; do test -s \"$f\"  or  exit 1; done; echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.cli.stdlib.math.contract.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"use core/str as str|use stdlib/system/result as result|proc abs\(|proc clamp\(|proc clamp_result\(|proc sum\(|proc avg\(|proc median\(|proc sort_desc\(|proc minmax\(|proc percentile\(|proc count_non_zero\(|proc p90\(|proc range\(|use runtime/common/prng|proc between\(|proc between_result\(|proc int_result\(|proc choice\(|proc choice_or\(|proc shuffle\(|form Matrix2|form Vector2|proc identity\(|proc mul\(|proc det\(|proc transpose\(|proc trace\(|proc apply\(|proc inverse_result\(|proc to_json\(" stdlib/math/*.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"use core/str as str|use stdlib/system/result as result|proc abs\(|proc clamp\(|proc clamp_result\(|proc sum\(|proc avg\(|proc median\(|proc sort_desc\(|proc minmax\(|proc percentile\(|proc count_non_zero\(|proc p90\(|proc range\(|use runtime/common/prng|proc between\(|proc between_result\(|proc int_result\(|proc choice\(|proc choice_or\(|proc shuffle\(|form Matrix2|form Vector2|proc identity\(|proc mul\(|proc det\(|proc transpose\(|proc trace\(|proc apply\(|proc inverse_result\(|proc to_json\(" stdlib/math/*.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.

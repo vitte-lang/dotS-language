@@ -1,34 +1,34 @@
 .test.ffi.protocol.malformed.multiline.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"native protocol parser failed|parse_error|empty payload\" ffi/protocol.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"native protocol parser failed|parse_error|empty payload\" ffi/protocol.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.ffi.protocol.escaped.quotes.newlines.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"--mode\\\", \\\"kv\\\"|DOTS_FFI_PROTOCOL_BIN|protocol_parser_strict\" ffi/protocol.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"--mode\\\", \\\"kv\\\"|DOTS_FFI_PROTOCOL_BIN|protocol_parser_strict\" ffi/protocol.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.ffi.protocol.missing.endpoint.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"missing endpoint\" ffi/protocol.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"missing endpoint\" ffi/protocol.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.ffi.protocol.retryable.type.error.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"retryable must be bool\" ffi/protocol.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"retryable must be bool\" ffi/protocol.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
 
 .test.ffi.protocol.retry_after.negative.clamp.
 .begin.
-.sys.exec.capture."bash -lc 'rg -n \"retry_after_ms negative; clamped\" ffi/protocol.vit && echo ok'".$out.
+.sys.exec.capture."bash -lc 'rg -n \"retry_after_ms negative; clamped\" ffi/protocol.vit  and  echo ok'".$out.
 .assert.contains.$out."ok".
 .ret.
 .end.
