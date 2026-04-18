@@ -1,13 +1,13 @@
 space tools/linter/rules/style
 
-pull core/str
+use core/str
 
 proc lint_lines(path: string, lines: [string]) -> [string]
 {
     let out: [string] = []
     let ln: i32 = 1
 
-    loop l in lines
+    for l in lines
     {
         if str.contains(l, "\t")
         {

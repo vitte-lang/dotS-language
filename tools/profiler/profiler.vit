@@ -1,7 +1,7 @@
 space tools/profiler/profiler
 
-pull core/str
-pull core/time
+use core/str
+use core/time
 
 form Sample
 {

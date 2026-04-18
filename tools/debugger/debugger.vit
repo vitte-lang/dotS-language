@@ -1,7 +1,7 @@
 space tools/debugger/debugger
 
-pull core/str
-pull tools/debugger/breakpoint
+use core/str
+use tools/debugger/breakpoint
 
 form DebugSession
 {
@@ -16,7 +16,7 @@ proc new_session(target: string) -> DebugSession
 
 proc add_breakpoint(s: DebugSession, file: string, line: i32) -> DebugSession
 {
-    s.breakpoints = s.breakpoints.push(breakpoint.make(file, line))
+    s.breakpoints = s.breakpoints.push(breakpoint.new(file, line))
     give s
 }
 

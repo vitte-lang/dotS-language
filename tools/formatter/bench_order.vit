@@ -1,6 +1,6 @@
 space tools/formatter/bench_order
 
-pull core/str
+use core/str
 
 proc classify(line: string) -> i32
 {
@@ -8,22 +8,22 @@ proc classify(line: string) -> i32
     if str.starts_with(l, ".module.") { give 1 }
     if str.starts_with(l, ".import.") { give 2 }
     if str.starts_with(l, ".use.") { give 3 }
-    if str.contains(l, "$retry_") || str.contains(l, "$timeout_") || str.contains(l, "$iterations") { give 4 }
-    if str.contains(l, "DOTS_BENCH") || str.contains(l, "sys.env") { give 5 }
-    if str.contains(l, "$bench_") || str.contains(l, "metadata") { give 6 }
+    if str.contains(l, "$retry_")  or  str.contains(l, "$timeout_")  or  str.contains(l, "$iterations") { give 4 }
+    if str.contains(l, "DOTS_BENCH")  or  str.contains(l, "sys.env") { give 5 }
+    if str.contains(l, "$bench_")  or  str.contains(l, "metadata") { give 6 }
     if str.starts_with(l, ".fn.") { give 7 }
-    if str.contains(l, "warmup") || str.contains(l, "setup") || str.contains(l, "run") { give 8 }
-    if str.contains(l, "p95") || str.contains(l, "stddev") || str.contains(l, "avg_ms") { give 9 }
-    if str.contains(l, "summary") && !str.contains(l, "json") { give 10 }
-    if str.contains(l, "json") || str.contains(l, "schema_version") { give 11 }
-    if str.contains(l, "exit") || str.contains(l, "status") { give 12 }
+    if str.contains(l, "warmup")  or  str.contains(l, "setup")  or  str.contains(l, "run") { give 8 }
+    if str.contains(l, "p95")  or  str.contains(l, "stddev")  or  str.contains(l, "avg_ms") { give 9 }
+    if str.contains(l, "summary")  and  not str.contains(l, "json") { give 10 }
+    if str.contains(l, "json")  or  str.contains(l, "schema_version") { give 11 }
+    if str.contains(l, "exit")  or  str.contains(l, "status") { give 12 }
     give 50
 }
 
 proc reorder_lines(lines: [string]) -> [string]
 {
     let ranked: [string] = []
-    loop l in lines
+    for l in lines
     {
         let trimmed = str.trim(l)
         if trimmed == "" { continue }
@@ -32,10 +32,10 @@ proc reorder_lines(lines: [string]) -> [string]
     }
 
     let i: i32 = 0
-    loop while i < ranked.len
+    while i < ranked.len
     {
         let j: i32 = i + 1
-        loop while j < ranked.len
+        while j < ranked.len
         {
             if ranked[j] < ranked[i]
             {
@@ -49,7 +49,7 @@ proc reorder_lines(lines: [string]) -> [string]
     }
 
     let out: [string] = []
-    loop item in ranked
+    for item in ranked
     {
         let p = str.split(item, "|")
         if p.len >= 2 { out = out.push(p[1]) }

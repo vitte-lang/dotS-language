@@ -1,6 +1,6 @@
 space tools/debugger/breakpoint
 
-pull core/str
+use core/str
 
 form Breakpoint
 {
@@ -9,7 +9,7 @@ form Breakpoint
     enabled: bool
 }
 
-proc make(file: string, line: i32) -> Breakpoint
+proc new(file: string, line: i32) -> Breakpoint
 {
     give Breakpoint(file, line, true)
 }

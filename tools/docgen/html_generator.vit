@@ -1,7 +1,7 @@
 space tools/docgen/html_generator
 
-pull core/str
-pull tools/docgen/doc_parser
+use core/str
+use tools/docgen/doc_parser
 
 proc escape_html(raw: string) -> string
 {
@@ -29,7 +29,7 @@ proc render_section(s: doc_parser.DocSection) -> string
 proc render(model: doc_parser.DocModel) -> string
 {
     let out = "<html><head><meta charset=\"utf-8\"><title>" + escape_html(model.title) + "</title></head><body><main>"
-    loop s in model.sections
+    for s in model.sections
     {
         out = out + render_section(s)
     }

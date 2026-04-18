@@ -1,8 +1,8 @@
 space tools/formatter/formatter
 
-pull core/str
-pull tools/formatter/printer
-pull tools/formatter/bench_order
+use core/str
+use tools/formatter/printer
+use tools/formatter/bench_order
 
 proc looks_like_bench(src: string) -> bool
 {

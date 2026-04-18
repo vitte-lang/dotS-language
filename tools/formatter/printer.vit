@@ -1,13 +1,13 @@
 space tools/formatter/printer
 
-pull core/str
+use core/str
 
 proc normalize_line(line: string) -> string
 {
     let l = str.trim(line)
     if l == "" { give "" }
-    if !str.starts_with(l, ".") { l = "." + l }
-    if !str.ends_with(l, ".") { l = l + "." }
+    if not str.starts_with(l, ".") { l = "." + l }
+    if not str.ends_with(l, ".") { l = l + "." }
     give l
 }
 
@@ -16,7 +16,7 @@ proc format_lines(lines: [string]) -> string
     let out = ""
     let indent: i32 = 0
 
-    loop raw in lines
+    for raw in lines
     {
         let line = normalize_line(raw)
         if line == "" { continue }
@@ -48,7 +48,7 @@ proc unified_diff(path: string, before: string, after: string) -> string
     let max = b.len
     if a.len > max { max = a.len }
 
-    loop while i < max
+    while i < max
     {
         let lb = ""
         let la = ""

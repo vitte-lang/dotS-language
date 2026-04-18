@@ -1,6 +1,6 @@
 space tools/docgen/doc_parser
 
-pull core/str
+use core/str
 
 form DocSection
 {
@@ -29,7 +29,7 @@ proc parse_markdown(md: string) -> DocModel
     let current_body = ""
 
     let lines = str.split(md, "\n")
-    loop l in lines
+    for l in lines
     {
         let line = str.trim(l)
 

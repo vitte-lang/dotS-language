@@ -1,27 +1,27 @@
 space tools/linter/rules/bench
 
-pull core/str
+use core/str
 
 proc lint_bench_file(path: string, src: string) -> [string]
 {
     let out: [string] = []
 
-    if !str.contains(src, ".module.")
+    if not str.contains(src, ".module.")
     {
         out = out.push(path + ":1: BENCH001 missing benchmark module declaration")
     }
 
-    if !str.contains(src, "summary") || !str.contains(src, "json")
+    if not str.contains(src, "summary")  or  not str.contains(src, "json")
     {
         out = out.push(path + ":1: BENCH008 require machine-readable JSON summary print")
     }
 
-    if !str.contains(src, "p95") && !str.contains(src, "stddev")
+    if not str.contains(src, "p95")  and  not str.contains(src, "stddev")
     {
         out = out.push(path + ":1: BENCH011 require percentile/stddev stats")
     }
 
-    if str.contains(src, "$duration.") && !str.contains(src, "$duration_ms")
+    if str.contains(src, "$duration.")  and  not str.contains(src, "$duration_ms")
     {
         out = out.push(path + ":1: BENCH010 duration var name should end with _ms")
     }
