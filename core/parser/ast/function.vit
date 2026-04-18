@@ -1,6 +1,6 @@
 space core/parser/ast/function
 
-pull core/str
+use core/str
 
 form FunctionDecl
 {

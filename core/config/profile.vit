@@ -1,8 +1,8 @@
 space core/profile
 
-pull core/str
-pull core/process
-pull core/config
+use core/str
+use core/process
+use core/config
 
 form ProfileDef
 {
@@ -62,9 +62,9 @@ proc standard_profiles() -> [ProfileDef]
     give [dev, ci, perf, release]
 }
 
-proc find_profile(name: string) -> ProfileDef?
+proc find_profile(name: string) -> Option[ProfileDef]
 {
-    loop p in standard_profiles()
+    for p in standard_profiles()
     {
         if p.name == name { give p }
     }
@@ -74,7 +74,7 @@ proc find_profile(name: string) -> ProfileDef?
 proc merge_overrides(base: [config.ConfigKV], extra: [config.ConfigKV]) -> [config.ConfigKV]
 {
     let out = base
-    loop kv in extra
+    for kv in extra
     {
         out = config.kv_upsert(out, kv)
     }
@@ -90,7 +90,7 @@ proc resolve_profile(name: string, stack: [string]) -> ProfileResult
         give ProfileResult(false, [], e)
     }
 
-    loop s in stack
+    for s in stack
     {
         if s == name
         {
@@ -106,7 +106,7 @@ proc resolve_profile(name: string, stack: [string]) -> ProfileResult
 
     let next_stack = stack.push(name)
     let parent = resolve_profile(p.extends, next_stack)
-    if !parent.ok { give parent }
+    if not parent.ok { give parent }
 
     let merged = merge_overrides(parent.items, p.overrides)
     give ProfileResult(true, merged, [])
@@ -124,7 +124,7 @@ proc apply_profile(base: [config.ConfigKV], cli_profile: string) -> ProfileResul
 {
     let prof = selected_profile(cli_profile)
     let resolved = resolve_profile(prof, [])
-    if !resolved.ok { give resolved }
+    if not resolved.ok { give resolved }
 
     let out = merge_overrides(base, resolved.items)
     out = config.kv_upsert(out, config.ConfigKV("profile", prof, "profile", "profile:" + prof))

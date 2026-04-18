@@ -1,6 +1,6 @@
 space core/json
 
-pull core/str
+use core/str
 
 proc normalize_escapes(raw: string) -> string
 {
@@ -16,7 +16,7 @@ proc normalize_escapes(raw: string) -> string
 proc get_string(raw: string, key: string) -> string
 {
     let pat = "\"" + key + "\":\""
-    if !str.contains(raw, pat) { give "" }
+    if not str.contains(raw, pat) { give "" }
     let p = str.split(raw, pat)
     if p.len < 2 { give "" }
     let q = str.split(p[1], "\"")
@@ -27,7 +27,7 @@ proc get_string(raw: string, key: string) -> string
 proc get_number_or_literal(raw: string, key: string) -> string
 {
     let pat = "\"" + key + "\":"
-    if !str.contains(raw, pat) { give "" }
+    if not str.contains(raw, pat) { give "" }
     let p = str.split(raw, pat)
     if p.len < 2 { give "" }
     let q = str.split(p[1], ",")
@@ -44,8 +44,8 @@ proc get_number_or_literal(raw: string, key: string) -> string
 proc get_bool(raw: string, key: string, fallback: bool) -> bool
 {
     let t = get_number_or_literal(raw, key)
-    if t == "true" || t == "1" { give true }
-    if t == "false" || t == "0" { give false }
+    if t == "true"  or  t == "1" { give true }
+    if t == "false"  or  t == "0" { give false }
     give fallback
 }
 
@@ -82,7 +82,7 @@ proc jsonrpc_parse_frames(raw: string) -> [string]
     let out: [string] = []
     if raw == "" { give out }
     let chunks = str.split(raw, "Content-Length:")
-    loop c in chunks
+    for c in chunks
     {
         let chunk = str.trim(c)
         if chunk == "" { continue }
@@ -107,7 +107,7 @@ proc jsonrpc_parse_frames(raw: string) -> [string]
         }
         let exact = ""
         let i: i32 = 0
-        loop while i < body.len && i < n
+        while i < body.len  and  i < n
         {
             exact = exact + str.from_i64(body[i])
             i = i + 1

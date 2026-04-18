@@ -1,8 +1,8 @@
 space core/source/file
 
-pull core/str
-pull core/time
-pull core/source/location
+use core/str
+use core/time
+use core/source/location
 
 form SourceFile
 {
@@ -20,7 +20,7 @@ proc simple_hash(text: string) -> string
 {
     let acc: i64 = 2166136261
     let i: i64 = 0
-    loop while i < text.len
+    while i < text.len
     {
         acc = acc ^ text[i]
         acc = (acc * 16777619) % 2147483647
@@ -29,7 +29,7 @@ proc simple_hash(text: string) -> string
     give "h" + str.from_i64(acc)
 }
 
-proc make(uri: string, path: string, text: string, version: i32, virtual_file: bool) -> SourceFile
+proc new(uri: string, path: string, text: string, version: i32, virtual_file: bool) -> SourceFile
 {
     let norm_uri = location.normalize_uri(uri)
     give SourceFile(norm_uri, path, text, version, location.build_line_index(text), simple_hash(text), virtual_file, time.now_ms())
@@ -45,7 +45,7 @@ proc snippet(sf: SourceFile, line: i32, ctx: i32) -> string
 
     let out = ""
     let i = start
-    loop while i <= end
+    while i <= end
     {
         out = out + str.from_i64(i) + ": " + lines[i - 1] + "\n"
         i = i + 1
@@ -56,7 +56,7 @@ proc snippet(sf: SourceFile, line: i32, ctx: i32) -> string
 proc line_text(sf: SourceFile, line: i32) -> string
 {
     let lines = str.split(sf.text, "\n")
-    if line <= 0 || line > lines.len { give "" }
+    if line <= 0  or  line > lines.len { give "" }
     give lines[line - 1]
 }
 
@@ -67,7 +67,7 @@ proc slice(sf: SourceFile, start_off: i64, end_off: i64) -> string
     if end_off < start_off { end_off = start_off }
     let out = ""
     let i = start_off
-    loop while i < end_off
+    while i < end_off
     {
         out = out + str.from_i64(sf.text[i])
         i = i + 1

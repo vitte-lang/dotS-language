@@ -1,10 +1,10 @@
 space core/parser/grammar
 
-pull core/lexer/token_kind
+use core/lexer/token_kind
 
 proc is_declaration_keyword(raw: string) -> bool
 {
-    give raw == "fn" || raw == "const" || raw == "module" || raw == "use" || raw == "import"
+    give raw == "fn"  or  raw == "const"  or  raw == "module"  or  raw == "use"  or  raw == "import"
 }
 
 proc is_expr_start(kind: string) -> bool

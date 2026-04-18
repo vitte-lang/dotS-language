@@ -5,9 +5,9 @@ proc value(op: string) -> i32
     if op == "=" { give 1 }
     if op == "or" { give 2 }
     if op == "and" { give 3 }
-    if op == "==" || op == "!=" { give 4 }
-    if op == "<" || op == ">" || op == "<=" || op == ">=" { give 5 }
-    if op == "+" || op == "-" { give 6 }
-    if op == "*" || op == "/" { give 7 }
+    if op == "=="  or  op == "!=" { give 4 }
+    if op == "<"  or  op == ">"  or  op == "<="  or  op == ">=" { give 5 }
+    if op == "+"  or  op == "-" { give 6 }
+    if op == "*"  or  op == "/" { give 7 }
     give 0
 }

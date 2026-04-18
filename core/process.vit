@@ -3,11 +3,18 @@ space core/process
 form ProcessResult
 {
     code: i32
+    out: string
+}
+
+proc empty_strings() -> [string]
+{
+    let out: [string] = []
+    give out
 }
 
 proc args() -> [string]
 {
-    give []
+    give empty_strings()
 }
 
 proc cwd() -> string
@@ -17,7 +24,7 @@ proc cwd() -> string
 
 proc exec(bin: string, argv: [string]) -> ProcessResult
 {
-    give ProcessResult(0)
+    give ProcessResult(0, "")
 }
 
 proc env(name: string) -> string
@@ -25,14 +32,14 @@ proc env(name: string) -> string
     give ""
 }
 
-proc set_env(name: string, value: string) -> void
+proc set_env(name: string, value: string) -> bool
 {
-    give
+    give false
 }
 
-proc chdir(path: string) -> void
+proc chdir(path: string) -> bool
 {
-    give
+    give false
 }
 
 proc home_dir() -> string
@@ -40,9 +47,9 @@ proc home_dir() -> string
     give "."
 }
 
-proc on_signal(name: string, handler: proc()) -> void
+proc on_signal(name: string, handler: proc()) -> bool
 {
-    give
+    give false
 }
 
 proc isatty(fd: i32) -> bool

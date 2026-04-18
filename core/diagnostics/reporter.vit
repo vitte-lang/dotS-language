@@ -1,7 +1,7 @@
 space core/diagnostics/reporter
 
-pull core/str
-pull core/diagnostics
+use core/str
+use core/diagnostics
 
 form Budget
 {
@@ -23,7 +23,7 @@ proc default_budget() -> Budget
 
 proc identity_in(list: [diagnostics.Diagnostic], id: string) -> bool
 {
-    loop d in list
+    for d in list
     {
         if diagnostics.identity(d) == id { give true }
     }
@@ -33,10 +33,10 @@ proc identity_in(list: [diagnostics.Diagnostic], id: string) -> bool
 proc dedupe(items: [diagnostics.Diagnostic]) -> [diagnostics.Diagnostic]
 {
     let out: [diagnostics.Diagnostic] = []
-    loop d in items
+    for d in items
     {
         let id = diagnostics.identity(d)
-        if !identity_in(out, id)
+        if not identity_in(out, id)
         {
             out = out.push(d)
         }
@@ -67,10 +67,10 @@ proc sort_stable(items: [diagnostics.Diagnostic]) -> [diagnostics.Diagnostic]
 {
     let out = items
     let i: i32 = 0
-    loop while i < out.len
+    while i < out.len
     {
         let j: i32 = i + 1
-        loop while j < out.len
+        while j < out.len
         {
             if should_swap(out[i], out[j])
             {
@@ -90,7 +90,7 @@ proc apply_budget(items: [diagnostics.Diagnostic], budget: Budget) -> [diagnosti
     let out: [diagnostics.Diagnostic] = []
     let counts: [string] = []
 
-    loop d in items
+    for d in items
     {
         if out.len >= budget.max_total { break }
 
@@ -98,10 +98,10 @@ proc apply_budget(items: [diagnostics.Diagnostic], budget: Budget) -> [diagnosti
         let found = false
         let idx: i32 = 0
 
-        loop while idx < counts.len
+        while idx < counts.len
         {
             let p = str.split(counts[idx], "=")
-            if p.len >= 2 && p[0] == key
+            if p.len >= 2  and  p[0] == key
             {
                 let c = str.to_i64(p[1])
                 if c >= budget.max_per_file
@@ -143,7 +143,7 @@ proc diff(prev: [diagnostics.Diagnostic], next: [diagnostics.Diagnostic]) -> Dif
     let removed: [diagnostics.Diagnostic] = []
     let unchanged: [diagnostics.Diagnostic] = []
 
-    loop d in n
+    for d in n
     {
         let id = diagnostics.identity(d)
         if identity_in(p, id)
@@ -156,10 +156,10 @@ proc diff(prev: [diagnostics.Diagnostic], next: [diagnostics.Diagnostic]) -> Dif
         }
     }
 
-    loop d2 in p
+    for d2 in p
     {
         let id2 = diagnostics.identity(d2)
-        if !identity_in(n, id2)
+        if not identity_in(n, id2)
         {
             removed = removed.push(d2)
         }
@@ -172,24 +172,24 @@ proc map_error(layer: string, message: string) -> diagnostics.Diagnostic
 {
     if layer == "lexer"
     {
-        let d = diagnostics.make("DOTS0001", message, "<memory>", 1, 1, 1, 1, "lexer")
+        let d = diagnostics.new("DOTS0001", message, "<memory>", 1, 1, 1, 1, "lexer")
         d = diagnostics.with_quick_fix(d, "replace", "Fix invalid token", "<token>")
         give d
     }
 
     if layer == "parser"
     {
-        let d2 = diagnostics.make("DOTS0002", message, "<memory>", 1, 1, 1, 1, "parser")
+        let d2 = diagnostics.new("DOTS0002", message, "<memory>", 1, 1, 1, 1, "parser")
         d2 = diagnostics.with_quick_fix(d2, "insert", "Insert missing token", ";")
         give d2
     }
 
     if layer == "semantic"
     {
-        let d3 = diagnostics.make("DOTS0003", message, "<memory>", 1, 1, 1, 1, "semantic")
+        let d3 = diagnostics.new("DOTS0003", message, "<memory>", 1, 1, 1, 1, "semantic")
         d3 = diagnostics.with_quick_fix(d3, "rename", "Rename symbol", "new_name")
         give d3
     }
 
-    give diagnostics.make("DOTS0005", message, "<memory>", 1, 1, 1, 1, "runtime")
+    give diagnostics.new("DOTS0005", message, "<memory>", 1, 1, 1, 1, "runtime")
 }

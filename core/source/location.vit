@@ -1,13 +1,13 @@
 space core/source/location
 
-pull core/str
-pull core/source/span
+use core/str
+use core/source/span
 
 proc build_line_index(text: string) -> [i64]
 {
     let out: [i64] = [0]
     let i: i64 = 0
-    loop while i < text.len
+    while i < text.len
     {
         if text[i] == 10
         {
@@ -26,7 +26,7 @@ proc offset_to_position(offset: i64, line_starts: [i64]) -> span.Position
     let hi: i32 = line_starts.len - 1
     let idx: i32 = 0
 
-    loop while lo <= hi
+    while lo <= hi
     {
         let mid = (lo + hi) / 2
         let v = line_starts[mid]
@@ -81,5 +81,5 @@ proc span_from_offsets(start: i64, end: i64, line_starts: [i64], text_len: i64) 
     let e = safe_offset(end, text_len)
     let sp = offset_to_position(s, line_starts)
     let ep = offset_to_position(e, line_starts)
-    give span.make(s, e, sp.line, sp.col, ep.line, ep.col)
+    give span.new(s, e, sp.line, sp.col, ep.line, ep.col)
 }

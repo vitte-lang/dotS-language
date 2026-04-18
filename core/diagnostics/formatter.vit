@@ -1,7 +1,7 @@
 space core/diagnostics/formatter
 
-pull core/str
-pull core/diagnostics
+use core/str
+use core/diagnostics
 
 proc escape_json(s: string) -> string
 {
@@ -17,7 +17,7 @@ proc quick_fixes_json(d: diagnostics.Diagnostic) -> string
 {
     let out = ""
     let i: i32 = 0
-    loop while i < d.quick_fixes.len
+    while i < d.quick_fixes.len
     {
         if i > 0 { out = out + "," }
         let f = d.quick_fixes[i]
@@ -31,7 +31,7 @@ proc related_json(d: diagnostics.Diagnostic) -> string
 {
     let out = ""
     let i: i32 = 0
-    loop while i < d.related.len
+    while i < d.related.len
     {
         if i > 0 { out = out + "," }
         let r = d.related[i]
@@ -44,7 +44,7 @@ proc related_json(d: diagnostics.Diagnostic) -> string
 proc format_human(items: [diagnostics.Diagnostic]) -> string
 {
     let out = ""
-    loop d in items
+    for d in items
     {
         out = out + d.file + ":" + str.from_i64(d.line) + ":" + str.from_i64(d.col) + " " + d.severity + " " + d.code + " " + d.message + " [" + d.category + "]\n"
     }
@@ -55,7 +55,7 @@ proc format_json(items: [diagnostics.Diagnostic], run_id: string, request_id: st
 {
     let out = ""
     let i: i32 = 0
-    loop while i < items.len
+    while i < items.len
     {
         let d = items[i]
         if i > 0 { out = out + "," }
@@ -97,7 +97,7 @@ proc format_sarif(items: [diagnostics.Diagnostic]) -> string
 {
     let runs = ""
     let i: i32 = 0
-    loop while i < items.len
+    while i < items.len
     {
         if i > 0 { runs = runs + "," }
         let d = items[i]

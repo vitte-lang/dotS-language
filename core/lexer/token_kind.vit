@@ -22,15 +22,15 @@ const TK_UNKNOWN: string = "unknown"
 
 proc is_terminal(kind: string) -> bool
 {
-    give kind == TK_EOF || kind == TK_NEWLINE
+    give kind == TK_EOF  or  kind == TK_NEWLINE
 }
 
 proc is_value_start(kind: string) -> bool
 {
-    give kind == TK_IDENT || kind == TK_KEYWORD || kind == TK_NUMBER || kind == TK_STRING || kind == TK_DOLLAR
+    give kind == TK_IDENT  or  kind == TK_KEYWORD  or  kind == TK_NUMBER  or  kind == TK_STRING  or  kind == TK_DOLLAR
 }
 
 proc is_punct(kind: string) -> bool
 {
-    give kind == TK_DOT || kind == TK_DOLLAR || kind == TK_LPAREN || kind == TK_RPAREN || kind == TK_LBRACE || kind == TK_RBRACE || kind == TK_COMMA || kind == TK_COLON || kind == TK_EQUAL
+    give kind == TK_DOT  or  kind == TK_DOLLAR  or  kind == TK_LPAREN  or  kind == TK_RPAREN  or  kind == TK_LBRACE  or  kind == TK_RBRACE  or  kind == TK_COMMA  or  kind == TK_COLON  or  kind == TK_EQUAL
 }

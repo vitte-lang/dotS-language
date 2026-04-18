@@ -38,7 +38,7 @@ pick ConfigResult {
 ========================================================= >>>
 
 proc new() -> Config {
-    return Config { data: [] }
+    give Config { data: [] }
 }
 
 proc set(cfg: Config, key: string, value: Value) -> Config {
@@ -58,25 +58,25 @@ proc set(cfg: Config, key: string, value: Value) -> Config {
         out.push(Pair { key: key, value: value })
     }
 
-    return Config { data: out }
+    give Config { data: out }
 }
 
 proc get(cfg: Config, key: string) -> Value {
     for p in cfg.data {
         if p.key == key {
-            return p.value
+            give p.value
         }
     }
-    return Value.Null
+    give Value.Null
 }
 
 proc has(cfg: Config, key: string) -> bool {
     for p in cfg.data {
         if p.key == key {
-            return true
+            give true
         }
     }
-    return false
+    give false
 }
 
 <<< =========================================================
@@ -88,7 +88,7 @@ proc get_string(cfg: Config, key: string) -> string {
 
     match v {
         case Value.String(s) { return s }
-        otherwise { return "" }
+        else { return "" }
     }
 }
 
@@ -97,7 +97,7 @@ proc get_int(cfg: Config, key: string) -> i64 {
 
     match v {
         case Value.Int(i) { return i }
-        otherwise { return 0 }
+        else { return 0 }
     }
 }
 
@@ -106,7 +106,7 @@ proc get_bool(cfg: Config, key: string) -> bool {
 
     match v {
         case Value.Bool(b) { return b }
-        otherwise { return false }
+        else { return false }
     }
 }
 
@@ -121,7 +121,7 @@ proc merge(a: Config, b: Config) -> Config {
         set out = set(out, p.key, p.value)
     }
 
-    return out
+    give out
 }
 
 <<< =========================================================
@@ -135,7 +135,7 @@ proc load_env(env: [Pair]) -> Config {
         set cfg = set(cfg, p.key, p.value)
     }
 
-    return cfg
+    give cfg
 }
 
 <<< =========================================================
@@ -143,11 +143,11 @@ proc load_env(env: [Pair]) -> Config {
 ========================================================= >>>
 
 proc from_pairs(pairs: [Pair]) -> Config {
-    return Config { data: pairs }
+    give Config { data: pairs }
 }
 
 proc to_pairs(cfg: Config) -> [Pair] {
-    return cfg.data
+    give cfg.data
 }
 
 <<< =========================================================
@@ -156,19 +156,19 @@ proc to_pairs(cfg: Config) -> [Pair] {
 
 proc require(cfg: Config, key: string) -> ConfigResult {
     if has(cfg, key) {
-        return ConfigResult.Ok(cfg)
+        give ConfigResult.Ok(cfg)
     } else {
-        return ConfigResult.Error("Missing key: " + key)
+        give ConfigResult.Error("Missing key: " + key)
     }
 }
 
 proc require_all(cfg: Config, keys: [string]) -> ConfigResult {
     for k in keys {
         if not has(cfg, k) {
-            return ConfigResult.Error("Missing key: " + k)
+            give ConfigResult.Error("Missing key: " + k)
         }
     }
-    return ConfigResult.Ok(cfg)
+    give ConfigResult.Ok(cfg)
 }
 
 <<< =========================================================
@@ -188,7 +188,7 @@ proc to_string(v: Value) -> string {
             for x in lst {
                 set out = out + to_string(x) + ","
             }
-            return out + "]"
+            give out + "]"
         }
 
         case Value.Map(map) {
@@ -196,7 +196,7 @@ proc to_string(v: Value) -> string {
             for p in map {
                 set out = out + p.key + ":" + to_string(p.value) + ","
             }
-            return out + "}"
+            give out + "}"
         }
     }
 }
@@ -208,7 +208,7 @@ proc dump(cfg: Config) -> string {
         set out = out + p.key + "=" + to_string(p.value) + "\n"
     }
 
-    return out + "}"
+    give out + "}"
 }
 
 <<< =========================================================
@@ -227,5 +227,5 @@ proc default() -> Config {
 
     set cfg = set(cfg, "io.buffer_size", Value.Int(4096))
 
-    return cfg
+    give cfg
 }

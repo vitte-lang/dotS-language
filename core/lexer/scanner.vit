@@ -1,29 +1,29 @@
 space core/lexer/scanner
 
-pull core/str
-pull core/lexer/cursor
-pull core/lexer/literal
-pull core/lexer/keyword
-pull core/lexer/suggestions
-pull core/lexer/token
-pull core/lexer/token_kind
-pull core/lexer/trivia
-pull core/source/location
-pull core/source/span
-pull core/diagnostics
+use core/str
+use core/lexer/cursor
+use core/lexer/literal
+use core/lexer/keyword
+use core/lexer/suggestions
+use core/lexer/token
+use core/lexer/token_kind
+use core/lexer/trivia
+use core/source/location
+use core/source/span
+use core/diagnostics
 
 form ScanResult
 {
     tk: token.Token
     next: cursor.Cursor
-    diag: diagnostics.Diagnostic?
+    diag: Option[diagnostics.Diagnostic]
 }
 
 proc make_span(c: cursor.Cursor, start: i64, end: i64) -> span.Span
 {
     let s = location.offset_to_position(start, c.line_starts)
     let e = location.offset_to_position(end, c.line_starts)
-    give span.make(start, end, s.line, s.col, e.line, e.col)
+    give span.new(start, end, s.line, s.col, e.line, e.col)
 }
 
 proc read_trivia(c: cursor.Cursor) -> (trivia.Trivia, cursor.Cursor)
@@ -31,7 +31,7 @@ proc read_trivia(c: cursor.Cursor) -> (trivia.Trivia, cursor.Cursor)
     let t = trivia.empty()
     let cur = c
 
-    loop while !cursor.eof(cur)
+    while not cursor.eof(cur)
     {
         let ch = cursor.peek(cur, 0)
         if ch == 32
@@ -55,14 +55,14 @@ proc read_trivia(c: cursor.Cursor) -> (trivia.Trivia, cursor.Cursor)
             if doc { cur = cursor.bump(cur, 1) }
 
             let cmt = ""
-            loop while !cursor.eof(cur) && cursor.peek(cur, 0) != 10
+            while not cursor.eof(cur)  and  cursor.peek(cur, 0) != 10
             {
                 cmt = cmt + str.from_i64(cursor.peek(cur, 0))
                 cur = cursor.bump(cur, 1)
             }
 
             if doc { t.comments = t.comments.push("##" + cmt) }
-            if !doc { t.comments = t.comments.push("#" + cmt) }
+            if not doc { t.comments = t.comments.push("#" + cmt) }
 
             continue
         }
@@ -77,7 +77,7 @@ proc read_ident(c: cursor.Cursor) -> (string, cursor.Cursor)
 {
     let out = ""
     let cur = c
-    loop while !cursor.eof(cur) && is_ident_continue(cursor.peek(cur, 0))
+    while not cursor.eof(cur)  and  is_ident_continue(cursor.peek(cur, 0))
     {
         out = out + str.from_i64(cursor.peek(cur, 0))
         cur = cursor.bump(cur, 1)
@@ -94,7 +94,7 @@ proc is_ident_start(ch: i64) -> bool
 
 proc is_ident_continue(ch: i64) -> bool
 {
-    give is_ident_start(ch) || literal.is_digit(ch)
+    give is_ident_start(ch)  or  literal.is_digit(ch)
 }
 
 proc read_digits_dec(c: cursor.Cursor) -> (string, cursor.Cursor, bool, bool)
@@ -105,12 +105,12 @@ proc read_digits_dec(c: cursor.Cursor) -> (string, cursor.Cursor, bool, bool)
     let bad_sep = false
     let prev_sep = false
 
-    loop while !cursor.eof(cur)
+    while not cursor.eof(cur)
     {
         let ch = cursor.peek(cur, 0)
         if ch == 95
         {
-            if !had_digit || prev_sep
+            if not had_digit  or  prev_sep
             {
                 bad_sep = true
             }
@@ -120,7 +120,7 @@ proc read_digits_dec(c: cursor.Cursor) -> (string, cursor.Cursor, bool, bool)
             continue
         }
 
-        if !literal.is_digit(ch) { break }
+        if not literal.is_digit(ch) { break }
 
         had_digit = true
         prev_sep = false
@@ -143,19 +143,19 @@ proc read_digits_hex(c: cursor.Cursor) -> (string, cursor.Cursor, bool, bool)
     let bad_sep = false
     let prev_sep = false
 
-    loop while !cursor.eof(cur)
+    while not cursor.eof(cur)
     {
         let ch = cursor.peek(cur, 0)
         if ch == 95
         {
-            if !had_digit || prev_sep { bad_sep = true }
+            if not had_digit  or  prev_sep { bad_sep = true }
             out = out + "_"
             prev_sep = true
             cur = cursor.bump(cur, 1)
             continue
         }
 
-        if !literal.is_hex_digit(ch) { break }
+        if not literal.is_hex_digit(ch) { break }
         had_digit = true
         prev_sep = false
         out = out + str.from_i64(ch)
@@ -174,19 +174,19 @@ proc read_digits_bin(c: cursor.Cursor) -> (string, cursor.Cursor, bool, bool)
     let bad_sep = false
     let prev_sep = false
 
-    loop while !cursor.eof(cur)
+    while not cursor.eof(cur)
     {
         let ch = cursor.peek(cur, 0)
         if ch == 95
         {
-            if !had_digit || prev_sep { bad_sep = true }
+            if not had_digit  or  prev_sep { bad_sep = true }
             out = out + "_"
             prev_sep = true
             cur = cursor.bump(cur, 1)
             continue
         }
 
-        if !literal.is_bin_digit(ch) { break }
+        if not literal.is_bin_digit(ch) { break }
         had_digit = true
         prev_sep = false
         out = out + str.from_i64(ch)
@@ -205,19 +205,19 @@ proc read_digits_oct(c: cursor.Cursor) -> (string, cursor.Cursor, bool, bool)
     let bad_sep = false
     let prev_sep = false
 
-    loop while !cursor.eof(cur)
+    while not cursor.eof(cur)
     {
         let ch = cursor.peek(cur, 0)
         if ch == 95
         {
-            if !had_digit || prev_sep { bad_sep = true }
+            if not had_digit  or  prev_sep { bad_sep = true }
             out = out + "_"
             prev_sep = true
             cur = cursor.bump(cur, 1)
             continue
         }
 
-        if !literal.is_oct_digit(ch) { break }
+        if not literal.is_oct_digit(ch) { break }
         had_digit = true
         prev_sep = false
         out = out + str.from_i64(ch)
@@ -228,56 +228,56 @@ proc read_digits_oct(c: cursor.Cursor) -> (string, cursor.Cursor, bool, bool)
     give (out, cur, had_digit, bad_sep)
 }
 
-proc read_number(c: cursor.Cursor) -> (string, cursor.Cursor, diagnostics.Diagnostic?)
+proc read_number(c: cursor.Cursor) -> (string, cursor.Cursor, Option[diagnostics.Diagnostic])
 {
     let out = ""
     let cur = c
-    let diag: diagnostics.Diagnostic? = null
+    let diag: Option[diagnostics.Diagnostic] = null
 
     if cursor.peek(cur, 0) == 48
     {
         let p1 = cursor.peek(cur, 1)
-        if p1 == 120 || p1 == 88
+        if p1 == 120  or  p1 == 88
         {
             out = "0x"
             cur = cursor.bump(cur, 2)
             let body, c2, ok, bad = read_digits_hex(cur)
             out = out + body
             cur = c2
-            if !ok || bad
+            if not ok  or  bad
             {
                 let p = location.offset_to_position(c.idx, c.line_starts)
-                diag = diagnostics.make("DOTS0001", "invalid hexadecimal literal", "<memory>", p.line, p.col, p.line, p.col + 2, "lexer")
+                diag = diagnostics.new("DOTS0001", "invalid hexadecimal literal", "<memory>", p.line, p.col, p.line, p.col + 2, "lexer")
             }
             give (out, cur, diag)
         }
 
-        if p1 == 98 || p1 == 66
+        if p1 == 98  or  p1 == 66
         {
             out = "0b"
             cur = cursor.bump(cur, 2)
             let body2, c3, ok2, bad2 = read_digits_bin(cur)
             out = out + body2
             cur = c3
-            if !ok2 || bad2
+            if not ok2  or  bad2
             {
                 let p2 = location.offset_to_position(c.idx, c.line_starts)
-                diag = diagnostics.make("DOTS0001", "invalid binary literal", "<memory>", p2.line, p2.col, p2.line, p2.col + 2, "lexer")
+                diag = diagnostics.new("DOTS0001", "invalid binary literal", "<memory>", p2.line, p2.col, p2.line, p2.col + 2, "lexer")
             }
             give (out, cur, diag)
         }
 
-        if p1 == 111 || p1 == 79
+        if p1 == 111  or  p1 == 79
         {
             out = "0o"
             cur = cursor.bump(cur, 2)
             let body3, c4, ok3, bad3 = read_digits_oct(cur)
             out = out + body3
             cur = c4
-            if !ok3 || bad3
+            if not ok3  or  bad3
             {
                 let p3 = location.offset_to_position(c.idx, c.line_starts)
-                diag = diagnostics.make("DOTS0001", "invalid octal literal", "<memory>", p3.line, p3.col, p3.line, p3.col + 2, "lexer")
+                diag = diagnostics.new("DOTS0001", "invalid octal literal", "<memory>", p3.line, p3.col, p3.line, p3.col + 2, "lexer")
             }
             give (out, cur, diag)
         }
@@ -286,33 +286,33 @@ proc read_number(c: cursor.Cursor) -> (string, cursor.Cursor, diagnostics.Diagno
     let head, c5, head_ok, bad_head = read_digits_dec(cur)
     out = out + head
     cur = c5
-    if bad_head || !head_ok
+    if bad_head  or  not head_ok
     {
         let p4 = location.offset_to_position(c.idx, c.line_starts)
-        diag = diagnostics.make("DOTS0001", "invalid underscore placement in number", "<memory>", p4.line, p4.col, p4.line, p4.col + 1, "lexer")
+        diag = diagnostics.new("DOTS0001", "invalid underscore placement in number", "<memory>", p4.line, p4.col, p4.line, p4.col + 1, "lexer")
     }
 
-    if !cursor.eof(cur) && cursor.peek(cur, 0) == 46 && literal.is_digit(cursor.peek(cur, 1))
+    if not cursor.eof(cur)  and  cursor.peek(cur, 0) == 46  and  literal.is_digit(cursor.peek(cur, 1))
     {
         out = out + "."
         cur = cursor.bump(cur, 1)
         let frac, c6, frac_ok, bad_frac = read_digits_dec(cur)
         out = out + frac
         cur = c6
-        if (!frac_ok || bad_frac) && diag == null
+        if (not frac_ok  or  bad_frac)  and  diag == null
         {
             let p5 = location.offset_to_position(c.idx, c.line_starts)
-            diag = diagnostics.make("DOTS0001", "invalid underscore placement in float literal", "<memory>", p5.line, p5.col, p5.line, p5.col + 1, "lexer")
+            diag = diagnostics.new("DOTS0001", "invalid underscore placement in float literal", "<memory>", p5.line, p5.col, p5.line, p5.col + 1, "lexer")
         }
     }
 
     let e = cursor.peek(cur, 0)
-    if e == 101 || e == 69
+    if e == 101  or  e == 69
     {
         out = out + str.from_i64(e)
         cur = cursor.bump(cur, 1)
         let sign = cursor.peek(cur, 0)
-        if sign == 43 || sign == 45
+        if sign == 43  or  sign == 45
         {
             out = out + str.from_i64(sign)
             cur = cursor.bump(cur, 1)
@@ -321,10 +321,10 @@ proc read_number(c: cursor.Cursor) -> (string, cursor.Cursor, diagnostics.Diagno
         let exp, c7, exp_ok, exp_bad = read_digits_dec(cur)
         out = out + exp
         cur = c7
-        if (!exp_ok || exp_bad) && diag == null
+        if (not exp_ok  or  exp_bad)  and  diag == null
         {
             let p6 = location.offset_to_position(c.idx, c.line_starts)
-            diag = diagnostics.make("DOTS0001", "invalid exponent in numeric literal", "<memory>", p6.line, p6.col, p6.line, p6.col + 1, "lexer")
+            diag = diagnostics.new("DOTS0001", "invalid exponent in numeric literal", "<memory>", p6.line, p6.col, p6.line, p6.col + 1, "lexer")
         }
     }
 
@@ -336,10 +336,10 @@ proc read_hex_escape(cur: cursor.Cursor, n: i64) -> (string, cursor.Cursor, bool
     let out = ""
     let c2 = cur
     let i: i64 = 0
-    loop while i < n
+    while i < n
     {
         let ch = cursor.peek(c2, 0)
-        if !literal.is_hex_digit(ch)
+        if not literal.is_hex_digit(ch)
         {
             give (out, c2, false)
         }
@@ -363,13 +363,13 @@ proc decode_simple_escape(ch: i64) -> string
     give ""
 }
 
-proc read_string(c: cursor.Cursor) -> (string, cursor.Cursor, diagnostics.Diagnostic?)
+proc read_string(c: cursor.Cursor) -> (string, cursor.Cursor, Option[diagnostics.Diagnostic])
 {
     let out = ""
     let cur = cursor.bump(c, 1)
-    let diag: diagnostics.Diagnostic? = null
+    let diag: Option[diagnostics.Diagnostic] = null
 
-    loop while !cursor.eof(cur)
+    while not cursor.eof(cur)
     {
         let ch = cursor.peek(cur, 0)
         if ch == 34
@@ -381,20 +381,20 @@ proc read_string(c: cursor.Cursor) -> (string, cursor.Cursor, diagnostics.Diagno
         if ch == 92
         {
             let n = cursor.peek(cur, 1)
-            if !literal.valid_escape(n)
+            if not literal.valid_escape(n)
             {
                 let p = location.offset_to_position(cur.idx, cur.line_starts)
-                diag = diagnostics.make("DOTS0001", "invalid string escape", "<memory>", p.line, p.col, p.line, p.col + 1, "lexer")
+                diag = diagnostics.new("DOTS0001", "invalid string escape", "<memory>", p.line, p.col, p.line, p.col + 1, "lexer")
             }
             if n == 117
             {
                 let hx, c2, ok = read_hex_escape(cursor.bump(cur, 2), 4)
                 out = out + "\\u" + hx
                 cur = c2
-                if !ok
+                if not ok
                 {
                     let p2 = location.offset_to_position(cur.idx, cur.line_starts)
-                    diag = diagnostics.make("DOTS0001", "invalid unicode escape, expected 4 hex digits", "<memory>", p2.line, p2.col, p2.line, p2.col + 1, "lexer")
+                    diag = diagnostics.new("DOTS0001", "invalid unicode escape, expected 4 hex digits", "<memory>", p2.line, p2.col, p2.line, p2.col + 1, "lexer")
                 }
                 continue
             }
@@ -403,10 +403,10 @@ proc read_string(c: cursor.Cursor) -> (string, cursor.Cursor, diagnostics.Diagno
                 let hx2, c3, ok2 = read_hex_escape(cursor.bump(cur, 2), 2)
                 out = out + "\\x" + hx2
                 cur = c3
-                if !ok2
+                if not ok2
                 {
                     let p3 = location.offset_to_position(cur.idx, cur.line_starts)
-                    diag = diagnostics.make("DOTS0001", "invalid hex escape, expected 2 hex digits", "<memory>", p3.line, p3.col, p3.line, p3.col + 1, "lexer")
+                    diag = diagnostics.new("DOTS0001", "invalid hex escape, expected 2 hex digits", "<memory>", p3.line, p3.col, p3.line, p3.col + 1, "lexer")
                 }
                 continue
             }
@@ -429,7 +429,7 @@ proc read_string(c: cursor.Cursor) -> (string, cursor.Cursor, diagnostics.Diagno
         if out.len > 65536
         {
             let p2 = location.offset_to_position(cur.idx, cur.line_starts)
-            diag = diagnostics.make("DOTS0001", "string token exceeds max length", "<memory>", p2.line, p2.col, p2.line, p2.col + 1, "lexer")
+            diag = diagnostics.new("DOTS0001", "string token exceeds max length", "<memory>", p2.line, p2.col, p2.line, p2.col + 1, "lexer")
             break
         }
     }
@@ -437,7 +437,7 @@ proc read_string(c: cursor.Cursor) -> (string, cursor.Cursor, diagnostics.Diagno
     let p3 = location.offset_to_position(c.idx, c.line_starts)
     if diag == null
     {
-        diag = diagnostics.make("DOTS0001", "unterminated string literal", "<memory>", p3.line, p3.col, p3.line, p3.col + 1, "lexer")
+        diag = diagnostics.new("DOTS0001", "unterminated string literal", "<memory>", p3.line, p3.col, p3.line, p3.col + 1, "lexer")
     }
     give (out, cur, diag)
 }
@@ -448,7 +448,7 @@ proc next(c: cursor.Cursor) -> ScanResult
     if cursor.eof(cur)
     {
         let sp = make_span(cur, cur.idx, cur.idx)
-        give ScanResult(token.make(token_kind.TK_EOF, "", sp, tv), cur, null)
+        give ScanResult(token.new(token_kind.TK_EOF, "", sp, tv), cur, null)
     }
 
     let start = cur.idx
@@ -457,7 +457,7 @@ proc next(c: cursor.Cursor) -> ScanResult
     if ch == 10
     {
         cur = cursor.bump(cur, 1)
-        give ScanResult(token.make(token_kind.TK_NEWLINE, "\n", make_span(cur, start, cur.idx), tv), cur, null)
+        give ScanResult(token.new(token_kind.TK_NEWLINE, "\n", make_span(cur, start, cur.idx), tv), cur, null)
     }
 
     if is_ident_start(ch)
@@ -465,31 +465,31 @@ proc next(c: cursor.Cursor) -> ScanResult
         let raw, c2 = read_ident(cur)
         let k = token_kind.TK_IDENT
         if keyword.is_keyword(raw) { k = token_kind.TK_KEYWORD }
-        give ScanResult(token.make(k, raw, make_span(c2, start, c2.idx), tv), c2, null)
+        give ScanResult(token.new(k, raw, make_span(c2, start, c2.idx), tv), c2, null)
     }
 
     if literal.is_digit(ch)
     {
         let num, c3, dnum = read_number(cur)
-        give ScanResult(token.make(token_kind.TK_NUMBER, num, make_span(c3, start, c3.idx), tv), c3, dnum)
+        give ScanResult(token.new(token_kind.TK_NUMBER, num, make_span(c3, start, c3.idx), tv), c3, dnum)
     }
 
     if ch == 34
     {
         let s, c4, d = read_string(cur)
-        give ScanResult(token.make(token_kind.TK_STRING, s, make_span(c4, start, c4.idx), tv), c4, d)
+        give ScanResult(token.new(token_kind.TK_STRING, s, make_span(c4, start, c4.idx), tv), c4, d)
     }
 
-    if ch == 46 { let c5 = cursor.bump(cur, 1); give ScanResult(token.make(token_kind.TK_DOT, ".", make_span(c5, start, c5.idx), tv), c5, null) }
-    if ch == 36 { let c6 = cursor.bump(cur, 1); give ScanResult(token.make(token_kind.TK_DOLLAR, "$", make_span(c6, start, c6.idx), tv), c6, null) }
+    if ch == 46 { let c5 = cursor.bump(cur, 1); give ScanResult(token.new(token_kind.TK_DOT, ".", make_span(c5, start, c5.idx), tv), c5, null) }
+    if ch == 36 { let c6 = cursor.bump(cur, 1); give ScanResult(token.new(token_kind.TK_DOLLAR, "$", make_span(c6, start, c6.idx), tv), c6, null) }
 
-    if ch == 40 { let c7 = cursor.bump(cur, 1); give ScanResult(token.make(token_kind.TK_LPAREN, "(", make_span(c7, start, c7.idx), tv), c7, null) }
-    if ch == 41 { let c8 = cursor.bump(cur, 1); give ScanResult(token.make(token_kind.TK_RPAREN, ")", make_span(c8, start, c8.idx), tv), c8, null) }
-    if ch == 123 { let c9 = cursor.bump(cur, 1); give ScanResult(token.make(token_kind.TK_LBRACE, "{", make_span(c9, start, c9.idx), tv), c9, null) }
-    if ch == 125 { let c10 = cursor.bump(cur, 1); give ScanResult(token.make(token_kind.TK_RBRACE, "}", make_span(c10, start, c10.idx), tv), c10, null) }
-    if ch == 44 { let c11 = cursor.bump(cur, 1); give ScanResult(token.make(token_kind.TK_COMMA, ",", make_span(c11, start, c11.idx), tv), c11, null) }
-    if ch == 58 { let c12 = cursor.bump(cur, 1); give ScanResult(token.make(token_kind.TK_COLON, ":", make_span(c12, start, c12.idx), tv), c12, null) }
-    if ch == 61 { let c13 = cursor.bump(cur, 1); give ScanResult(token.make(token_kind.TK_EQUAL, "=", make_span(c13, start, c13.idx), tv), c13, null) }
+    if ch == 40 { let c7 = cursor.bump(cur, 1); give ScanResult(token.new(token_kind.TK_LPAREN, "(", make_span(c7, start, c7.idx), tv), c7, null) }
+    if ch == 41 { let c8 = cursor.bump(cur, 1); give ScanResult(token.new(token_kind.TK_RPAREN, ")", make_span(c8, start, c8.idx), tv), c8, null) }
+    if ch == 123 { let c9 = cursor.bump(cur, 1); give ScanResult(token.new(token_kind.TK_LBRACE, "{", make_span(c9, start, c9.idx), tv), c9, null) }
+    if ch == 125 { let c10 = cursor.bump(cur, 1); give ScanResult(token.new(token_kind.TK_RBRACE, "}", make_span(c10, start, c10.idx), tv), c10, null) }
+    if ch == 44 { let c11 = cursor.bump(cur, 1); give ScanResult(token.new(token_kind.TK_COMMA, ",", make_span(c11, start, c11.idx), tv), c11, null) }
+    if ch == 58 { let c12 = cursor.bump(cur, 1); give ScanResult(token.new(token_kind.TK_COLON, ":", make_span(c12, start, c12.idx), tv), c12, null) }
+    if ch == 61 { let c13 = cursor.bump(cur, 1); give ScanResult(token.new(token_kind.TK_EQUAL, "=", make_span(c13, start, c13.idx), tv), c13, null) }
 
     let c14 = cursor.bump(cur, 1)
     let p = location.offset_to_position(start, c.line_starts)
@@ -504,12 +504,12 @@ proc next(c: cursor.Cursor) -> ScanResult
             msg = msg + " " + hint.detail
         }
     }
-    let d2 = diagnostics.make("DOTS0001", msg, "<memory>", p.line, p.col, p.line, p.col + 1, "lexer")
+    let d2 = diagnostics.new("DOTS0001", msg, "<memory>", p.line, p.col, p.line, p.col + 1, "lexer")
     if hint.ok
     {
         let title = "Replace with suggested token"
         if hint.title != "" { title = hint.title }
         d2 = diagnostics.with_quick_fix(d2, "replace", title, hint.replacement)
     }
-    give ScanResult(token.make(token_kind.TK_UNKNOWN, str.from_i64(ch), make_span(c14, start, c14.idx), tv), c14, d2)
+    give ScanResult(token.new(token_kind.TK_UNKNOWN, str.from_i64(ch), make_span(c14, start, c14.idx), tv), c14, d2)
 }

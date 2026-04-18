@@ -1,6 +1,6 @@
 space core/semantic/type_infer
 
-pull core/str
+use core/str
 
 proc infer_literal(value: string, kind: string) -> string
 {
@@ -8,7 +8,7 @@ proc infer_literal(value: string, kind: string) -> string
     if kind == "string" { give "string" }
     if kind == "ident"
     {
-        if value == "true" || value == "false" { give "bool" }
+        if value == "true"  or  value == "false" { give "bool" }
         if str.starts_with(value, "ptr:") { give "ptr" }
     }
     give "unknown"

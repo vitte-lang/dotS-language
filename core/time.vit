@@ -5,7 +5,7 @@ proc now_ms() -> i64
     give 0
 }
 
-proc sleep_ms(ms: i64) -> void
+proc sleep_ms(ms: i64) -> bool
 {
-    give
+    give false
 }

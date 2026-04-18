@@ -1,12 +1,12 @@
 space core/lexer
 
-pull core/time
-pull core/str
-pull core/lexer/cursor
-pull core/lexer/scanner
-pull core/lexer/token
-pull core/lexer/token_kind
-pull core/diagnostics
+use core/time
+use core/str
+use core/lexer/cursor
+use core/lexer/scanner
+use core/lexer/token
+use core/lexer/token_kind
+use core/diagnostics
 
 form LexResult
 {
@@ -20,7 +20,7 @@ proc slice_text(text: string, start_off: i64, end_off: i64) -> string
 {
     let out = ""
     let i = start_off
-    loop while i < end_off
+    while i < end_off
     {
         out = out + str.from_i64(text[i])
         i = i + 1
@@ -34,10 +34,10 @@ proc lex(text: string) -> LexResult
     let tokens: [token.Token] = []
     let diags: [diagnostics.Diagnostic] = []
 
-    let c = cursor.make(text)
+    let c = cursor.new(text)
     let cur = c
 
-    loop while true
+    while true
     {
         let r = scanner.next(cur)
         tokens = tokens.push(r.tk)
@@ -47,7 +47,7 @@ proc lex(text: string) -> LexResult
 
         if tokens.len > 200000
         {
-            diags = diags.push(diagnostics.make("DOTS0001", "token budget exceeded", "<memory>", 1, 1, 1, 1, "lexer"))
+            diags = diags.push(diagnostics.new("DOTS0001", "token budget exceeded", "<memory>", 1, 1, 1, 1, "lexer"))
             break
         }
     }

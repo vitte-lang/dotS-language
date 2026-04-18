@@ -1,8 +1,8 @@
 space core/ir/builder
 
-pull core/str
-pull core/parser
-pull core/ir/node
+use core/str
+use core/parser
+use core/ir/node
 
 form BuildResult
 {
@@ -22,8 +22,8 @@ proc span(file: string, line: i32, col: i32) -> node.SourceSpan
 proc estimate_cost(op: string) -> i32
 {
     if op == "const" { give 1 }
-    if op == "bind" || op == "import" || op == "module" { give 1 }
-    if op == "add" || op == "sub" || op == "mul" || op == "div" { give 2 }
+    if op == "bind"  or  op == "import"  or  op == "module" { give 1 }
+    if op == "add"  or  op == "sub"  or  op == "mul"  or  op == "div" { give 2 }
     if op == "call" { give 8 }
     if op == "pipe" { give 2 }
     if op == "branch" { give 1 }
@@ -38,9 +38,9 @@ proc literal_type(n: parser.AstNode) -> string
     give "unknown"
 }
 
-proc emit_literal(instrs: [node.IRInstr], n: parser.AstNode, file: string, vid: i64, iid: i64) -> ([node.IRInstr], i64, i64, node.IRValue?)
+proc emit_literal(instrs: [node.IRInstr], n: parser.AstNode, file: string, vid: i64, iid: i64) -> ([node.IRInstr], i64, i64, Option[node.IRValue])
 {
-    if n.kind != "number" && n.kind != "string" && n.kind != "boolean"
+    if n.kind != "number"  and  n.kind != "string"  and  n.kind != "boolean"
     {
         give (instrs, vid, iid, null)
     }
@@ -74,7 +74,7 @@ proc emit_function_call(instrs: [node.IRInstr], n: parser.AstNode, file: string,
     let vcur = vid
     let icur = iid
     let ai: i32 = 1
-    loop while ai < n.children.len
+    while ai < n.children.len
     {
         let out2, v2, i2, rhs = emit_literal(out, n.children[ai], file, vcur, icur)
         out = out2
@@ -91,7 +91,7 @@ proc emit_function_call(instrs: [node.IRInstr], n: parser.AstNode, file: string,
 proc emit_module_like(instrs: [node.IRInstr], n: parser.AstNode, file: string, vid: i64, iid: i64) -> ([node.IRInstr], i64, i64)
 {
     let op = "module"
-    if n.kind == "use_stmt" || n.kind == "import_stmt" { op = "import" }
+    if n.kind == "use_stmt"  or  n.kind == "import_stmt" { op = "import" }
     let dst = val(vid, "module_ref", "%" + str.from_i64(vid))
     let out = instrs.push(node.instr(iid, op, dst, [], n.value, span(file, n.line, n.col), estimate_cost(op)))
     give (out, vid + 1, iid + 1)
@@ -110,9 +110,9 @@ proc build_from_ast(ast: parser.AstNode, name: string, file: string) -> BuildRes
     let vid: i64 = 1
     let iid: i64 = 1
 
-    loop n in ast.children
+    for n in ast.children
     {
-        if (n.kind == "assignment_const" || n.kind == "assignment_let" || n.kind == "assignment_set") && n.children.len >= 2
+        if (n.kind == "assignment_const"  or  n.kind == "assignment_let"  or  n.kind == "assignment_set")  and  n.children.len >= 2
         {
             let out, v2, i2 = emit_assignment(instrs, n, file, vid, iid)
             instrs = out
@@ -120,7 +120,7 @@ proc build_from_ast(ast: parser.AstNode, name: string, file: string) -> BuildRes
             iid = i2
             continue
         }
-        if n.kind == "module_stmt" || n.kind == "use_stmt" || n.kind == "import_stmt"
+        if n.kind == "module_stmt"  or  n.kind == "use_stmt"  or  n.kind == "import_stmt"
         {
             let out2, v3, i3 = emit_module_like(instrs, n, file, vid, iid)
             instrs = out2
@@ -136,7 +136,7 @@ proc build_from_ast(ast: parser.AstNode, name: string, file: string) -> BuildRes
             iid = i4
             continue
         }
-        if n.kind == "stmt_expr" && n.children.len > 0
+        if n.kind == "stmt_expr"  and  n.children.len > 0
         {
             let e = n.children[0]
             if e.kind == "number"
@@ -160,7 +160,7 @@ proc build_from_ast(ast: parser.AstNode, name: string, file: string) -> BuildRes
                 vid = v6
                 iid = i6
             }
-            else if e.kind == "binary" && e.children.len >= 2
+            else if e.kind == "binary"  and  e.children.len >= 2
             {
                 let dst2 = val(vid, "i64", "%" + str.from_i64(vid))
                 let a = val(vid - 1, "i64", "%" + str.from_i64(vid - 1))

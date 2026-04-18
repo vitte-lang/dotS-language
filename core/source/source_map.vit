@@ -1,7 +1,7 @@
 space core/source/map
 
-pull core/str
-pull core/source/span
+use core/str
+use core/source/span
 
 form Mapping
 {
@@ -13,7 +13,7 @@ proc to_json(m: [Mapping]) -> string
 {
     let out = ""
     let i: i32 = 0
-    loop while i < m.len
+    while i < m.len
     {
         if i > 0 { out = out + "," }
         let x = m[i]
@@ -23,9 +23,9 @@ proc to_json(m: [Mapping]) -> string
     give "{\"schema_version\":\"1.1.0\",\"items\":[" + out + "]}"
 }
 
-proc find_symbol(m: [Mapping], symbol: string) -> span.Span?
+proc find_symbol(m: [Mapping], symbol: string) -> Option[span.Span]
 {
-    loop x in m
+    for x in m
     {
         if x.symbol == symbol { give x.sp }
     }

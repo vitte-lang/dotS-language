@@ -1,10 +1,10 @@
 space core/environment
 
-pull core/str
-pull core/fs
-pull core/time
-pull core/process
-pull core/config
+use core/str
+use core/fs
+use core/time
+use core/process
+use core/config
 
 form EnvSpec
 {
@@ -54,7 +54,7 @@ proc get_env_with_alias(spec: EnvSpec) -> EnvPair
     if v != "" { give EnvPair(spec.env_key, v, "env", "") }
 
     let aliases = str.split(spec.aliases_csv, ",")
-    loop a in aliases
+    for a in aliases
     {
         let alias = str.trim(a)
         if alias == "" { continue }
@@ -68,14 +68,14 @@ proc get_env_with_alias(spec: EnvSpec) -> EnvPair
     give EnvPair(spec.env_key, "", "default", "")
 }
 
-proc parse_bool(raw: string) -> bool?
+proc parse_bool(raw: string) -> Option[bool]
 {
     if config.is_true(raw) { give true }
     if config.is_false(raw) { give false }
     give null
 }
 
-proc parse_duration_ms(raw: string) -> i64?
+proc parse_duration_ms(raw: string) -> Option[i64]
 {
     let v = str.trim(raw)
     if v == "" { give null }
@@ -102,26 +102,26 @@ proc parse_duration_ms(raw: string) -> i64?
     give config.parse_i64_strict(v)
 }
 
-proc parse_bytes(raw: string) -> i64?
+proc parse_bytes(raw: string) -> Option[i64]
 {
     let v = str.trim(raw)
     if v == "" { give null }
 
-    if str.ends_with(v, "KB") || str.ends_with(v, "kb")
+    if str.ends_with(v, "KB")  or  str.ends_with(v, "kb")
     {
         let n = config.parse_i64_strict(str.replace(str.replace(v, "KB", ""), "kb", ""))
         if n == null { give null }
         give n * 1024
     }
 
-    if str.ends_with(v, "MB") || str.ends_with(v, "mb")
+    if str.ends_with(v, "MB")  or  str.ends_with(v, "mb")
     {
         let n2 = config.parse_i64_strict(str.replace(str.replace(v, "MB", ""), "mb", ""))
         if n2 == null { give null }
         give n2 * 1024 * 1024
     }
 
-    if str.ends_with(v, "GB") || str.ends_with(v, "gb")
+    if str.ends_with(v, "GB")  or  str.ends_with(v, "gb")
     {
         let n3 = config.parse_i64_strict(str.replace(str.replace(v, "GB", ""), "gb", ""))
         if n3 == null { give null }
@@ -131,7 +131,7 @@ proc parse_bytes(raw: string) -> i64?
     give config.parse_i64_strict(v)
 }
 
-proc normalize_value(spec: EnvSpec, raw: string) -> string?
+proc normalize_value(spec: EnvSpec, raw: string) -> Option[string]
 {
     let v = str.trim(raw)
 
@@ -153,7 +153,7 @@ proc normalize_value(spec: EnvSpec, raw: string) -> string?
     {
         let d = parse_duration_ms(v)
         if d == null { give null }
-        if d < spec.min_v || d > spec.max_v { give null }
+        if d < spec.min_v  or  d > spec.max_v { give null }
         give str.from_i64(d)
     }
 
@@ -161,13 +161,13 @@ proc normalize_value(spec: EnvSpec, raw: string) -> string?
     {
         let b2 = parse_bytes(v)
         if b2 == null { give null }
-        if b2 < spec.min_v || b2 > spec.max_v { give null }
+        if b2 < spec.min_v  or  b2 > spec.max_v { give null }
         give str.from_i64(b2)
     }
 
     if spec.kind == "enum"
     {
-        if !config.validate_enum(v, str.split(spec.enum_csv, ",")) { give null }
+        if not config.validate_enum(v, str.split(spec.enum_csv, ",")) { give null }
         give v
     }
 
@@ -201,7 +201,7 @@ proc cache_file() -> string
 proc cache_ttl_ms() -> i64
 {
     let n = config.parse_i64_strict(process.env("DOTS_CONFIG_ENV_CACHE_MS"))
-    if n == null || n < 0 { give 3000 }
+    if n == null  or  n < 0 { give 3000 }
     give n
 }
 
@@ -209,7 +209,7 @@ proc env_snapshot(refresh: bool) -> [config.ConfigKV]
 {
     fs.mkdir_p(".dots")
 
-    if !refresh && fs.exists(cache_file())
+    if not refresh  and  fs.exists(cache_file())
     {
         let age = time.now_ms() - fs.mtime_ms(cache_file())
         if age <= cache_ttl_ms()
@@ -221,18 +221,18 @@ proc env_snapshot(refresh: bool) -> [config.ConfigKV]
     let out: [config.ConfigKV] = []
     let warn_once: [string] = []
 
-    loop spec in spec_table()
+    for spec in spec_table()
     {
         let p = get_env_with_alias(spec)
 
         if p.warning != ""
         {
             let seen = false
-            loop w in warn_once
+            for w in warn_once
             {
                 if w == p.warning { seen = true }
             }
-            if !seen { warn_once = warn_once.push(p.warning) }
+            if not seen { warn_once = warn_once.push(p.warning) }
         }
 
         if p.value == ""
@@ -260,11 +260,11 @@ proc encode_cache(items: [config.ConfigKV], warnings: [string]) -> string
     let out = ""
     out = out + "schema_version=1\n"
     out = out + "cached_at_ms=" + str.from_i64(time.now_ms()) + "\n"
-    loop w in warnings
+    for w in warnings
     {
         out = out + "warn=" + str.replace(w, "\n", " ") + "\n"
     }
-    loop kv in items
+    for kv in items
     {
         out = out + kv.key + "|" + kv.value + "|" + kv.source + "|" + kv.source_path + "\n"
     }
@@ -275,7 +275,7 @@ proc parse_cache(raw: string) -> [config.ConfigKV]
 {
     let out: [config.ConfigKV] = []
     let lines = str.split(raw, "\n")
-    loop l in lines
+    for l in lines
     {
         let line = str.trim(l)
         if line == "" { continue }
@@ -293,10 +293,10 @@ proc parse_cache(raw: string) -> [config.ConfigKV]
 proc env_to_pairs_redacted(items: [config.ConfigKV]) -> [string]
 {
     let out: [string] = []
-    loop kv in items
+    for kv in items
     {
         let v = kv.value
-        if str.contains(kv.key, "token") || str.contains(kv.key, "secret") || str.contains(kv.source_path, "TOKEN")
+        if str.contains(kv.key, "token")  or  str.contains(kv.key, "secret")  or  str.contains(kv.source_path, "TOKEN")
         {
             v = "***REDACTED***"
         }

@@ -1,8 +1,8 @@
 space core/parser/diagnostics
 
-pull core/diagnostics
-pull core/lexer/token
-pull core/lexer/keyword
+use core/diagnostics
+use core/lexer/token
+use core/lexer/keyword
 
 proc min3(a: i32, b: i32, c: i32) -> i32
 {
@@ -20,18 +20,18 @@ proc levenshtein(a: string, b: string) -> i32
 
     let prev: [i32] = []
     let j: i32 = 0
-    loop while j <= b.len
+    while j <= b.len
     {
         prev = prev.push(j)
         j = j + 1
     }
 
     let i: i32 = 1
-    loop while i <= a.len
+    while i <= a.len
     {
         let cur: [i32] = [i]
         let k: i32 = 1
-        loop while k <= b.len
+        while k <= b.len
         {
             let cost: i32 = 1
             if a[i - 1] == b[k - 1] { cost = 0 }
@@ -56,7 +56,7 @@ proc closest_keyword(raw: string) -> string
     let max_dist: i32 = 2
     if raw.len <= 4 { max_dist = 1 }
 
-    loop k in keyword.table()
+    for k in keyword.table()
     {
         let d = levenshtein(raw, k)
         if d < best_dist
@@ -74,7 +74,7 @@ proc closest_keyword(raw: string) -> string
     give ""
 }
 
-proc keyword_typo(t: token.Token) -> diagnostics.Diagnostic?
+proc keyword_typo(t: token.Token) -> Option[diagnostics.Diagnostic]
 {
     let s = closest_keyword(t.lexeme)
     if s == ""
@@ -82,7 +82,7 @@ proc keyword_typo(t: token.Token) -> diagnostics.Diagnostic?
         give null
     }
 
-    let d = diagnostics.make(
+    let d = diagnostics.new(
         "DOTS0002",
         "unknown statement keyword '" + t.lexeme + "' (did you mean '" + s + "'?)",
         "<memory>",
@@ -97,12 +97,12 @@ proc keyword_typo(t: token.Token) -> diagnostics.Diagnostic?
 
 proc unexpected_token(t: token.Token, expected: string) -> diagnostics.Diagnostic
 {
-    let d = diagnostics.make("DOTS0002", "unexpected token, expected " + expected, "<memory>", t.sp.start_pos.line, t.sp.start_pos.col, t.sp.end_pos.line, t.sp.end_pos.col, "parser")
+    let d = diagnostics.new("DOTS0002", "unexpected token, expected " + expected, "<memory>", t.sp.start_pos.line, t.sp.start_pos.col, t.sp.end_pos.line, t.sp.end_pos.col, "parser")
     give diagnostics.with_quick_fix(d, "replace", "Replace token", expected)
 }
 
 proc missing_token(line: i32, col: i32, expected: string) -> diagnostics.Diagnostic
 {
-    let d = diagnostics.make("DOTS0002", "missing token " + expected, "<memory>", line, col, line, col + 1, "parser")
+    let d = diagnostics.new("DOTS0002", "missing token " + expected, "<memory>", line, col, line, col + 1, "parser")
     give diagnostics.with_quick_fix(d, "insert", "Insert token", expected)
 }

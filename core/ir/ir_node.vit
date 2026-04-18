@@ -1,6 +1,6 @@
 space core/ir/node
 
-pull core/str
+use core/str
 
 form SourceSpan
 {
@@ -20,7 +20,7 @@ form IRInstr
 {
     id: i64
     op: string
-    dst: IRValue?
+    dst: Option[IRValue]
     args: [IRValue]
     literal: string
     source: SourceSpan
@@ -30,7 +30,7 @@ form IRInstr
 form IRTerminator
 {
     kind: string
-    cond: IRValue?
+    cond: Option[IRValue]
     then_block: string
     else_block: string
 }
@@ -59,7 +59,7 @@ proc value(id: i64, typ: string, name: string) -> IRValue
     give IRValue(id, typ, name)
 }
 
-proc instr(id: i64, op: string, dst: IRValue?, args: [IRValue], literal: string, source: SourceSpan, cost: i32) -> IRInstr
+proc instr(id: i64, op: string, dst: Option[IRValue], args: [IRValue], literal: string, source: SourceSpan, cost: i32) -> IRInstr
 {
     give IRInstr(id, op, dst, args, literal, source, cost)
 }

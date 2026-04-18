@@ -1,7 +1,13 @@
 space core/security/redact
 
-pull core/str
-pull core/process
+use core/str
+use core/process
+
+pick Option
+{
+    case Some(value: string)
+    case None
+}
 
 form AuditEvent
 {
@@ -34,13 +40,13 @@ proc redact_secrets(raw: string) -> string
     give out
 }
 
-proc sanitize_path(path: string) -> string?
+proc sanitize_path(path: string) -> Option
 {
     let p = str.trim(path)
-    if p == "" { give null }
-    if str.contains(p, "../") || str.contains(p, "..\\") { give null }
-    if str.contains(p, "\n") || str.contains(p, "\r") { give null }
-    give p
+    if p == "" { give Option.None }
+    if str.contains(p, "../")  or  str.contains(p, "..\\") { give Option.None }
+    if str.contains(p, "\n")  or  str.contains(p, "\r") { give Option.None }
+    give Option.Some(p)
 }
 
 proc shell_sensitive(raw: string) -> bool
@@ -49,8 +55,8 @@ proc shell_sensitive(raw: string) -> bool
     if str.contains(s, "$(") { give true }
     if str.contains(s, "`") { give true }
     if str.contains(s, ";") { give true }
-    if str.contains(s, "&&") { give true }
-    if str.contains(s, "||") { give true }
+    if str.contains(s, " and ") { give true }
+    if str.contains(s, " or ") { give true }
     if str.contains(s, "|") { give true }
     give false
 }
@@ -58,18 +64,19 @@ proc shell_sensitive(raw: string) -> bool
 proc strict_mode() -> bool
 {
     let v = process.env("DOTS_SECURITY_STRICT")
-    give v == "1" || v == "true"
+    give v == "1"  or  v == "true"
 }
 
 proc clamp_error_message(raw: string, max_len: i32) -> string
 {
-    if max_len <= 0 { max_len = 512 }
+    let limit = max_len
+    if limit <= 0 { set limit = 512 }
     let t = redact_secrets(raw)
-    if t.len <= max_len { give t }
+    if t.len <= limit { give t }
 
     let out = ""
     let i: i32 = 0
-    loop while i < max_len
+    while i < limit
     {
         out = out + str.from_i64(t[i])
         i = i + 1
@@ -79,7 +86,7 @@ proc clamp_error_message(raw: string, max_len: i32) -> string
 
 proc command_allowed(bin: string, allow: [string]) -> bool
 {
-    loop a in allow
+    for a in allow
     {
         if a == bin { give true }
     }

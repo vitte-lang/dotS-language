@@ -27,18 +27,18 @@ proc add(t: SymbolTable, s: Symbol) -> SymbolTable
     give t
 }
 
-proc find_in_scope(t: SymbolTable, name: string, scope_id: i64) -> Symbol?
+proc find_in_scope(t: SymbolTable, name: string, scope_id: i64) -> Option[Symbol]
 {
-    loop s in t.symbols
+    for s in t.symbols
     {
-        if s.name == name && s.scope_id == scope_id { give s }
+        if s.name == name  and  s.scope_id == scope_id { give s }
     }
     give null
 }
 
-proc find_any(t: SymbolTable, name: string) -> Symbol?
+proc find_any(t: SymbolTable, name: string) -> Option[Symbol]
 {
-    loop s in t.symbols
+    for s in t.symbols
     {
         if s.name == name { give s }
     }

@@ -1,7 +1,7 @@
 space core/lexer/suggestions
 
-pull core/str
-pull core/lexer/cursor
+use core/str
+use core/lexer/cursor
 
 form Suggestion
 {
@@ -67,7 +67,7 @@ proc from_unknown_token(c: cursor.Cursor, ch: i64) -> Suggestion
     let one = str.from_i64(ch)
     let two = one + str.from_i64(cursor.peek(c, 1))
 
-    loop r2 in token_rules()
+    for r2 in token_rules()
     {
         if r2.token == two
         {
@@ -75,7 +75,7 @@ proc from_unknown_token(c: cursor.Cursor, ch: i64) -> Suggestion
         }
     }
 
-    loop r1 in token_rules()
+    for r1 in token_rules()
     {
         if r1.token == one
         {
@@ -83,7 +83,7 @@ proc from_unknown_token(c: cursor.Cursor, ch: i64) -> Suggestion
         }
     }
 
-    loop cp in codepoint_rules()
+    for cp in codepoint_rules()
     {
         if cp.code == ch
         {

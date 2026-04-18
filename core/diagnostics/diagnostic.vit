@@ -1,6 +1,6 @@
 space core/diagnostics
 
-pull core/str
+use core/str
 
 const SCHEMA_VERSION: string = "1.1.0"
 
@@ -59,9 +59,9 @@ proc meta_catalog() -> [DiagnosticMeta]
     ]
 }
 
-proc lookup_meta(code: string) -> DiagnosticMeta?
+proc lookup_meta(code: string) -> Option[DiagnosticMeta]
 {
-    loop m in meta_catalog()
+    for m in meta_catalog()
     {
         if m.code == code { give m }
     }
@@ -73,7 +73,7 @@ proc default_meta() -> DiagnosticMeta
     give DiagnosticMeta("DOTS0000", "error", "generic", false, "docs/grammar.md")
 }
 
-proc make(code: string, message: string, file: string, line: i32, col: i32, end_line: i32, end_col: i32, source: string) -> Diagnostic
+proc new(code: string, message: string, file: string, line: i32, col: i32, end_line: i32, end_col: i32, source: string) -> Diagnostic
 {
     let m = lookup_meta(code)
     if m == null { m = default_meta() }

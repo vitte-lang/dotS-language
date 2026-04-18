@@ -1,8 +1,8 @@
 space core/io
 
-proc print(message: string) -> void
+proc print(message: string) -> bool
 {
-    give
+    give false
 }
 
 proc read_stdin_all() -> string

@@ -1,6 +1,6 @@
 space core/lexer/cursor
 
-pull core/source/location
+use core/source/location
 
 form Cursor
 {
@@ -9,7 +9,7 @@ form Cursor
     line_starts: [i64]
 }
 
-proc make(text: string) -> Cursor
+proc new(text: string) -> Cursor
 {
     give Cursor(text, 0, location.build_line_index(text))
 }
@@ -22,7 +22,7 @@ proc eof(c: Cursor) -> bool
 proc peek(c: Cursor, off: i64) -> i64
 {
     let p = c.idx + off
-    if p < 0 || p >= c.text.len { give -1 }
+    if p < 0  or  p >= c.text.len { give -1 }
     give c.text[p]
 }
 

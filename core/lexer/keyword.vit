@@ -28,7 +28,7 @@ proc table() -> [string]
 
 proc is_keyword(raw: string) -> bool
 {
-    loop k in table()
+    for k in table()
     {
         if raw == k { give true }
     }

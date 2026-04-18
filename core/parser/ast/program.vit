@@ -1,6 +1,6 @@
 space core/parser/ast/program
 
-pull core/str
+use core/str
 
 form Program
 {

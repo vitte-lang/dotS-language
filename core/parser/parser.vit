@@ -1,14 +1,14 @@
 space core/parser
 
-pull core/str
-pull core/process
-pull core/lexer
-pull core/lexer/token
-pull core/lexer/token_kind
-pull core/parser/context
-pull core/parser/diagnostics
-pull core/parser/recovery
-pull core/diagnostics
+use core/str
+use core/process
+use core/lexer
+use core/lexer/token
+use core/lexer/token_kind
+use core/parser/context
+use core/parser/diagnostics
+use core/parser/recovery
+use core/diagnostics
 
 form AstNode
 {
@@ -35,16 +35,16 @@ proc make_node(id: i64, kind: string, value: string, children: [AstNode], line: 
 proc trace_enabled() -> bool
 {
     let v = process.env("DOTS_PARSE_TRACE")
-    give v == "1" || v == "true"
+    give v == "1"  or  v == "true"
 }
 
-proc token_line(t: token.Token?) -> i32
+proc token_line(t: Option[token.Token]) -> i32
 {
     if t == null { give 1 }
     give t.sp.start_pos.line
 }
 
-proc token_col(t: token.Token?) -> i32
+proc token_col(t: Option[token.Token]) -> i32
 {
     if t == null { give 1 }
     give t.sp.start_pos.col
@@ -53,7 +53,7 @@ proc token_col(t: token.Token?) -> i32
 proc parse_identifier(ctx: context.ParseContext, next_id: i64, expected: string) -> (AstNode, context.ParseContext, i64)
 {
     let t = context.peek(ctx, 0)
-    if t != null && t.kind == token_kind.TK_IDENT
+    if t != null  and  t.kind == token_kind.TK_IDENT
     {
         let n = make_node(next_id, "identifier", t.lexeme, [], t.sp.start_pos.line, t.sp.start_pos.col)
         give (n, context.bump(ctx), next_id + 1)
@@ -72,12 +72,12 @@ proc parse_qualified_identifier(ctx: context.ParseContext, next_id: i64, expecte
     let cur = c1
     let nid = id1
 
-    loop while true
+    while true
     {
         let dot = context.peek(cur, 0)
         let nxt = context.peek(cur, 1)
-        if dot == null || dot.kind != token_kind.TK_DOT { break }
-        if nxt == null || nxt.kind != token_kind.TK_IDENT { break }
+        if dot == null  or  dot.kind != token_kind.TK_DOT { break }
+        if nxt == null  or  nxt.kind != token_kind.TK_IDENT { break }
 
         cur = context.bump(cur)
         let seg, c2, id2 = parse_identifier(cur, nid, expected)
@@ -94,7 +94,7 @@ proc parse_qualified_identifier(ctx: context.ParseContext, next_id: i64, expecte
 proc parse_dot(ctx: context.ParseContext) -> context.ParseContext
 {
     let t = context.peek(ctx, 0)
-    if t != null && t.kind == token_kind.TK_DOT
+    if t != null  and  t.kind == token_kind.TK_DOT
     {
         give context.bump(ctx)
     }
@@ -136,10 +136,10 @@ proc parse_function_call(ctx: context.ParseContext, next_id: i64) -> (AstNode, c
     let cur = c3
     let nid = id3
 
-    loop while true
+    while true
     {
         let t = context.peek(cur, 0)
-        if t == null || t.kind != token_kind.TK_DOT { break }
+        if t == null  or  t.kind != token_kind.TK_DOT { break }
 
         cur = context.bump(cur)
         let a, c4, id4 = parse_value(cur, nid)
@@ -176,7 +176,7 @@ proc parse_value(ctx: context.ParseContext, next_id: i64) -> (AstNode, context.P
     if t.kind == token_kind.TK_IDENT
     {
         let k = "identifier"
-        if t.lexeme == "true" || t.lexeme == "false" { k = "boolean" }
+        if t.lexeme == "true"  or  t.lexeme == "false" { k = "boolean" }
         give (make_node(next_id, k, t.lexeme, [], t.sp.start_pos.line, t.sp.start_pos.col), context.bump(ctx), next_id + 1)
     }
 
@@ -185,7 +185,7 @@ proc parse_value(ctx: context.ParseContext, next_id: i64) -> (AstNode, context.P
         give parse_variable(ctx, next_id)
     }
 
-    if t.kind == token_kind.TK_KEYWORD && t.lexeme == "call"
+    if t.kind == token_kind.TK_KEYWORD  and  t.lexeme == "call"
     {
         give parse_function_call(ctx, next_id)
     }
@@ -201,12 +201,12 @@ proc parse_expression(ctx: context.ParseContext, next_id: i64) -> (AstNode, cont
     let cur = c1
     let nid = id1
 
-    loop while true
+    while true
     {
         let t = context.peek(cur, 0)
-        if t == null || t.kind != token_kind.TK_DOT { break }
+        if t == null  or  t.kind != token_kind.TK_DOT { break }
         let t2 = context.peek(cur, 1)
-        if t2 == null || t2.kind == token_kind.TK_NEWLINE || t2.kind == token_kind.TK_EOF
+        if t2 == null  or  t2.kind == token_kind.TK_NEWLINE  or  t2.kind == token_kind.TK_EOF
         {
             cur.diagnostics = cur.diagnostics.push(diagnostics.missing_token(token_line(t), token_col(t), "value"))
             break
@@ -245,10 +245,10 @@ proc parse_function_def(ctx: context.ParseContext, next_id: i64) -> (AstNode, co
     let cur = c3
     let nid = id3
 
-    loop while true
+    while true
     {
         let t = context.peek(cur, 0)
-        if t == null || t.kind != token_kind.TK_DOT { break }
+        if t == null  or  t.kind != token_kind.TK_DOT { break }
 
         cur = context.bump(cur)
         let p, c4, id4 = parse_variable(cur, nid)
@@ -268,7 +268,7 @@ proc parse_keyword_stmt(ctx: context.ParseContext, next_id: i64, kind: string, w
     let raw = ""
     if kw != null { raw = kw.lexeme }
 
-    if !with_expr
+    if not with_expr
     {
         give (make_node(next_id, kind, raw, [], token_line(kw), token_col(kw)), cur, next_id + 1)
     }
@@ -307,7 +307,7 @@ proc parse_return_stmt(ctx: context.ParseContext, next_id: i64) -> (AstNode, con
     let cur = context.bump(ctx)
     let t = context.peek(cur, 0)
 
-    if t != null && t.kind == token_kind.TK_DOT
+    if t != null  and  t.kind == token_kind.TK_DOT
     {
         let c1 = context.bump(cur)
         let ex, c2, id2 = parse_expression(c1, next_id + 1)
@@ -329,7 +329,7 @@ proc parse_statement(ctx: context.ParseContext, next_id: i64) -> (AstNode, conte
 
     if t.kind == token_kind.TK_KEYWORD
     {
-        if t.lexeme == "set" || t.lexeme == "let" || t.lexeme == "const" { give parse_assignment(ctx, next_id, t.lexeme) }
+        if t.lexeme == "set"  or  t.lexeme == "let"  or  t.lexeme == "const" { give parse_assignment(ctx, next_id, t.lexeme) }
         if t.lexeme == "fn" { give parse_function_def(ctx, next_id) }
         if t.lexeme == "call" { give parse_function_call(ctx, next_id) }
         if t.lexeme == "ret" { give parse_return_stmt(ctx, next_id) }
@@ -369,16 +369,16 @@ proc parse_statement(ctx: context.ParseContext, next_id: i64) -> (AstNode, conte
 proc parse(text: string) -> ParseResult
 {
     let lexed = lexer.lex(text)
-    let ctx = context.make(lexed.tokens, trace_enabled())
+    let ctx = context.new(lexed.tokens, trace_enabled())
     let cur = ctx
 
     let items: [AstNode] = []
     let nid: i64 = 1
 
-    loop while true
+    while true
     {
         let t = context.peek(cur, 0)
-        if t == null || t.kind == token_kind.TK_EOF { break }
+        if t == null  or  t.kind == token_kind.TK_EOF { break }
 
         if t.kind == token_kind.TK_NEWLINE
         {
@@ -392,15 +392,15 @@ proc parse(text: string) -> ParseResult
         nid = id2
 
         let nt = context.peek(cur, 0)
-        if nt != null && nt.kind == token_kind.TK_NEWLINE
+        if nt != null  and  nt.kind == token_kind.TK_NEWLINE
         {
             cur = context.bump(cur)
         }
-        else if nt != null && nt.kind != token_kind.TK_EOF
+        else if nt != null  and  nt.kind != token_kind.TK_EOF
         {
             cur = recovery.sync(cur)
             let nt2 = context.peek(cur, 0)
-            if nt2 != null && nt2.kind == token_kind.TK_NEWLINE
+            if nt2 != null  and  nt2.kind == token_kind.TK_NEWLINE
             {
                 cur = context.bump(cur)
             }
@@ -409,7 +409,7 @@ proc parse(text: string) -> ParseResult
 
     let root = make_node(0, "program", "", items, 1, 1)
     let diags = lexed.diagnostics
-    loop d in cur.diagnostics
+    for d in cur.diagnostics
     {
         diags = diags.push(d)
     }
@@ -421,7 +421,7 @@ proc ast_json(n: AstNode) -> string
 {
     let kids = ""
     let i: i32 = 0
-    loop while i < n.children.len
+    while i < n.children.len
     {
         if i > 0 { kids = kids + "," }
         kids = kids + ast_json(n.children[i])

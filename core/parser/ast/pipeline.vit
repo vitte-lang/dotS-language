@@ -1,6 +1,6 @@
 space core/parser/ast/pipeline
 
-pull core/str
+use core/str
 
 form PipelineExpr
 {

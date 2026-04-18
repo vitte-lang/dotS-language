@@ -1,7 +1,7 @@
 space core/ir
 
-pull core/str
-pull core/ir/node
+use core/str
+use core/ir/node
 
 form VerifyResult
 {
@@ -19,17 +19,17 @@ proc verify(m: node.IRModule) -> VerifyResult
         give VerifyResult(false, errs)
     }
 
-    loop b in m.blocks
+    for b in m.blocks
     {
         let seen_defs: [i64] = []
 
-        loop ins in b.instrs
+        for ins in b.instrs
         {
             if ins.dst != null
             {
                 let id = ins.dst.id
                 let dup = false
-                loop d in seen_defs
+                for d in seen_defs
                 {
                     if d == id { dup = true }
                 }
@@ -43,14 +43,14 @@ proc verify(m: node.IRModule) -> VerifyResult
                 }
             }
 
-            loop a in ins.args
+            for a in ins.args
             {
                 let exists = false
-                loop d2 in seen_defs
+                for d2 in seen_defs
                 {
                     if d2 == a.id { exists = true }
                 }
-                if !exists
+                if not exists
                 {
                     errs = errs.push("use-before-def in block " + b.name + " for id=" + str.from_i64(a.id))
                 }
@@ -65,7 +65,7 @@ proc summary(m: node.IRModule) -> string
 {
     let blocks = m.blocks.len
     let instrs: i64 = 0
-    loop b in m.blocks
+    for b in m.blocks
     {
         instrs = instrs + b.instrs.len
     }

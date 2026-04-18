@@ -1,6 +1,6 @@
 space core/parser/ast/lambda
 
-pull core/str
+use core/str
 
 form LambdaExpr
 {

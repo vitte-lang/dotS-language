@@ -1,11 +1,11 @@
 space core/semantic/resolver
 
-pull core/parser
-pull core/semantic/symbol_table
+use core/parser
+use core/semantic/symbol_table
 
 proc declaration_name(n: parser.AstNode) -> string
 {
-    if n.kind == "assignment_const" || n.kind == "assignment_let" || n.kind == "assignment_set"
+    if n.kind == "assignment_const"  or  n.kind == "assignment_let"  or  n.kind == "assignment_set"
     {
         if n.children.len > 0 { give n.children[0].value }
     }
@@ -19,7 +19,7 @@ proc add_function_params(table: symbol_table.SymbolTable, n: parser.AstNode, fil
 {
     if n.kind != "function_def" { give table }
     let i: i32 = 1
-    loop while i < n.children.len
+    while i < n.children.len
     {
         let p = n.children[i]
         if p.kind == "variable"
@@ -35,9 +35,9 @@ proc collect_declarations(root: parser.AstNode, file: string, scope_id: i64) -> 
 {
     let table = symbol_table.empty()
 
-    loop n in root.children
+    for n in root.children
     {
-        if n.kind == "function_def" || n.kind == "module_stmt" || n.kind == "use_stmt" || n.kind == "import_stmt" || n.kind == "assignment_const" || n.kind == "assignment_let" || n.kind == "assignment_set"
+        if n.kind == "function_def"  or  n.kind == "module_stmt"  or  n.kind == "use_stmt"  or  n.kind == "import_stmt"  or  n.kind == "assignment_const"  or  n.kind == "assignment_let"  or  n.kind == "assignment_set"
         {
             let name = declaration_name(n)
 

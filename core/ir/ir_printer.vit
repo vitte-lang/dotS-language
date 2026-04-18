@@ -1,9 +1,9 @@
 space core/ir/printer
 
-pull core/str
-pull core/ir/node
+use core/str
+use core/ir/node
 
-proc value_json(v: node.IRValue?) -> string
+proc value_json(v: Option[node.IRValue]) -> string
 {
     if v == null { give "null" }
     give "{\"id\":" + str.from_i64(v.id) + ",\"typ\":\"" + v.typ + "\",\"name\":\"" + v.name + "\"}"
@@ -13,7 +13,7 @@ proc args_json(args: [node.IRValue]) -> string
 {
     let out = ""
     let i: i32 = 0
-    loop while i < args.len
+    while i < args.len
     {
         if i > 0 { out = out + "," }
         out = out + value_json(args[i])
@@ -39,7 +39,7 @@ proc block_json(b: node.IRBlock) -> string
 {
     let out = ""
     let i: i32 = 0
-    loop while i < b.instrs.len
+    while i < b.instrs.len
     {
         if i > 0 { out = out + "," }
         out = out + instr_json(b.instrs[i])
@@ -57,7 +57,7 @@ proc emit_json_stable(m: node.IRModule) -> string
 {
     let out = ""
     let i: i32 = 0
-    loop while i < m.blocks.len
+    while i < m.blocks.len
     {
         if i > 0 { out = out + "," }
         out = out + block_json(m.blocks[i])
@@ -74,10 +74,10 @@ proc emit_json_stable(m: node.IRModule) -> string
 proc emit_text(m: node.IRModule) -> string
 {
     let out = "module " + m.name + "\n"
-    loop b in m.blocks
+    for b in m.blocks
     {
         out = out + "block " + b.name + "\n"
-        loop ins in b.instrs
+        for ins in b.instrs
         {
             out = out + "  " + ins.op + " " + ins.literal + "\n"
         }

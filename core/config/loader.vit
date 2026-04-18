@@ -1,10 +1,10 @@
 space core/loader
 
-pull core/str
-pull core/fs
-pull core/process
-pull core/time
-pull core/config
+use core/str
+use core/fs
+use core/process
+use core/time
+use core/config
 
 form LoadResult
 {
@@ -29,7 +29,7 @@ proc parse_kv(raw: string, source_path: string) -> [config.ConfigKV]
 {
     let out: [config.ConfigKV] = []
     let lines = str.split(raw, "\n")
-    loop l in lines
+    for l in lines
     {
         let line = str.trim(l)
         if line == "" { continue }
@@ -55,7 +55,7 @@ proc strip_jsonc(raw: string) -> string
 {
     let out = ""
     let lines = str.split(raw, "\n")
-    loop l in lines
+    for l in lines
     {
         let line = str.trim(l)
         if str.starts_with(line, "//") { continue }
@@ -72,7 +72,7 @@ proc parse_json_flat(raw: string, source_path: string) -> [config.ConfigKV]
     t = str.replace(t, "}", "")
     let pairs = str.split(t, ",")
 
-    loop pair in pairs
+    for pair in pairs
     {
         let p = str.split(pair, ":")
         if p.len < 2 { continue }
@@ -91,7 +91,7 @@ proc load_plain(path: string) -> LoadResult
     let warnings: [string] = []
     let errors: [config.ConfigError] = []
 
-    if !fs.exists(path)
+    if not fs.exists(path)
     {
         errors = errors.push(config.ConfigError(config.ERR_MISSING, "file", "config file not found", "file", path))
         give LoadResult(false, [], warnings, errors, detect_format(path), path, 0)
@@ -118,7 +118,7 @@ proc load_plain(path: string) -> LoadResult
         items = parse_json_flat(strip_jsonc(raw), path)
     }
 
-    if items.len == 0 && str.trim(raw) != ""
+    if items.len == 0  and  str.trim(raw) != ""
     {
         errors = errors.push(config.ConfigError(config.ERR_INVALID_TYPE, "file", "failed to parse config file", "file", path))
         give LoadResult(false, items, warnings, errors, fmt, path, fs.mtime_ms(path))
@@ -149,14 +149,14 @@ proc load_atomic_with_rollback(path: string) -> LoadResult
 proc include_depth_max() -> i32
 {
     let n = config.parse_i64_strict(process.env("DOTS_CONFIG_INCLUDE_DEPTH"))
-    if n == null || n < 1 { give 5 }
+    if n == null  or  n < 1 { give 5 }
     if n > 20 { give 20 }
     give n
 }
 
 proc contains_path(list: [string], path: string) -> bool
 {
-    loop p in list
+    for p in list
     {
         if p == path { give true }
     }
@@ -166,7 +166,7 @@ proc contains_path(list: [string], path: string) -> bool
 proc resolve_include(base: string, rel: string) -> string
 {
     if str.starts_with(rel, "/") { give rel }
-    if str.contains(rel, "../") || str.contains(rel, "..\\") { give "" }
+    if str.contains(rel, "../")  or  str.contains(rel, "..\\") { give "" }
     let dir = fs.dir_name(base)
     if dir == "" { dir = "." }
     give dir + "/" + rel
@@ -187,18 +187,18 @@ proc load_with_includes(path: string, depth: i32, seen: [string]) -> LoadResult
     }
 
     let cur = load_atomic_with_rollback(path)
-    if !cur.ok { give cur }
+    if not cur.ok { give cur }
 
     let out = cur.items
     let warnings = cur.warnings
     let errors = cur.errors
 
-    loop kv in cur.items
+    for kv in cur.items
     {
         if kv.key != "include" { continue }
 
         let list = config.normalize_csv_list(kv.value)
-        loop rel in list
+        for rel in list
         {
             let inc = resolve_include(path, rel)
             if inc == ""
@@ -209,14 +209,14 @@ proc load_with_includes(path: string, depth: i32, seen: [string]) -> LoadResult
 
             let next_seen = seen.push(path)
             let child = load_with_includes(inc, depth + 1, next_seen)
-            if !child.ok
+            if not child.ok
             {
-                loop e in child.errors { errors = errors.push(e) }
+                for e in child.errors { errors = errors.push(e) }
                 continue
             }
 
             warnings = warnings.push("included: " + inc)
-            loop it in child.items
+            for it in child.items
             {
                 out = out.push(it)
             }
@@ -237,14 +237,14 @@ proc load_cached(path: string) -> LoadResult
 {
     let cfile = cache_file(path)
 
-    if fs.exists(cfile) && fs.exists(path)
+    if fs.exists(cfile)  and  fs.exists(path)
     {
         let lines = str.split(fs.read_file(cfile), "\n")
-        if lines.len > 0 && str.starts_with(lines[0], "mtime=")
+        if lines.len > 0  and  str.starts_with(lines[0], "mtime=")
         {
             let m_cached = config.parse_i64_strict(str.replace(lines[0], "mtime=", ""))
             let m_now = fs.mtime_ms(path)
-            if m_cached != null && m_cached == m_now
+            if m_cached != null  and  m_cached == m_now
             {
                 let raw = str.replace(fs.read_file(cfile), lines[0] + "\n", "")
                 let items = parse_kv(raw, path)
@@ -257,7 +257,7 @@ proc load_cached(path: string) -> LoadResult
     if loaded.ok
     {
         let out = "mtime=" + str.from_i64(loaded.mtime_ms) + "\n"
-        loop kv in loaded.items
+        for kv in loaded.items
         {
             out = out + kv.key + "=" + kv.value + "\n"
         }

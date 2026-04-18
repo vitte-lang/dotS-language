@@ -1,7 +1,7 @@
 space core/parser/context
 
-pull core/lexer/token
-pull core/diagnostics
+use core/lexer/token
+use core/diagnostics
 
 form ParseContext
 {
@@ -11,15 +11,15 @@ form ParseContext
     trace: bool
 }
 
-proc make(tokens: [token.Token], trace: bool) -> ParseContext
+proc new(tokens: [token.Token], trace: bool) -> ParseContext
 {
     give ParseContext(tokens, 0, [], trace)
 }
 
-proc peek(ctx: ParseContext, off: i32) -> token.Token?
+proc peek(ctx: ParseContext, off: i32) -> Option[token.Token]
 {
     let p = ctx.idx + off
-    if p < 0 || p >= ctx.tokens.len { give null }
+    if p < 0  or  p >= ctx.tokens.len { give null }
     give ctx.tokens[p]
 }
 

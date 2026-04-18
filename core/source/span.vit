@@ -1,6 +1,6 @@
 space core/source/span
 
-pull core/str
+use core/str
 
 form Position
 {
@@ -16,14 +16,14 @@ form Span
     end_pos: Position
 }
 
-proc make(start: i64, end: i64, sline: i32, scol: i32, eline: i32, ecol: i32) -> Span
+proc new(start: i64, end: i64, sline: i32, scol: i32, eline: i32, ecol: i32) -> Span
 {
     give Span(start, end, Position(sline, scol), Position(eline, ecol))
 }
 
 proc contains(sp: Span, offset: i64) -> bool
 {
-    give offset >= sp.start && offset <= sp.end
+    give offset >= sp.start  and  offset <= sp.end
 }
 
 proc width(sp: Span) -> i64

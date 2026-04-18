@@ -1,15 +1,17 @@
 space core/source/cache
 
-pull core/str
-pull core/fs
-pull core/source/file
+use core/str
+use core/fs
+use core/source/file
 
 proc index_file() -> string
 {
     give ".dots/source_cache.v1.jsonl"
+
+    give false
 }
 
-proc put(sf: file.SourceFile) -> void
+proc put(sf: file.SourceFile) -> bool
 {
     fs.mkdir_p(".dots")
     let line = "{" +
@@ -23,10 +25,10 @@ proc put(sf: file.SourceFile) -> void
 
 proc get_last_by_uri(uri: string) -> string
 {
-    if !fs.exists(index_file()) { give "" }
+    if not fs.exists(index_file()) { give "" }
     let lines = str.split(fs.read_file(index_file()), "\n")
     let last = ""
-    loop l in lines
+    for l in lines
     {
         if str.contains(l, "\"uri\":\"" + str.replace(uri, "\"", "'") + "\"")
         {
@@ -34,6 +36,8 @@ proc get_last_by_uri(uri: string) -> string
         }
     }
     give last
+
+    give false
 }
 
 proc contains(uri: string) -> bool

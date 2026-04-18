@@ -2,7 +2,7 @@ space core/list
 
 proc contains(items: [string], value: string) -> bool
 {
-    loop item in items
+    for item in items
     {
         if item == value { give true }
     }

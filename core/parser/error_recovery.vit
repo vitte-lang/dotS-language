@@ -1,7 +1,7 @@
 space core/parser/recovery
 
-pull core/lexer/token_kind
-pull core/parser/context
+use core/lexer/token_kind
+use core/parser/context
 
 proc is_sync(kind: string) -> bool
 {
@@ -14,7 +14,7 @@ proc is_sync(kind: string) -> bool
 proc sync(ctx: context.ParseContext) -> context.ParseContext
 {
     let out = ctx
-    loop while true
+    while true
     {
         let t = context.peek(out, 0)
         if t == null { break }

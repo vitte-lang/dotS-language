@@ -1,8 +1,8 @@
 space core/lexer/token
 
-pull core/str
-pull core/source/span
-pull core/lexer/trivia
+use core/str
+use core/source/span
+use core/lexer/trivia
 
 form Token
 {
@@ -12,7 +12,7 @@ form Token
     tr: trivia.Trivia
 }
 
-proc make(kind: string, lexeme: string, sp: span.Span, tr: trivia.Trivia) -> Token
+proc new(kind: string, lexeme: string, sp: span.Span, tr: trivia.Trivia) -> Token
 {
     give Token(kind, lexeme, sp, tr)
 }

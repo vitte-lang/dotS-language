@@ -1,7 +1,7 @@
 space core/ir/pass
 
-pull core/str
-pull core/ir/node
+use core/str
+use core/ir/node
 
 form PassResult
 {
@@ -15,14 +15,14 @@ proc const_fold(m: node.IRModule) -> PassResult
     let changed = false
 
     let bi: i32 = 0
-    loop while bi < out.blocks.len
+    while bi < out.blocks.len
     {
         let blk = out.blocks[bi]
         let ii: i32 = 0
-        loop while ii < blk.instrs.len
+        while ii < blk.instrs.len
         {
             let ins = blk.instrs[ii]
-            if (ins.op == "add" || ins.op == "sub" || ins.op == "mul" || ins.op == "div") && ins.args.len == 2
+            if (ins.op == "add"  or  ins.op == "sub"  or  ins.op == "mul"  or  ins.op == "div")  and  ins.args.len == 2
             {
                 ins.cost = 1
                 if ins.literal == "" { ins.literal = "folded" }
@@ -44,11 +44,11 @@ proc dead_code(m: node.IRModule) -> PassResult
     let changed = false
 
     let bi: i32 = 0
-    loop while bi < out.blocks.len
+    while bi < out.blocks.len
     {
         let blk = out.blocks[bi]
         let keep: [node.IRInstr] = []
-        loop ins in blk.instrs
+        for ins in blk.instrs
         {
             if ins.op == "nop"
             {
@@ -71,10 +71,10 @@ proc simplify_branch(m: node.IRModule) -> PassResult
     let changed = false
 
     let bi: i32 = 0
-    loop while bi < out.blocks.len
+    while bi < out.blocks.len
     {
         let blk = out.blocks[bi]
-        if blk.term.kind == "branch" && blk.term.then_block == blk.term.else_block
+        if blk.term.kind == "branch"  and  blk.term.then_block == blk.term.else_block
         {
             blk.term.kind = "jump"
             changed = true
