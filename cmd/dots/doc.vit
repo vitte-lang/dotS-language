@@ -1,14 +1,14 @@
 space dots/cmd/doc
 
-pull core/io
-pull core/fs
-pull core/str
-pull core/process
-pull modules/loader/loader
-pull tools/docgen/doc_parser
-pull tools/docgen/html_generator
+use core/io
+use core/fs
+use core/str
+use core/process
+use modules/loader/loader
+use tools/docgen/doc_parser
+use tools/docgen/html_generator
 
-pull dots/cmd/registry
+use dots/cmd/registry
 
 form DocArgs
 {
@@ -19,34 +19,36 @@ form DocArgs
     open: bool
 }
 
-proc usage() -> void
+proc usage() -> bool
 {
     io.print("usage: dots doc [--format md|html|json] [--private] [--open] [--json]")
+
+    give false
 }
 
 proc parse(argv: [string]) -> DocArgs
 {
     let out = DocArgs(false, false, "md", false, false)
     let i: i32 = 1
-    loop while i < argv.len
+    while i < argv.len
     {
         let a = argv[i]
-        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--help"  or  a == "-h" { out.help = true; i = i + 1; continue }
         if a == "--json" { out.json = true; i = i + 1; continue }
         if a == "--private" { out.include_private = true; i = i + 1; continue }
         if a == "--open" { out.open = true; i = i + 1; continue }
         if str.starts_with(a, "--format=") { out.format = str.replace(a, "--format=", ""); i = i + 1; continue }
-        if a == "--format" && i + 1 < argv.len { out.format = argv[i + 1]; i = i + 2; continue }
+        if a == "--format"  and  i + 1 < argv.len { out.format = argv[i + 1]; i = i + 2; continue }
         i = i + 1
     }
     give out
 }
 
-proc validate(a: DocArgs) -> string?
+proc validate(a: DocArgs) -> string
 {
-    if a.help { give null }
-    if a.format != "md" && a.format != "html" && a.format != "json" { give "invalid format" }
-    give null
+    if a.help { give "" }
+    if a.format != "md"  and  a.format != "html"  and  a.format != "json" { give "invalid format" }
+    give ""
 }
 
 proc docs_out_dir() -> string
@@ -54,13 +56,13 @@ proc docs_out_dir() -> string
     give "docs/generated"
 }
 
-proc open_file_cross_platform(path: string) -> void
+proc open_file_cross_platform(path: string) -> bool
 {
     let p1 = process.exec("xdg-open", [path])
-    if p1.code == 0 { give }
+    if p1.code == 0 {}
 
     let p2 = process.exec("open", [path])
-    if p2.code == 0 { give }
+    if p2.code == 0 {}
 
     process.exec("cmd", ["/c", "start", "", path])
 }
@@ -69,7 +71,7 @@ proc render_packages_md() -> string
 {
     let out = "# Vitte Packages\n\n"
     let pkgs = loader.available_packages("")
-    loop p in pkgs
+    for p in pkgs
     {
         let info = loader.load_package_info(p, "")
         out = out + "## " + p + "\n"
@@ -84,7 +86,7 @@ proc render_md() -> string
     let out = "# DotS CLI\n\n"
     let cmds = command_registry()
 
-    loop c in cmds
+    for c in cmds
     {
         out = out + "## " + c.name + "\n"
         out = out + c.description + "\n\n"
@@ -147,7 +149,7 @@ proc main() -> i32
 {
     let a = parse(process.args())
     let err = validate(a)
-    if err != null { io.print("dots: " + err); usage(); give 2 }
+    if err != "" { io.print("dots: " + err); usage(); give 2 }
     give execute(a)
 }
 

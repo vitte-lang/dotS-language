@@ -1,21 +1,21 @@
 space dots/cmd/common/base_command
 
-pull core/io
-pull dots/cmd/registry
+use core/io
+use dots/cmd/registry
 
-proc print_usage_for(command: string) -> void
+proc print_usage_for(command: string) -> bool
 {
     let c = find_command(command)
 
-    if c == null
+    if c.name == ""
     {
         io.print("usage: dots " + command)
-        give
+        give false
     }
 
     io.print("usage: " + c.usage)
     io.print("examples:")
-    loop ex in c.examples
+    for ex in c.examples
     {
         io.print("  " + ex)
     }
@@ -27,21 +27,23 @@ proc print_usage_for(command: string) -> void
     }
     else
     {
-        loop o in c.options
+        for o in c.options
         {
             io.print("  " + o)
         }
     }
+
+    give false
 }
 
 proc require_help(argv: [string]) -> bool
 {
     let i: i32 = 0
 
-    loop while i < argv.len
+    while i < argv.len
     {
         let a = argv[i]
-        if a == "--help" || a == "-h"
+        if a == "--help"  or  a == "-h"
         {
             give true
         }

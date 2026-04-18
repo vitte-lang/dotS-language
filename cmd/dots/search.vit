@@ -1,11 +1,11 @@
 space dots/cmd/search
 
-pull core/io
-pull core/fs
-pull core/str
-pull core/process
-pull core/time
-pull modules/loader/resolver
+use core/io
+use core/fs
+use core/str
+use core/process
+use core/time
+use modules/loader/resolver
 
 form SearchArgs
 {
@@ -26,9 +26,11 @@ form Hit
     score: i32
 }
 
-proc usage() -> void
+proc usage() -> bool
 {
     io.print("usage: dots search [--kind fn|module|type] [--fuzzy] [--rebuild] [--json] <query>")
+
+    give false
 }
 
 proc parse(argv: [string]) -> SearchArgs
@@ -36,28 +38,28 @@ proc parse(argv: [string]) -> SearchArgs
     let out = SearchArgs(false, false, "", false, "", ".", false)
     let i: i32 = 1
 
-    loop while i < argv.len
+    while i < argv.len
     {
         let a = argv[i]
-        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--help"  or  a == "-h" { out.help = true; i = i + 1; continue }
         if a == "--json" { out.json = true; i = i + 1; continue }
         if a == "--fuzzy" { out.fuzzy = true; i = i + 1; continue }
         if a == "--rebuild" { out.rebuild = true; i = i + 1; continue }
         if str.starts_with(a, "--kind=") { out.kind = str.replace(a, "--kind=", ""); i = i + 1; continue }
-        if a == "--kind" && i + 1 < argv.len { out.kind = argv[i + 1]; i = i + 2; continue }
-        if !str.starts_with(a, "-") { out.query = a; i = i + 1; continue }
+        if a == "--kind"  and  i + 1 < argv.len { out.kind = argv[i + 1]; i = i + 2; continue }
+        if not str.starts_with(a, "-") { out.query = a; i = i + 1; continue }
         i = i + 1
     }
 
     give out
 }
 
-proc validate(a: SearchArgs) -> string?
+proc validate(a: SearchArgs) -> string
 {
-    if a.help { give null }
-    if a.kind != "" && a.kind != "fn" && a.kind != "module" && a.kind != "type" { give "invalid --kind" }
+    if a.help { give "" }
+    if a.kind != ""  and  a.kind != "fn"  and  a.kind != "module"  and  a.kind != "type" { give "invalid --kind" }
     if a.query == "" { give "missing query" }
-    give null
+    give ""
 }
 
 proc index_dir() -> string { give ".dots/index" }
@@ -68,15 +70,15 @@ proc source_files() -> [string]
     let out: [string] = []
     let roots: [string] = ["cmd/dots", "bench", "grammar", "tests/cli"]
 
-    loop r in roots
+    for r in roots
     {
-        if !fs.exists(r) { continue }
+        if not fs.exists(r) { continue }
 
         let files = fs.read_dir(r)
-        loop f in files
+        for f in files
         {
             let p = r + "/" + f
-            if str.ends_with(p, ".vit") || str.ends_with(p, ".dotS") || str.ends_with(p, ".ebnf")
+            if str.ends_with(p, ".vit")  or  str.ends_with(p, ".dotS")  or  str.ends_with(p, ".ebnf")
             {
                 out = out.push(p)
             }
@@ -91,12 +93,12 @@ proc vitte_package_files() -> [string]
     let out: [string] = []
     let pkgs = resolver.discover_packages("")
 
-    loop pkg in pkgs
+    for pkg in pkgs
     {
         let mod = resolver.package_mod_file(pkg, "")
         let info = resolver.package_info_file(pkg, "")
-        if mod != null && fs.exists(mod) { out = out.push(mod) }
-        if info != null && fs.exists(info) { out = out.push(info) }
+        if mod != ""  and  fs.exists(mod) { out = out.push(mod) }
+        if info != ""  and  fs.exists(info) { out = out.push(info) }
     }
 
     give out
@@ -119,10 +121,10 @@ proc tokenize(line: string) -> [string]
 
     let raw = str.split(s, " ")
     let out: [string] = []
-    loop t in raw
+    for t in raw
     {
         let tok = str.trim(t)
-        if tok != "" && tok.len >= 2
+        if tok != ""  and  tok.len >= 2
         {
             out = out.push(tok)
         }
@@ -137,20 +139,20 @@ proc build_index() -> i32
 
     let lines_out = ""
     let files = source_files()
-    loop vf in vitte_package_files()
+    for vf in vitte_package_files()
     {
         files = files.push(vf)
     }
 
-    loop p in files
+    for p in files
     {
         let lines = str.split(fs.read_file(p), "\n")
         let ln: i32 = 1
 
-        loop l in lines
+        for l in lines
         {
             let toks = tokenize(l)
-            loop tok in toks
+            for tok in toks
             {
                 lines_out = lines_out + "{\"token\":\"" + tok + "\",\"path\":\"" + p + "\",\"line\":\"" + str.from_i64(ln) + "\"}\n"
             }
@@ -165,7 +167,7 @@ proc build_index() -> i32
 proc json_field(line: string, key: string) -> string
 {
     let pat = "\"" + key + "\":\""
-    if !str.contains(line, pat) { give "" }
+    if not str.contains(line, pat) { give "" }
     let rest = str.split(line, pat)
     if rest.len < 2 { give "" }
     let tail = rest[1]
@@ -180,11 +182,11 @@ proc score_token(tok: string, query: string, fuzzy: bool) -> i32
     if str.contains(tok, query) { give 70 }
     if fuzzy
     {
-        if str.starts_with(tok, query) || str.starts_with(query, tok)
+        if str.starts_with(tok, query)  or  str.starts_with(query, tok)
         {
             give 40
         }
-        if str.contains(query, tok) || str.contains(tok, str.replace(query, "_", ""))
+        if str.contains(query, tok)  or  str.contains(tok, str.replace(query, "_", ""))
         {
             give 35
         }
@@ -203,7 +205,7 @@ proc maybe_insert_top(hits: [Hit], h: Hit, limit: i32) -> [Hit]
 
     let min_idx: i32 = 0
     let i: i32 = 1
-    loop while i < out.len
+    while i < out.len
     {
         if out[i].score < out[min_idx].score
         {
@@ -214,7 +216,7 @@ proc maybe_insert_top(hits: [Hit], h: Hit, limit: i32) -> [Hit]
 
     let keep: [Hit] = []
     i = 0
-    loop while i < out.len
+    while i < out.len
     {
         if i != min_idx { keep = keep.push(out[i]) }
         i = i + 1
@@ -227,7 +229,7 @@ proc execute(a: SearchArgs) -> i32
 {
     if a.help { usage(); give 0 }
 
-    if !fs.exists(index_file()) || a.rebuild
+    if not fs.exists(index_file())  or  a.rebuild
     {
         build_index()
     }
@@ -236,7 +238,7 @@ proc execute(a: SearchArgs) -> i32
     let lines = str.split(fs.read_file(index_file()), "\n")
 
     let hits: [Hit] = []
-    loop l in lines
+    for l in lines
     {
         let line = str.trim(l)
         if line == "" { continue }
@@ -255,7 +257,7 @@ proc execute(a: SearchArgs) -> i32
     }
     else
     {
-        loop h in hits
+        for h in hits
         {
             io.print(h.path + ":" + str.from_i64(h.line) + " [" + str.from_i64(h.score) + "] " + h.token)
         }
@@ -269,7 +271,7 @@ proc main() -> i32
 {
     let a = parse(process.args())
     let err = validate(a)
-    if err != null { io.print("dots: " + err); usage(); give 2 }
+    if err != "" { io.print("dots: " + err); usage(); give 2 }
     give execute(a)
 }
 

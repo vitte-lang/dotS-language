@@ -1,8 +1,8 @@
 space dots/cmd/help
 
-pull core/io
-pull core/str
-pull core/process
+use core/io
+use core/str
+use core/process
 
 form HelpArgs
 {
@@ -11,30 +11,32 @@ form HelpArgs
     command: string
 }
 
-proc usage() -> void
+proc usage() -> bool
 {
     io.print("usage: dots help [command] [--json]")
+
+    give false
 }
 
 proc parse(argv: [string]) -> HelpArgs
 {
     let out = HelpArgs(false, false, "")
     let i: i32 = 1
-    loop while i < argv.len
+    while i < argv.len
     {
         let a = argv[i]
-        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--help"  or  a == "-h" { out.help = true; i = i + 1; continue }
         if a == "--json" { out.json = true; i = i + 1; continue }
-        if !str.starts_with(a, "-") && out.command == "" { out.command = a; i = i + 1; continue }
+        if not str.starts_with(a, "-")  and  out.command == "" { out.command = a; i = i + 1; continue }
         i = i + 1
     }
     give out
 }
 
-proc validate(a: HelpArgs) -> string?
+proc validate(a: HelpArgs) -> string
 {
-    if a.help { give null }
-    give null
+    if a.help { give "" }
+    give ""
 }
 
 proc execute(a: HelpArgs) -> i32
@@ -58,7 +60,7 @@ proc main() -> i32
 {
     let a = parse(process.args())
     let err = validate(a)
-    if err != null { io.print("dots: " + err); usage(); give 2 }
+    if err != "" { io.print("dots: " + err); usage(); give 2 }
     give execute(a)
 }
 

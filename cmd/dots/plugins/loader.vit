@@ -1,11 +1,11 @@
 space dots/cmd/plugins/loader
 
-pull core/fs
-pull core/io
+use core/fs
+use core/io
 
 proc discover_plugins(root: string) -> [string]
 {
-    if !fs.exists(root)
+    if not fs.exists(root)
     {
         give []
     }
@@ -17,7 +17,7 @@ proc load_plugins(root: string) -> i32
 {
     let list = discover_plugins(root)
 
-    loop p in list
+    for p in list
     {
         io.print("plugin discovered: " + p)
     }

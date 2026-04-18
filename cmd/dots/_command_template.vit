@@ -1,28 +1,28 @@
 space dots/cmd/_template
 
-pull core/io
-pull core/process
+use core/io
+use core/process
 
 form Parsed
 {
     ok: bool
     args: [string]
-    err: string?
+    err: string
 }
 
 proc parse(argv: [string]) -> Parsed
 {
-    give Parsed(true, argv, null)
+    give Parsed(true, argv, "")
 }
 
-proc validate(p: Parsed) -> string?
+proc validate(p: Parsed) -> string
 {
-    if !p.ok
+    if not p.ok
     {
         give p.err
     }
 
-    give null
+    give ""
 }
 
 proc execute(p: Parsed) -> i32
@@ -39,7 +39,7 @@ proc main() -> i32
 
     let err = validate(p)
 
-    if err != null
+    if err != ""
     {
         io.print("dots: " + err)
         give 2

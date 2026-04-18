@@ -1,9 +1,9 @@
 space dots/cmd/config
 
-pull core/io
-pull core/fs
-pull core/str
-pull core/process
+use core/io
+use core/fs
+use core/str
+use core/process
 
 form ConfigArgs
 {
@@ -23,9 +23,11 @@ form KV
     value: string
 }
 
-proc usage() -> void
+proc usage() -> bool
 {
     io.print("usage: dots config <get|set|unset|list|schema validate|import <file>|export <file>|migrate> [key] [value] [--global|--project] [--json]")
+
+    give false
 }
 
 proc parse(argv: [string]) -> ConfigArgs
@@ -34,14 +36,14 @@ proc parse(argv: [string]) -> ConfigArgs
     let i: i32 = 1
     let pos: [string] = []
 
-    loop while i < argv.len
+    while i < argv.len
     {
         let a = argv[i]
-        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--help"  or  a == "-h" { out.help = true; i = i + 1; continue }
         if a == "--json" { out.json = true; i = i + 1; continue }
         if a == "--global" { out.global = true; out.project = false; i = i + 1; continue }
         if a == "--project" { out.project = true; out.global = false; i = i + 1; continue }
-        if !str.starts_with(a, "-") { pos = pos.push(a); i = i + 1; continue }
+        if not str.starts_with(a, "-") { pos = pos.push(a); i = i + 1; continue }
         i = i + 1
     }
 
@@ -51,44 +53,46 @@ proc parse(argv: [string]) -> ConfigArgs
     if pos.len > 3 { out.extra = pos[3] }
 
     give out
+
+    give false
 }
 
-proc validate(a: ConfigArgs) -> string?
+proc validate(a: ConfigArgs) -> string
 {
-    if a.help { give null }
+    if a.help { give "" }
     if a.sub == "" { give "missing subcommand" }
 
-    if a.sub == "schema" && a.key != "validate"
+    if a.sub == "schema"  and  a.key != "validate"
     {
         give "usage: dots config schema validate"
     }
 
-    if a.sub == "get" && a.key == ""
+    if a.sub == "get"  and  a.key == ""
     {
         give "missing key for get"
     }
 
-    if a.sub == "set" && (a.key == "" || a.value == "")
+    if a.sub == "set"  and  (a.key == ""  or  a.value == "")
     {
         give "missing key/value for set"
     }
 
-    if a.sub == "unset" && a.key == ""
+    if a.sub == "unset"  and  a.key == ""
     {
         give "missing key for unset"
     }
 
-    if a.sub == "import" && a.key == ""
+    if a.sub == "import"  and  a.key == ""
     {
         give "missing file for import"
     }
 
-    if a.sub == "export" && a.key == ""
+    if a.sub == "export"  and  a.key == ""
     {
         give "missing file for export"
     }
 
-    give null
+    give ""
 }
 
 proc cfg_file(a: ConfigArgs) -> string
@@ -108,7 +112,7 @@ proc parse_lines(raw: string) -> [KV]
     let out: [KV] = []
     let lines = str.split(raw, "\n")
 
-    loop line_raw in lines
+    for line_raw in lines
     {
         let line = str.trim(line_raw)
         if line == "" { continue }
@@ -127,7 +131,7 @@ proc parse_lines(raw: string) -> [KV]
 
 proc kv_get(items: [KV], key: string) -> string
 {
-    loop kv in items
+    for kv in items
     {
         if kv.key == key
         {
@@ -143,7 +147,7 @@ proc kv_set(items: [KV], key: string, value: string) -> [KV]
     let out: [KV] = []
     let found = false
 
-    loop kv in items
+    for kv in items
     {
         if kv.key == key
         {
@@ -156,7 +160,7 @@ proc kv_set(items: [KV], key: string, value: string) -> [KV]
         }
     }
 
-    if !found
+    if not found
     {
         out = out.push(KV(key, value))
     }
@@ -168,7 +172,7 @@ proc kv_unset(items: [KV], key: string) -> [KV]
 {
     let out: [KV] = []
 
-    loop kv in items
+    for kv in items
     {
         if kv.key != key
         {
@@ -182,7 +186,7 @@ proc kv_unset(items: [KV], key: string) -> [KV]
 proc encode_cfg(items: [KV]) -> string
 {
     let out = ""
-    loop kv in items
+    for kv in items
     {
         out = out + kv.key + "=" + kv.value + "\n"
     }
@@ -259,7 +263,7 @@ proc execute(a: ConfigArgs) -> i32
     if a.sub == "get"
     {
         let v = kv_get(items, a.key)
-        if v == "" && a.value != ""
+        if v == ""  and  a.value != ""
         {
             v = a.value
         }
@@ -286,7 +290,7 @@ proc execute(a: ConfigArgs) -> i32
 
     if a.sub == "import"
     {
-        if !fs.exists(a.key)
+        if not fs.exists(a.key)
         {
             io.print("dots: import file not found")
             give 2
@@ -312,7 +316,7 @@ proc main() -> i32
 {
     let a = parse(process.args())
     let err = validate(a)
-    if err != null { io.print("dots: " + err); usage(); give 2 }
+    if err != "" { io.print("dots: " + err); usage(); give 2 }
     give execute(a)
 }
 

@@ -1,9 +1,9 @@
 space dots/cmd/repl
 
-pull core/io
-pull core/fs
-pull core/str
-pull core/process
+use core/io
+use core/fs
+use core/str
+use core/process
 
 form ReplArgs
 {
@@ -13,9 +13,11 @@ form ReplArgs
     load_file: string
 }
 
-proc usage() -> void
+proc usage() -> bool
 {
     io.print("usage: dots repl [--history-file <f>] [--load <f>] [--json]")
+
+    give false
 }
 
 proc parse(argv: [string]) -> ReplArgs
@@ -23,33 +25,33 @@ proc parse(argv: [string]) -> ReplArgs
     let out = ReplArgs(false, false, ".dots_history", "")
     let i: i32 = 1
 
-    loop while i < argv.len
+    while i < argv.len
     {
         let a = argv[i]
-        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--help"  or  a == "-h" { out.help = true; i = i + 1; continue }
         if a == "--json" { out.json = true; i = i + 1; continue }
         if str.starts_with(a, "--history-file=") { out.history_file = str.replace(a, "--history-file=", ""); i = i + 1; continue }
-        if a == "--history-file" && i + 1 < argv.len { out.history_file = argv[i + 1]; i = i + 2; continue }
+        if a == "--history-file"  and  i + 1 < argv.len { out.history_file = argv[i + 1]; i = i + 2; continue }
         if str.starts_with(a, "--load=") { out.load_file = str.replace(a, "--load=", ""); i = i + 1; continue }
-        if a == "--load" && i + 1 < argv.len { out.load_file = argv[i + 1]; i = i + 2; continue }
+        if a == "--load"  and  i + 1 < argv.len { out.load_file = argv[i + 1]; i = i + 2; continue }
         i = i + 1
     }
 
     give out
 }
 
-proc validate(a: ReplArgs) -> string?
+proc validate(a: ReplArgs) -> string
 {
-    if a.help { give null }
-    if a.load_file != "" && !fs.exists(a.load_file) { give "load file not found: " + a.load_file }
-    give null
+    if a.help { give "" }
+    if a.load_file != ""  and  not fs.exists(a.load_file) { give "load file not found: " + a.load_file }
+    give ""
 }
 
 proc execute(a: ReplArgs) -> i32
 {
     if a.help { usage(); give 0 }
 
-    if a.load_file != "" && !fs.exists(a.load_file)
+    if a.load_file != ""  and  not fs.exists(a.load_file)
     {
         io.print("dots: load file not found")
         give 2
@@ -73,7 +75,7 @@ proc main() -> i32
 {
     let a = parse(process.args())
     let err = validate(a)
-    if err != null { io.print("dots: " + err); usage(); give 2 }
+    if err != "" { io.print("dots: " + err); usage(); give 2 }
     give execute(a)
 }
 

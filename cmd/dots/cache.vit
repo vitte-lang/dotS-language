@@ -1,10 +1,10 @@
 space dots/cmd/cache
 
-pull core/io
-pull core/fs
-pull core/str
-pull core/time
-pull core/process
+use core/io
+use core/fs
+use core/str
+use core/time
+use core/process
 
 form CacheArgs
 {
@@ -23,9 +23,11 @@ form CacheEntry
     last_access_ms: i64
 }
 
-proc usage() -> void
+proc usage() -> bool
 {
     io.print("usage: dots cache <list|clear|stats|prune> [--max-size <mb>] [--max-age-ms <ms>] [--json]")
+
+    give false
 }
 
 proc cache_dir() -> string { give ".dots-cache" }
@@ -38,35 +40,35 @@ proc parse(argv: [string]) -> CacheArgs
     let out = CacheArgs(false, false, "stats", 256, 86400000)
     let i: i32 = 1
 
-    loop while i < argv.len
+    while i < argv.len
     {
         let a = argv[i]
-        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--help"  or  a == "-h" { out.help = true; i = i + 1; continue }
         if a == "--json" { out.json = true; i = i + 1; continue }
         if str.starts_with(a, "--max-size=") { out.max_size_mb = str.to_i64(str.replace(a, "--max-size=", "")); i = i + 1; continue }
-        if a == "--max-size" && i + 1 < argv.len { out.max_size_mb = str.to_i64(argv[i + 1]); i = i + 2; continue }
+        if a == "--max-size"  and  i + 1 < argv.len { out.max_size_mb = str.to_i64(argv[i + 1]); i = i + 2; continue }
         if str.starts_with(a, "--max-age-ms=") { out.max_age_ms = str.to_i64(str.replace(a, "--max-age-ms=", "")); i = i + 1; continue }
-        if a == "--max-age-ms" && i + 1 < argv.len { out.max_age_ms = str.to_i64(argv[i + 1]); i = i + 2; continue }
-        if !str.starts_with(a, "-") { out.sub = a; i = i + 1; continue }
+        if a == "--max-age-ms"  and  i + 1 < argv.len { out.max_age_ms = str.to_i64(argv[i + 1]); i = i + 2; continue }
+        if not str.starts_with(a, "-") { out.sub = a; i = i + 1; continue }
         i = i + 1
     }
 
     give out
 }
 
-proc validate(a: CacheArgs) -> string?
+proc validate(a: CacheArgs) -> string
 {
-    if a.help { give null }
-    if a.sub != "list" && a.sub != "clear" && a.sub != "stats" && a.sub != "prune" { give "invalid subcommand" }
+    if a.help { give "" }
+    if a.sub != "list"  and  a.sub != "clear"  and  a.sub != "stats"  and  a.sub != "prune" { give "invalid subcommand" }
     if a.max_size_mb <= 0 { give "max-size must be > 0" }
     if a.max_age_ms <= 0 { give "max-age-ms must be > 0" }
-    give null
+    give ""
 }
 
 proc json_field(line: string, key: string) -> string
 {
     let pat = "\"" + key + "\":\""
-    if !str.contains(line, pat)
+    if not str.contains(line, pat)
     {
         give ""
     }
@@ -104,7 +106,7 @@ proc parse_entry(line: string) -> CacheEntry
 
 proc is_cache_payload_file(name: string) -> bool
 {
-    if name == ".lock" || name == "metadata.json"
+    if name == ".lock"  or  name == "metadata.json"
     {
         give false
     }
@@ -112,7 +114,7 @@ proc is_cache_payload_file(name: string) -> bool
     give true
 }
 
-proc acquire_lock(stale_ms: i64) -> string?
+proc acquire_lock(stale_ms: i64) -> string
 {
     fs.mkdir_p(cache_dir())
 
@@ -134,45 +136,47 @@ proc acquire_lock(stale_ms: i64) -> string?
     }
 
     fs.mkdir_p(lock_dir())
-    if !fs.exists(lock_dir()) { give "cache lock acquisition failed" }
+    if not fs.exists(lock_dir()) { give "cache lock acquisition failed" }
 
     fs.write_file(lock_stamp_file(), str.from_i64(time.now_ms()) + "\n")
-    give null
+    give ""
 }
 
-proc release_lock() -> void
+proc release_lock() -> bool
 {
     if fs.exists(lock_dir())
     {
         fs.remove_all(lock_dir())
     }
+
+    give true
 }
 
 proc load_metadata() -> [CacheEntry]
 {
     let out: [CacheEntry] = []
 
-    if !fs.exists(metadata_file())
+    if not fs.exists(metadata_file())
     {
         give out
     }
 
     let lines = str.split(fs.read_file(metadata_file()), "\n")
-    loop l in lines
+    for l in lines
     {
         let line = str.trim(l)
         if line == "" { continue }
-        if !str.contains(line, "\"name\":\"") { continue }
+        if not str.contains(line, "\"name\":\"") { continue }
         out = out.push(parse_entry(line))
     }
 
     give out
 }
 
-proc persist_metadata(entries: [CacheEntry]) -> void
+proc persist_metadata(entries: [CacheEntry]) -> bool
 {
     let out = ""
-    loop e in entries
+    for e in entries
     {
         out = out + entry_to_json(e) + "\n"
     }
@@ -183,7 +187,7 @@ proc persist_metadata(entries: [CacheEntry]) -> void
 proc index_of_entry(entries: [CacheEntry], name: string) -> i32
 {
     let i: i32 = 0
-    loop while i < entries.len
+    while i < entries.len
     {
         if entries[i].name == name
         {
@@ -194,6 +198,7 @@ proc index_of_entry(entries: [CacheEntry], name: string) -> i32
     }
 
     give -1
+
 }
 
 proc estimate_file_size(path: string) -> i64
@@ -208,9 +213,9 @@ proc scan_payload_entries() -> [CacheEntry]
     fs.mkdir_p(cache_dir())
 
     let names = fs.read_dir(cache_dir())
-    loop name in names
+    for name in names
     {
-        if !is_cache_payload_file(name) { continue }
+        if not is_cache_payload_file(name) { continue }
         let p = cache_dir() + "/" + name
         if fs.is_file(p)
         {
@@ -227,7 +232,7 @@ proc sync_metadata() -> [CacheEntry]
     let old = load_metadata()
 
     let merged: [CacheEntry] = []
-    loop c in current
+    for c in current
     {
         let idx = index_of_entry(old, c.name)
         if idx >= 0
@@ -245,13 +250,13 @@ proc sync_metadata() -> [CacheEntry]
     give merged
 }
 
-proc touch_access(names: [string]) -> void
+proc touch_access(names: [string]) -> bool
 {
     let entries = sync_metadata()
     let now = time.now_ms()
 
     let out: [CacheEntry] = []
-    loop e in entries
+    for e in entries
     {
         if str.contains("|" + str.join(names, "|") + "|", "|" + e.name + "|")
         {
@@ -264,6 +269,8 @@ proc touch_access(names: [string]) -> void
     }
 
     persist_metadata(out)
+
+    give true
 }
 
 proc stats_lines(entries: [CacheEntry]) -> [string]
@@ -272,16 +279,16 @@ proc stats_lines(entries: [CacheEntry]) -> [string]
     let oldest: i64 = 0
     let newest: i64 = 0
 
-    loop e in entries
+    for e in entries
     {
         total = total + e.size_bytes
 
-        if oldest == 0 || e.last_access_ms < oldest
+        if oldest == 0  or  e.last_access_ms < oldest
         {
             oldest = e.last_access_ms
         }
 
-        if newest == 0 || e.last_access_ms > newest
+        if newest == 0  or  e.last_access_ms > newest
         {
             newest = e.last_access_ms
         }
@@ -293,6 +300,7 @@ proc stats_lines(entries: [CacheEntry]) -> [string]
         "oldest_access_ms=" + str.from_i64(oldest),
         "newest_access_ms=" + str.from_i64(newest)
     ]
+
 }
 
 proc remove_entry_file(name: string) -> bool
@@ -304,7 +312,6 @@ proc remove_entry_file(name: string) -> bool
         give true
     }
 
-    give false
 }
 
 proc find_oldest(entries: [CacheEntry]) -> i32
@@ -313,10 +320,10 @@ proc find_oldest(entries: [CacheEntry]) -> i32
     let oldest_ts: i64 = 0
 
     let i: i32 = 0
-    loop while i < entries.len
+    while i < entries.len
     {
         let ts = entries[i].last_access_ms
-        if oldest_idx == -1 || ts < oldest_ts
+        if oldest_idx == -1  or  ts < oldest_ts
         {
             oldest_idx = i
             oldest_ts = ts
@@ -333,7 +340,7 @@ proc prune_entries(entries: [CacheEntry], max_size_mb: i64, max_age_ms: i64) -> 
     let now = time.now_ms()
 
     let filtered: [CacheEntry] = []
-    loop e in keep
+    for e in keep
     {
         if now - e.last_access_ms > max_age_ms
         {
@@ -347,9 +354,9 @@ proc prune_entries(entries: [CacheEntry], max_size_mb: i64, max_age_ms: i64) -> 
 
     let max_bytes = max_size_mb * 1024 * 1024
     let total: i64 = 0
-    loop e in keep { total = total + e.size_bytes }
+    for e in keep { total = total + e.size_bytes }
 
-    loop while total > max_bytes && keep.len > 0
+    while total > max_bytes  and  keep.len > 0
     {
         let idx = find_oldest(keep)
         if idx < 0 { break }
@@ -360,7 +367,7 @@ proc prune_entries(entries: [CacheEntry], max_size_mb: i64, max_age_ms: i64) -> 
 
         let next: [CacheEntry] = []
         let i: i32 = 0
-        loop while i < keep.len
+        while i < keep.len
         {
             if i != idx
             {
@@ -380,7 +387,7 @@ proc execute(a: CacheArgs) -> i32
     if a.help { usage(); give 0 }
 
     let lock_err = acquire_lock(120000)
-    if lock_err != null
+    if lock_err != ""
     {
         io.print("dots: " + lock_err)
         give 2
@@ -391,7 +398,7 @@ proc execute(a: CacheArgs) -> i32
     if a.sub == "list"
     {
         let names: [string] = []
-        loop e in entries { names = names.push(e.name); io.print(e.name) }
+        for e in entries { names = names.push(e.name); io.print(e.name) }
         touch_access(names)
 
         if a.json
@@ -431,7 +438,7 @@ proc execute(a: CacheArgs) -> i32
         }
         else
         {
-            loop l in lines { io.print(l) }
+            for l in lines { io.print(l) }
         }
         release_lock()
         give 0
@@ -464,7 +471,7 @@ proc main() -> i32
 {
     let a = parse(process.args())
     let err = validate(a)
-    if err != null { io.print("dots: " + err); usage(); give 2 }
+    if err != "" { io.print("dots: " + err); usage(); give 2 }
     give execute(a)
 }
 

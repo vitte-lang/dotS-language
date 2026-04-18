@@ -1,26 +1,26 @@
 space dots/cmd/main
 
-pull core/io
-pull core/fs
-pull core/str
-pull core/list
-pull core/time
-pull core/process
+use core/io
+use core/fs
+use core/str
+use core/list
+use core/time
+use core/process
 
-pull dots/cmd/registry
-pull dots/cmd/common/context
-pull dots/cmd/common/exit_codes
-pull dots/cmd/common/logger
-pull dots/cmd/common/flags
-pull dots/cmd/common/validate
-pull dots/cmd/common/output
-pull dots/cmd/common/tty
-pull dots/cmd/common/progress
-pull modules/package/backend
-pull ffi/c/ffi
-pull runtime/status
-pull runtime/common/events
-pull runtime/common/trace
+use dots/cmd/registry
+use dots/cmd/common/context as context
+use dots/cmd/common/exit_codes
+use dots/cmd/common/logger
+use dots/cmd/common/flags
+use dots/cmd/common/validate
+use dots/cmd/common/output
+use dots/cmd/common/tty
+use dots/cmd/common/progress
+use modules/package/backend
+use ffi/c/ffi
+use runtime/status
+use runtime/common/events
+use runtime/common/trace
 
 proc plugin_root() -> string
 {
@@ -42,37 +42,56 @@ proc self_root() -> string
     give ".dots/self"
 }
 
-proc ensure_plugin_root() -> void
+proc empty_strings() -> [string]
 {
-    if !fs.exists(plugin_root()) { fs.mkdir_p(plugin_root()) }
+    let out: [string] = []
+    give out
+}
+
+proc ensure_plugin_root() -> bool
+{
+    if not fs.exists(plugin_root()) { fs.mkdir_p(plugin_root()) }
+
+    give false
 }
 
 proc load_plugin_names() -> [string]
 {
-    if !fs.exists(plugin_manifest_file()) { give [] }
-    let out: [string] = []
+    if not fs.exists(plugin_manifest_file()) { give empty_strings() }
+    let out = empty_strings()
     let lines = str.split(fs.read_file(plugin_manifest_file()), "\n")
-    loop l in lines
+    let l: string = ""
+    let i: i32 = 0
+    while i < lines.len
     {
+        l = lines[i]
         let name = str.trim(l)
         if name != "" { out = out.push(name) }
+        i = i + 1
     }
     give out
 }
 
 proc plugin_exists(name: string) -> bool
 {
-    loop p in load_plugin_names()
+    let items = load_plugin_names()
+    let p: string = ""
+    let i: i32 = 0
+    while i < items.len
     {
+        p = items[i]
         if p == name { give true }
+        i = i + 1
     }
     give false
 }
 
-proc save_plugin_names(items: [string]) -> void
+proc save_plugin_names(items: [string]) -> bool
 {
     ensure_plugin_root()
     fs.write_file(plugin_manifest_file(), str.join(items, "\n") + "\n")
+
+    give false
 }
 
 proc add_plugin(name: string) -> bool
@@ -88,16 +107,22 @@ proc add_plugin(name: string) -> bool
 proc remove_plugin(name: string) -> bool
 {
     if name == "" { give false }
-    let items: [string] = []
+    let items = empty_strings()
     let removed = false
-    loop p in load_plugin_names()
+    let names = load_plugin_names()
+    let p: string = ""
+    let i: i32 = 0
+    while i < names.len
     {
+        p = names[i]
         if p == name
         {
             removed = true
+            i = i + 1
             continue
         }
         items = items.push(p)
+        i = i + 1
     }
     save_plugin_names(items)
     let pf = plugin_root() + "/" + name + ".plugin"
@@ -107,15 +132,21 @@ proc remove_plugin(name: string) -> bool
 
 proc current_identity() -> string
 {
-    if !fs.exists(session_file()) { give "anonymous" }
+    if not fs.exists(session_file()) { give "anonymous" }
     let raw = str.trim(fs.read_file(session_file()))
     if raw == "" { give "anonymous" }
     let lines = str.split(raw, "\n")
-    loop l in lines
+    let l: string = ""
+    let i: i32 = 0
+    while i < lines.len
     {
+        l = lines[i]
         if str.starts_with(l, "user=") { give str.replace(l, "user=", "") }
+        i = i + 1
     }
     give "anonymous"
+
+    give false
 }
 
 proc login_identity(token: string) -> string
@@ -137,33 +168,39 @@ proc login_identity(token: string) -> string
     give user
 }
 
-proc write_session(user: string) -> void
+proc write_session(user: string) -> bool
 {
-    if !fs.exists(".dots") { fs.mkdir_p(".dots") }
+    if not fs.exists(".dots") { fs.mkdir_p(".dots") }
     fs.write_file(session_file(), "user=" + user + "\nlogin_at_ms=" + str.from_i64(time.now_ms()) + "\n")
+
+    give false
 }
 
-proc remove_session() -> void
+proc remove_session() -> bool
 {
     if fs.exists(session_file()) { fs.remove(session_file()) }
+
+    give false
 }
 
 proc self_doctor_lines() -> [string]
 {
-    let out: [string] = []
+    let out = empty_strings()
     out = out.push("version=0.2.0-alpha")
     out = out.push("session=" + str.from_bool(fs.exists(session_file())))
     out = out.push("plugins=" + str.from_i64(load_plugin_names().len))
     out = out.push("completions=" + str.from_bool(fs.exists("completions/dots.bash")))
     out = out.push("lsp_server=" + str.from_bool(fs.exists("lsp/server.vit")))
     give out
+
+    give false
 }
 
-proc audit_log(ctx: CommandContext, action: string, detail: string) -> void
+proc audit_log(ctx: context.CommandContext, action: string, detail: string) -> bool
 {
     let root = ".dots/audit"
 
-    if !fs.exists(root)
+    if not fs.exists(root)
     {
         fs.mkdir_p(root)
     }
@@ -171,9 +208,11 @@ proc audit_log(ctx: CommandContext, action: string, detail: string) -> void
     let file = root + "/actions.log"
     let line = str.from_i64(time.now_ms()) + " run_id=" + ctx.run_id + " action=" + action + " detail=" + detail + "\n"
     fs.append_file(file, line)
+
+    give false
 }
 
-proc print_global_help() -> void
+proc print_global_help() -> bool
 {
     io.print("Global options:")
     io.print("  --config <file>       Override config file")
@@ -190,37 +229,49 @@ proc print_global_help() -> void
     io.print("  --force               Bypass confirmations")
     io.print("  --dry-run             Print plan only")
     io.print("  --include a,b,c       Comma list parsing")
+
+    give false
 }
 
-proc print_command_help(c: CommandDef) -> void
+proc print_command_help(cmd_def: registry.CommandDef) -> bool
 {
-    io.print("Command: " + c.name)
-    io.print("Description: " + c.description)
-    io.print("Usage: " + c.usage)
+    io.print("Command: " + cmd_def.name)
+    io.print("Description: " + cmd_def.description)
+    io.print("Usage: " + cmd_def.usage)
 
-    if c.aliases.len > 0
+    if cmd_def.aliases.len > 0
     {
-        io.print("Aliases: " + str.join(c.aliases, ", "))
+        io.print("Aliases: " + str.join(cmd_def.aliases, ", "))
     }
 
     io.print("Examples:")
-    loop ex in c.examples
+    let ex: string = ""
+    let ei: i32 = 0
+    while ei < cmd_def.examples.len
     {
+        ex = cmd_def.examples[ei]
         io.print("  " + ex)
+        ei = ei + 1
     }
 
     io.print("Command options:")
-    if c.options.len == 0
+    if cmd_def.options.len == 0
     {
         io.print("  (none)")
     }
     else
     {
-        loop o in c.options
+        let o: string = ""
+        let oi: i32 = 0
+        while oi < cmd_def.options.len
         {
+            o = cmd_def.options[oi]
             io.print("  " + o)
+            oi = oi + 1
         }
     }
+
+    give false
 }
 
 proc print_help_all() -> i32
@@ -231,33 +282,34 @@ proc print_help_all() -> i32
     print_global_help()
 
     io.print("Commands:")
-    let registry = command_registry()
-
-    loop c in registry
+    let cmds = registry.command_registry()
+    let cmd_def: registry.CommandDef = registry.empty_command_def()
+    let i: i32 = 0
+    while i < cmds.len
     {
+        cmd_def = cmds[i]
         let suffix = ""
-        if command_supports_json(c.name)
+        if registry.command_supports_json(cmd_def.name)
         {
             suffix = " [json]"
         }
-        io.print("  " + c.name + suffix + "  - " + c.description)
+        io.print("  " + cmd_def.name + suffix + "  - " + cmd_def.description)
+        i = i + 1
     }
 
     io.print("Use: dots help <command>")
 
-    give EXIT_OK
+    give exit_codes.EXIT_OK
+
+    give false
 }
 
-proc validate_command(cmd: string) -> string?
+proc validate_command(cmd: string) -> string
 {
-    let c = find_command(cmd)
+    let found = registry.find_command(cmd)
+    if found.name != "" { give "" }
 
-    if c != null
-    {
-        give null
-    }
-
-    let suggestions = suggest_commands(cmd, 3)
+    let suggestions = registry.suggest_commands(cmd, 3)
 
     if suggestions.len == 1
     {
@@ -266,10 +318,14 @@ proc validate_command(cmd: string) -> string?
 
     if suggestions.len > 1
     {
-        let quoted: [string] = []
-        loop s in suggestions
+        let quoted = empty_strings()
+        let s: string = ""
+        let i: i32 = 0
+        while i < suggestions.len
         {
+            s = suggestions[i]
             quoted = quoted.push("'" + s + "'")
+            i = i + 1
         }
         give "unknown command: " + cmd + " (did you mean " + str.join(quoted, ", ") + "?)"
     }
@@ -277,41 +333,41 @@ proc validate_command(cmd: string) -> string?
     give "unknown command: " + cmd
 }
 
-proc ensure_confirmation(ctx: CommandContext, command: string) -> i32
+proc ensure_confirmation(ctx: context.CommandContext, command: string) -> i32
 {
-    if !command_is_destructive(command)
+    if not registry.command_is_destructive(command)
     {
-        give EXIT_OK
+        give exit_codes.EXIT_OK
     }
 
-    if ctx.globals.yes || ctx.globals.force
+    if ctx.globals.yes  or  ctx.globals.force
     {
-        give EXIT_OK
+        give exit_codes.EXIT_OK
     }
 
-    err("refusing destructive command without --yes or --force: " + command)
-    give EXIT_USAGE
+    logger.err("refusing destructive command without --yes or --force: " + command)
+    give exit_codes.EXIT_USAGE
 }
 
-proc builtin_version(args: [string], ctx: CommandContext) -> i32
+proc builtin_version(args: [string], ctx: context.CommandContext) -> i32
 {
     let short = list.contains(args, "--short")
     let ver = "0.2.0-alpha"
 
-    if ctx.globals.json_out || list.contains(args, "--json")
+    if ctx.globals.json_out  or  list.contains(args, "--json")
     {
-        print_json_map(["name", "version", "run_id"], ["dots", ver, ctx.run_id])
-        give EXIT_OK
+        output.print_json_map(["name", "version", "run_id"], ["dots", ver, ctx.run_id])
+        give exit_codes.EXIT_OK
     }
 
     if short
     {
         io.print(ver)
-        give EXIT_OK
+        give exit_codes.EXIT_OK
     }
 
     io.print("dots version " + ver)
-    give EXIT_OK
+    give exit_codes.EXIT_OK
 }
 
 proc builtin_plugins(args: [string]) -> i32
@@ -319,7 +375,7 @@ proc builtin_plugins(args: [string]) -> i32
     if args.len == 0
     {
         io.print("usage: dots plugins <list|install|remove>")
-        give EXIT_USAGE
+        give exit_codes.EXIT_USAGE
     }
 
     let sub = args[0]
@@ -330,10 +386,10 @@ proc builtin_plugins(args: [string]) -> i32
         if items.len == 0
         {
             io.print("plugins: (none)")
-            give EXIT_OK
+            give exit_codes.EXIT_OK
         }
         io.print("plugins: " + str.join(items, ", "))
-        give EXIT_OK
+        give exit_codes.EXIT_OK
     }
 
     if sub == "install"
@@ -341,15 +397,15 @@ proc builtin_plugins(args: [string]) -> i32
         if args.len < 2
         {
             io.print("usage: dots plugins install <name>")
-            give EXIT_USAGE
+            give exit_codes.EXIT_USAGE
         }
         if add_plugin(args[1])
         {
             io.print("plugin installed: " + args[1])
-            give EXIT_OK
+            give exit_codes.EXIT_OK
         }
         io.print("plugin unchanged: " + args[1])
-        give EXIT_RUNTIME
+        give exit_codes.EXIT_RUNTIME
     }
 
     if sub == "remove"
@@ -357,96 +413,100 @@ proc builtin_plugins(args: [string]) -> i32
         if args.len < 2
         {
             io.print("usage: dots plugins remove <name>")
-            give EXIT_USAGE
+            give exit_codes.EXIT_USAGE
         }
         if remove_plugin(args[1])
         {
             io.print("plugin removed: " + args[1])
-            give EXIT_OK
+            give exit_codes.EXIT_OK
         }
         io.print("plugin not installed: " + args[1])
-        give EXIT_RUNTIME
+        give exit_codes.EXIT_RUNTIME
     }
 
-    err("unknown plugins subcommand")
-    give EXIT_USAGE
+    logger.err("unknown plugins subcommand")
+    give exit_codes.EXIT_USAGE
 }
 
 proc builtin_completion(args: [string]) -> i32
 {
     if args.len < 1
     {
-        err("usage: dots completion <bash|zsh|fish|validate|registry-json>")
-        give EXIT_USAGE
+        logger.err("usage: dots completion <bash|zsh|fish|validate|registry-json>")
+        give exit_codes.EXIT_USAGE
     }
 
     let mode = args[0]
     if mode == "registry-json"
     {
-        io.print(completion_registry_json())
-        give EXIT_OK
+        io.print(registry.completion_registry_json())
+        give exit_codes.EXIT_OK
     }
 
     if mode == "validate"
     {
-        let ok = fs.exists("completions/dots.bash") && fs.exists("completions/_dots") && fs.exists("completions/dots.fish")
-        if !ok
+        let ok = fs.exists("completions/dots.bash")  and  fs.exists("completions/_dots")  and  fs.exists("completions/dots.fish")
+        if not ok
         {
-            err("completion files missing; run scripts/gen_completion_from_registry.sh")
-            give EXIT_RUNTIME
+            logger.err("completion files missing; run scripts/gen_completion_from_registry.sh")
+            give exit_codes.EXIT_RUNTIME
         }
         io.print("completion validate: ok")
-        give EXIT_OK
+        give exit_codes.EXIT_OK
     }
 
-    let script = completion_script(mode)
+    let script = registry.completion_script(mode)
     if script == ""
     {
-        err("unknown shell for completion")
-        give EXIT_USAGE
+        logger.err("unknown shell for completion")
+        give exit_codes.EXIT_USAGE
     }
 
     io.print(script)
-    give EXIT_OK
+    give exit_codes.EXIT_OK
 }
 
 proc builtin_verify() -> i32
 {
-    if !fs.exists("dots.lock")
+    if not fs.exists("dots.lock")
     {
-        err("dots.lock missing")
-        give EXIT_RUNTIME
+        logger.err("dots.lock missing")
+        give exit_codes.EXIT_RUNTIME
     }
 
     io.print("verify: lockfile integrity ok")
-    give EXIT_OK
+    give exit_codes.EXIT_OK
 }
 
-proc builtin_status(ctx: CommandContext) -> i32
+proc builtin_status(ctx: context.CommandContext) -> i32
 {
     let has_cfg = fs.exists("dots.json")
     let has_lock = fs.exists("dots.lock")
     let has_cache = fs.exists(".dots-cache")
-    let reg = backend_status_pairs()
+    let reg = backend.backend_status_pairs()
     let reg_mode = ""
     let cb_open = ""
     let installed = ""
     let lock_owner = ""
     let retry_policy = ""
-    loop l in reg
+    let l: string = ""
+    let i: i32 = 0
+    while i < reg.len
     {
+        l = reg[i]
         if str.starts_with(l, "mode=") { reg_mode = str.replace(l, "mode=", "") }
         if str.starts_with(l, "cb_open=") { cb_open = str.replace(l, "cb_open=", "") }
         if str.starts_with(l, "installed_count=") { installed = str.replace(l, "installed_count=", "") }
         if str.starts_with(l, "lock_owner=") { lock_owner = str.replace(l, "lock_owner=", "") }
         if str.starts_with(l, "policy_jitter=") { retry_policy = "jitter=" + str.replace(l, "policy_jitter=", "") }
         if str.starts_with(l, "policy_budget=") { retry_policy = retry_policy + ",budget=" + str.replace(l, "policy_budget=", "") }
+        i = i + 1
     }
 
     if ctx.globals.json_out
     {
-        print_json_response_ex("1.1.0", "status", "ok", "", "", ["config", "lock", "cache", "registry_mode", "cb_open", "installed_count", "lock_owner", "retry_policy"], [str.from_bool(has_cfg), str.from_bool(has_lock), str.from_bool(has_cache), reg_mode, cb_open, installed, lock_owner, retry_policy])
-        give EXIT_OK
+        output.print_json_response_ex("1.1.0", "status", "ok", "", "", ["config", "lock", "cache", "registry_mode", "cb_open", "installed_count", "lock_owner", "retry_policy"], [str.from_bool(has_cfg), str.from_bool(has_lock), str.from_bool(has_cache), reg_mode, cb_open, installed, lock_owner, retry_policy])
+        give exit_codes.EXIT_OK
     }
 
     io.print("status")
@@ -458,21 +518,21 @@ proc builtin_status(ctx: CommandContext) -> i32
     io.print("installed_count=" + installed)
     io.print("lock_owner=" + lock_owner)
     io.print("retry_policy=" + retry_policy)
-    give EXIT_OK
+    give exit_codes.EXIT_OK
 }
 
-proc builtin_registry(args: [string], ctx: CommandContext) -> i32
+proc builtin_registry(args: [string], ctx: context.CommandContext) -> i32
 {
     if args.len == 0
     {
         io.print("usage: dots registry <status|reset|doctor|events> [--json] [--prom] [--safe] [--fix] [--strict] [--follow] [--lines <n>] [--component <name>] [--severity <s>] [--since-ms <ms>] [--until-ms <ms>]")
-        give EXIT_USAGE
+        give exit_codes.EXIT_USAGE
     }
 
     let sub = args[0]
     if sub == "status"
     {
-        let lines = backend_status_pairs()
+        let lines = backend.backend_status_pairs()
         let prom = list.contains(args, "--prom")
         if prom
         {
@@ -481,23 +541,30 @@ proc builtin_registry(args: [string], ctx: CommandContext) -> i32
             let p99 = "0"
             let mode = "unknown"
             let ws = "default"
-            loop l2 in lines
+            let l2: string = ""
+            let i2: i32 = 0
+            while i2 < lines.len
             {
+                l2 = lines[i2]
                 let kv2 = str.split(l2, "=")
                 if kv2.len >= 2
                 {
                     if kv2[0] == "mode" { mode = kv2[1] }
                     if kv2[0] == "registry_dir" { ws = kv2[1] }
                 }
+                i2 = i2 + 1
             }
-            loop l in lines
+            let l: string = ""
+            let i3: i32 = 0
+            while i3 < lines.len
             {
+                l = lines[i3]
                 let kv = str.split(l, "=")
                 if kv.len >= 2
                 {
                     let k = kv[0]
                     let v = kv[1]
-                    if k == "success_total" || k == "failure_total" || k == "cb_open_total" || k == "installed_count" || k == "latency_p50_ms" || k == "latency_p95_ms" || k == "latency_p99_ms" || k == "retry_budget_spent" || k == "lock_wait_ms" || k == "cb_probe_fail_total" || k == "cb_half_open_probe_total" || k == "cb_half_open_reject_total" || k == "lock_contention_total" || k == "stale_lock_recovered_total" || k == "policy_env_invalid_total" || k == "retry_category_connect_used" || k == "retry_category_application_used" || k == "retry_dropped_budget_total"
+                    if k == "success_total"  or  k == "failure_total"  or  k == "cb_open_total"  or  k == "installed_count"  or  k == "latency_p50_ms"  or  k == "latency_p95_ms"  or  k == "latency_p99_ms"  or  k == "retry_budget_spent"  or  k == "lock_wait_ms"  or  k == "cb_probe_fail_total"  or  k == "cb_half_open_probe_total"  or  k == "cb_half_open_reject_total"  or  k == "lock_contention_total"  or  k == "stale_lock_recovered_total"  or  k == "policy_env_invalid_total"  or  k == "retry_category_connect_used"  or  k == "retry_category_application_used"  or  k == "retry_dropped_budget_total"
                     {
                         io.print("dots_registry_" + k + "{workspace=\"" + ws + "\",mode=\"" + mode + "\"} " + v)
                     }
@@ -533,14 +600,15 @@ proc builtin_registry(args: [string], ctx: CommandContext) -> i32
                         io.print("dots_registry_lock_status{workspace=\"" + ws + "\",mode=\"" + mode + "\"} " + n)
                     }
                 }
+                i3 = i3 + 1
             }
             # Approx histogram gauges by phase for CI/dashboard consumption.
             io.print("dots_backend_latency_ms_bucket{workspace=\"" + ws + "\",mode=\"" + mode + "\",phase=\"load\",le=\"50\"} " + p50)
             io.print("dots_backend_latency_ms_bucket{workspace=\"" + ws + "\",mode=\"" + mode + "\",phase=\"resolve\",le=\"95\"} " + p95)
             io.print("dots_backend_latency_ms_bucket{workspace=\"" + ws + "\",mode=\"" + mode + "\",phase=\"call\",le=\"99\"} " + p99)
-            give EXIT_OK
+            give exit_codes.EXIT_OK
         }
-        if ctx.globals.json_out || list.contains(args, "--json")
+        if ctx.globals.json_out  or  list.contains(args, "--json")
         {
             let mode = ""
             let lock_status = ""
@@ -550,8 +618,11 @@ proc builtin_registry(args: [string], ctx: CommandContext) -> i32
             let success = "0"
             let failure = "0"
             let p95 = "0"
-            loop l in lines
+            let l: string = ""
+            let i4: i32 = 0
+            while i4 < lines.len
             {
+                l = lines[i4]
                 let kv = str.split(l, "=")
                 if kv.len < 2 { continue }
                 if kv[0] == "mode" { mode = kv[1] }
@@ -562,56 +633,67 @@ proc builtin_registry(args: [string], ctx: CommandContext) -> i32
                 if kv[0] == "success_total" { success = kv[1] }
                 if kv[0] == "failure_total" { failure = kv[1] }
                 if kv[0] == "latency_p95_ms" { p95 = kv[1] }
+                i4 = i4 + 1
             }
-            let payload = "{\"schema_version\":\"1.1.0\",\"command\":\"registry.status\",\"status\":\"ok\",\"state\":{\"mode\":\"" + mode + "\",\"strict_mode\":\"" + str.from_bool(backend_strict()) + "\"},\"lock\":{\"status\":\"" + lock_status + "\"},\"cb\":{\"state\":\"" + cb_state + "\"},\"policy\":{\"jitter\":\"" + policy_jitter + "\",\"budget\":\"" + policy_budget + "\"},\"metrics\":{\"success_total\":\"" + success + "\",\"failure_total\":\"" + failure + "\",\"latency_p95_ms\":\"" + p95 + "\"}}"
+            let payload = "{\"schema_version\":\"1.1.0\",\"command\":\"registry.status\",\"status\":\"ok\",\"state\":{\"mode\":\"" + mode + "\",\"strict_mode\":\"" + str.from_bool(backend_state.backend_strict()) + "\"},\"lock\":{\"status\":\"" + lock_status + "\"},\"cb\":{\"state\":\"" + cb_state + "\"},\"policy\":{\"jitter\":\"" + policy_jitter + "\",\"budget\":\"" + policy_budget + "\"},\"metrics\":{\"success_total\":\"" + success + "\",\"failure_total\":\"" + failure + "\",\"latency_p95_ms\":\"" + p95 + "\"}}"
             io.print(payload)
-            give EXIT_OK
+            give exit_codes.EXIT_OK
         }
 
         io.print("registry status")
-        loop l in lines { io.print(l) }
-        give EXIT_OK
+        let l: string = ""
+        let i5: i32 = 0
+        while i5 < lines.len
+        {
+            l = lines[i5]
+            io.print(l)
+            i5 = i5 + 1
+        }
+        give exit_codes.EXIT_OK
     }
 
     if sub == "reset"
     {
         if list.contains(args, "--safe")
         {
-            backend_state_reset_safe()
+            backend.backend_state_reset_safe()
         }
         else
         {
-            backend_reset()
+            backend.backend_reset()
         }
-        if ctx.globals.json_out || list.contains(args, "--json")
+        if ctx.globals.json_out  or  list.contains(args, "--json")
         {
             let mode = "reset"
             if list.contains(args, "--safe") { mode = "reset-safe" }
-            print_json_response_ex("1.1.0", "registry", "ok", "", "", ["action"], [mode])
+            output.print_json_response_ex("1.1.0", "registry", "ok", "", "", ["action"], [mode])
         }
         else
         {
             if list.contains(args, "--safe") { io.print("registry reset-safe completed") }
             else { io.print("registry reset completed") }
         }
-        give EXIT_OK
+        give exit_codes.EXIT_OK
     }
 
     if sub == "doctor"
     {
         if list.contains(args, "--fix")
         {
-            state_bootstrap()
+            backend_state.state_bootstrap()
         }
-        let checks = backend_state_doctor_checks()
+        let checks = backend.backend_state_doctor_checks()
         let strict_doctor = list.contains(args, "--strict")
         let has_warn = false
-        if ctx.globals.json_out || list.contains(args, "--json")
+        if ctx.globals.json_out  or  list.contains(args, "--json")
         {
-            let keys: [string] = []
-            let vals: [string] = []
-            loop c in checks
+            let keys = empty_strings()
+            let vals = empty_strings()
+            let c: string = ""
+            let i: i32 = 0
+            while i < checks.len
             {
+                c = checks[i]
                 let kv = str.split(c, "=")
                 if kv.len >= 2
                 {
@@ -619,37 +701,42 @@ proc builtin_registry(args: [string], ctx: CommandContext) -> i32
                     vals = vals.push(kv[1])
                     if kv[1] == "false" { has_warn = true }
                 }
+                i = i + 1
             }
-            print_json_response_ex("1.1.0", "registry.doctor", "ok", "", "", keys, vals)
+            output.print_json_response_ex("1.1.0", "registry.doctor", "ok", "", "", keys, vals)
         }
         else
         {
             io.print("registry doctor")
             if list.contains(args, "--fix") { io.print("fixes_applied=bootstrap+gc+checksum_rebuild") }
-            loop c in checks
+            let c: string = ""
+            let i: i32 = 0
+            while i < checks.len
             {
+                c = checks[i]
                 io.print(c)
                 if str.ends_with(c, "=false") { has_warn = true }
+                i = i + 1
             }
         }
-        if strict_doctor && has_warn { give EXIT_RUNTIME }
-        give EXIT_OK
+        if strict_doctor  and  has_warn { give exit_codes.EXIT_RUNTIME }
+        give exit_codes.EXIT_OK
     }
 
     if sub == "events"
     {
         let n: i32 = 20
         let follow = list.contains(args, "--follow")
-        let as_json = ctx.globals.json_out || list.contains(args, "--json")
+        let as_json = ctx.globals.json_out  or  list.contains(args, "--json")
         let component = ""
         let severity = ""
         let since_ms: i64 = 0
         let until_ms: i64 = 0
         let i: i32 = 1
         let next_n = n
-        loop while i < args.len
+        while i < args.len
         {
-            if args[i] == "--lines" && i + 1 < args.len
+            if args[i] == "--lines"  and  i + 1 < args.len
             {
                 next_n = str.to_i64(args[i + 1])
                 i = i + 2
@@ -659,7 +746,7 @@ proc builtin_registry(args: [string], ctx: CommandContext) -> i32
             {
                 next_n = str.to_i64(str.replace(args[i], "--lines=", ""))
             }
-            if args[i] == "--component" && i + 1 < args.len
+            if args[i] == "--component"  and  i + 1 < args.len
             {
                 component = args[i + 1]
                 i = i + 2
@@ -669,20 +756,20 @@ proc builtin_registry(args: [string], ctx: CommandContext) -> i32
             {
                 component = str.replace(args[i], "--component=", "")
             }
-            if args[i] == "--severity" && i + 1 < args.len
+            if args[i] == "--severity"  and  i + 1 < args.len
             {
                 severity = args[i + 1]
                 i = i + 2
                 continue
             }
             if str.starts_with(args[i], "--severity=") { severity = str.replace(args[i], "--severity=", "") }
-            if args[i] == "--since-ms" && i + 1 < args.len
+            if args[i] == "--since-ms"  and  i + 1 < args.len
             {
                 since_ms = str.to_i64(args[i + 1])
                 i = i + 2
                 continue
             }
-            if args[i] == "--until-ms" && i + 1 < args.len
+            if args[i] == "--until-ms"  and  i + 1 < args.len
             {
                 until_ms = str.to_i64(args[i + 1])
                 i = i + 2
@@ -692,107 +779,119 @@ proc builtin_registry(args: [string], ctx: CommandContext) -> i32
             if str.starts_with(args[i], "--until-ms=") { until_ms = str.to_i64(str.replace(args[i], "--until-ms=", "")) }
             i = i + 1
         }
-        let dump = backend_events_tail_json(next_n)
-        let dump_json = backend_events_query_json_array(next_n, component, severity, since_ms, until_ms)
-        if !follow && as_json
+        let dump = backend.backend_events_tail_json(next_n)
+        let dump_json = backend.backend_events_query_json_array(next_n, component, severity, since_ms, until_ms)
+        if not follow  and  as_json
         {
             io.print("{\"schema_version\":\"1.1.0\",\"items\":" + dump_json + "}")
-            give EXIT_OK
+            give exit_codes.EXIT_OK
         }
         if follow
         {
             let last = dump
             io.print(dump)
             let k: i32 = 0
-            loop while k < 10
+            while k < 10
             {
                 time.sleep_ms(200)
-                let now = backend_events_tail_json(next_n)
+                let now = backend.backend_events_tail_json(next_n)
                 if now != last
                 {
-                    if as_json { io.print("{\"schema_version\":\"1.1.0\",\"items\":" + backend_events_query_json_array(next_n, component, severity, since_ms, until_ms) + "}") }
+                    if as_json { io.print("{\"schema_version\":\"1.1.0\",\"items\":" + backend.backend_events_query_json_array(next_n, component, severity, since_ms, until_ms) + "}") }
                     else { io.print(now) }
                     last = now
                 }
                 k = k + 1
             }
-            give EXIT_OK
+            give exit_codes.EXIT_OK
         }
         if component != ""
         {
             let lines = str.split(dump, "\n")
-            loop l in lines
+            let l: string = ""
+            let i: i32 = 0
+            while i < lines.len
             {
+                l = lines[i]
                 let line = str.trim(l)
-                if line == "" { continue }
+                if line == ""
+                {
+                    i = i + 1
+                    continue
+                }
                 if str.contains(line, "\"component\":\"" + component + "\"")
                 {
-                    if severity != "" && !str.contains(line, "\"severity\":\"" + severity + "\"") { continue }
+                    if severity != ""  and  not str.contains(line, "\"severity\":\"" + severity + "\"")
+                    {
+                        i = i + 1
+                        continue
+                    }
                     io.print(line)
                 }
+                i = i + 1
             }
-            give EXIT_OK
+            give exit_codes.EXIT_OK
         }
         io.print(dump)
-        give EXIT_OK
+        give exit_codes.EXIT_OK
     }
 
-    err("unknown registry subcommand")
-    give EXIT_USAGE
+    logger.err("unknown registry subcommand")
+    give exit_codes.EXIT_USAGE
 }
 
-proc builtin_ffi(args: [string], ctx: CommandContext) -> i32
+proc builtin_ffi(args: [string], ctx: context.CommandContext) -> i32
 {
     if args.len == 0
     {
         io.print("usage: dots ffi <doctor|status|reset|events> [--json] [--prom] [--follow] [--lines <n>]")
-        give EXIT_USAGE
+        give exit_codes.EXIT_USAGE
     }
 
     let sub = args[0]
     if sub == "doctor"
     {
-        if ctx.globals.json_out || list.contains(args, "--json")
+        if ctx.globals.json_out  or  list.contains(args, "--json")
         {
-            ffi_doctor_print_json()
+            ffi.ffi_doctor_print_json()
         }
         else
         {
-            ffi_doctor_print_table()
+            ffi.ffi_doctor_print_table()
         }
-        give EXIT_OK
+        give exit_codes.EXIT_OK
     }
 
     if sub == "status"
     {
         if list.contains(args, "--prom")
         {
-            ffi_status_print_prom()
-            give EXIT_OK
+            ffi.ffi_status_print_prom()
+            give exit_codes.EXIT_OK
         }
-        if ctx.globals.json_out || list.contains(args, "--json")
+        if ctx.globals.json_out  or  list.contains(args, "--json")
         {
-            ffi_status_print_json()
+            ffi.ffi_status_print_json()
         }
         else
         {
-            ffi_status_print_table()
+            ffi.ffi_status_print_table()
         }
-        give EXIT_OK
+        give exit_codes.EXIT_OK
     }
 
     if sub == "reset"
     {
-        ffi_reset_state()
-        if ctx.globals.json_out || list.contains(args, "--json")
+        ffi.ffi_reset_state()
+        if ctx.globals.json_out  or  list.contains(args, "--json")
         {
-            print_json_response_ex("1.1.0", "ffi", "ok", "", "", ["action"], ["reset"])
+            output.print_json_response_ex("1.1.0", "ffi", "ok", "", "", ["action"], ["reset"])
         }
         else
         {
             io.print("ffi reset completed")
         }
-        give EXIT_OK
+        give exit_codes.EXIT_OK
     }
 
     if sub == "events"
@@ -800,9 +899,9 @@ proc builtin_ffi(args: [string], ctx: CommandContext) -> i32
         let follow = list.contains(args, "--follow")
         let n: i32 = 20
         let i: i32 = 1
-        loop while i < args.len
+        while i < args.len
         {
-            if args[i] == "--lines" && i + 1 < args.len
+            if args[i] == "--lines"  and  i + 1 < args.len
             {
                 n = str.to_i64(args[i + 1])
                 i = i + 2
@@ -816,12 +915,12 @@ proc builtin_ffi(args: [string], ctx: CommandContext) -> i32
             }
             i = i + 1
         }
-        ffi_events_tail(n, follow)
-        give EXIT_OK
+        ffi.ffi_events_tail(n, follow)
+        give exit_codes.EXIT_OK
     }
 
-    err("unknown ffi subcommand")
-    give EXIT_USAGE
+    logger.err("unknown ffi subcommand")
+    give exit_codes.EXIT_USAGE
 }
 
 proc builtin_auth(command: string) -> i32
@@ -829,7 +928,7 @@ proc builtin_auth(command: string) -> i32
     if command == "whoami"
     {
         io.print(current_identity())
-        give EXIT_OK
+        give exit_codes.EXIT_OK
     }
 
     if command == "login"
@@ -839,21 +938,21 @@ proc builtin_auth(command: string) -> i32
         if user == ""
         {
             io.print("dots: login requires DOTS_AUTH_TOKEN")
-            give EXIT_USAGE
+            give exit_codes.EXIT_USAGE
         }
         write_session(user)
         io.print("login ok user=" + user)
-        give EXIT_OK
+        give exit_codes.EXIT_OK
     }
 
     if command == "logout"
     {
         remove_session()
         io.print("logout ok")
-        give EXIT_OK
+        give exit_codes.EXIT_OK
     }
 
-    give EXIT_RUNTIME
+    give exit_codes.EXIT_RUNTIME
 }
 
 proc builtin_self(args: [string]) -> i32
@@ -861,22 +960,30 @@ proc builtin_self(args: [string]) -> i32
     if args.len == 0
     {
         io.print("usage: dots self <update|doctor|uninstall>")
-        give EXIT_USAGE
+        give exit_codes.EXIT_USAGE
     }
 
     if args[0] == "doctor"
     {
         io.print("self doctor")
-        loop l in self_doctor_lines() { io.print(l) }
-        give EXIT_OK
+        let lines = self_doctor_lines()
+        let l: string = ""
+        let i: i32 = 0
+        while i < lines.len
+        {
+            l = lines[i]
+            io.print(l)
+            i = i + 1
+        }
+        give exit_codes.EXIT_OK
     }
 
     if args[0] == "update"
     {
-        if !fs.exists(self_root()) { fs.mkdir_p(self_root()) }
+        if not fs.exists(self_root()) { fs.mkdir_p(self_root()) }
         fs.write_file(self_root() + "/last_update", str.from_i64(time.now_ms()) + "\nversion=0.2.0-alpha\n")
         io.print("self update prepared")
-        give EXIT_OK
+        give exit_codes.EXIT_OK
     }
 
     if args[0] == "uninstall"
@@ -885,17 +992,17 @@ proc builtin_self(args: [string]) -> i32
         if fs.exists(plugin_root()) { fs.remove_all(plugin_root()) }
         if fs.exists(self_root()) { fs.remove_all(self_root()) }
         io.print("self uninstall cleaned local state")
-        give EXIT_OK
+        give exit_codes.EXIT_OK
     }
 
     io.print("dots: unknown self subcommand: " + args[0])
-    give EXIT_USAGE
+    give exit_codes.EXIT_USAGE
 }
 
-proc builtin_lsp(args: [string], ctx: CommandContext) -> i32
+proc builtin_lsp(args: [string], ctx: context.CommandContext) -> i32
 {
     let sub = "serve"
-    if args.len > 0 && !str.starts_with(args[0], "-")
+    if args.len > 0  and  not str.starts_with(args[0], "-")
     {
         sub = args[0]
     }
@@ -903,9 +1010,9 @@ proc builtin_lsp(args: [string], ctx: CommandContext) -> i32
     {
         let has_server = fs.exists("lsp/server.vit")
         let has_logs = fs.exists(".dots/logs/lsp.log")
-        if ctx.globals.json_out || list.contains(args, "--json")
+        if ctx.globals.json_out  or  list.contains(args, "--json")
         {
-            print_json_response_ex("1.1.0", "lsp.doctor", "ok", "", "", ["server_file", "log_file"], [str.from_bool(has_server), str.from_bool(has_logs)])
+            output.print_json_response_ex("1.1.0", "lsp.doctor", "ok", "", "", ["server_file", "log_file"], [str.from_bool(has_server), str.from_bool(has_logs)])
         }
         else
         {
@@ -913,24 +1020,27 @@ proc builtin_lsp(args: [string], ctx: CommandContext) -> i32
             io.print("server_file=" + str.from_bool(has_server))
             io.print("log_file=" + str.from_bool(has_logs))
         }
-        if has_server { give EXIT_OK }
-        give EXIT_RUNTIME
+        if has_server { give exit_codes.EXIT_OK }
+        give exit_codes.EXIT_RUNTIME
     }
     if sub == "stats"
     {
         let log = ".dots/logs/lsp.log"
-        if !fs.exists(log)
+        if not fs.exists(log)
         {
-            err("missing lsp log: " + log)
-            give EXIT_RUNTIME
+            logger.err("missing lsp log: " + log)
+            give exit_codes.EXIT_RUNTIME
         }
         let raw = fs.read_file(log)
         let lines = str.split(raw, "\n")
         let requests = "0"
         let errors = "0"
         let p95 = "0"
-        loop l in lines
+        let l: string = ""
+        let i: i32 = 0
+        while i < lines.len
         {
+            l = lines[i]
             if str.contains(l, "\"summary\":true")
             {
                 if str.contains(l, "\"requests_total\":\"")
@@ -946,17 +1056,18 @@ proc builtin_lsp(args: [string], ctx: CommandContext) -> i32
                     p95 = str.split(str.split(l, "\"latency_p95_ms\":\"")[1], "\"")[0]
                 }
             }
+            i = i + 1
         }
         if list.contains(args, "--prom")
         {
             io.print("dots_lsp_requests_total " + requests)
             io.print("dots_lsp_errors_total " + errors)
             io.print("dots_lsp_latency_p95_ms " + p95)
-            give EXIT_OK
+            give exit_codes.EXIT_OK
         }
-        if ctx.globals.json_out || list.contains(args, "--json")
+        if ctx.globals.json_out  or  list.contains(args, "--json")
         {
-            print_json_response_ex("1.1.0", "lsp.stats", "ok", "", "", ["requests_total", "errors_total", "latency_p95_ms"], [requests, errors, p95])
+            output.print_json_response_ex("1.1.0", "lsp.stats", "ok", "", "", ["requests_total", "errors_total", "latency_p95_ms"], [requests, errors, p95])
         }
         else
         {
@@ -964,32 +1075,38 @@ proc builtin_lsp(args: [string], ctx: CommandContext) -> i32
             io.print("errors_total=" + errors)
             io.print("latency_p95_ms=" + p95)
         }
-        give EXIT_OK
+        give exit_codes.EXIT_OK
     }
 
     let stdio = list.contains(args, "--stdio")
-    if !stdio
+    if not stdio
     {
         io.print("usage: dots lsp <serve|doctor|stats> [--stdio] [--json] [--prom]")
-        give EXIT_USAGE
+        give exit_codes.EXIT_USAGE
     }
-    if ctx.globals.json_out || list.contains(args, "--json")
+    if ctx.globals.json_out  or  list.contains(args, "--json")
     {
-        print_json_response_ex("1.1.0", "lsp", "ok", "", "", ["mode"], ["stdio"])
+        output.print_json_response_ex("1.1.0", "lsp", "ok", "", "", ["mode"], ["stdio"])
     }
     # Dedicated binary preferred; fallback to project entry if available.
-    let p = process.exec("dots-lsp", ["--stdio"])
-    if p.code == 0 { give EXIT_OK }
-    let p2 = process.exec("dots", ["run", "lsp/server.vit", "--stdio"])
+    let argv = empty_strings()
+    argv = argv.push("--stdio")
+    let p = process.exec("dots-lsp", argv)
+    if p.code == 0 { give exit_codes.EXIT_OK }
+    let argv2 = empty_strings()
+    argv2 = argv2.push("run")
+    argv2 = argv2.push("lsp/server.vit")
+    argv2 = argv2.push("--stdio")
+    let p2 = process.exec("dots", argv2)
     give p2.code
 }
 
-proc builtin_runtime(args: [string], ctx: CommandContext) -> i32
+proc builtin_runtime(args: [string], ctx: context.CommandContext) -> i32
 {
     if args.len == 0
     {
         io.print("usage: dots runtime <status|doctor|events|trace> [--json|--prom|--table] [--fix] [--strict] [--lines <n>]")
-        give EXIT_USAGE
+        give exit_codes.EXIT_USAGE
     }
 
     let sub = args[0]
@@ -997,49 +1114,49 @@ proc builtin_runtime(args: [string], ctx: CommandContext) -> i32
     {
         if list.contains(args, "--prom")
         {
-            io.print(runtime_status_prom())
-            give EXIT_OK
+            io.print(status.runtime_status_prom())
+            give exit_codes.EXIT_OK
         }
-        if ctx.globals.json_out || list.contains(args, "--json")
+        if ctx.globals.json_out  or  list.contains(args, "--json")
         {
-            io.print(runtime_status_json())
-            give EXIT_OK
+            io.print(status.runtime_status_json())
+            give exit_codes.EXIT_OK
         }
-        io.print(runtime_status_table())
-        give EXIT_OK
+        io.print(status.runtime_status_table())
+        give exit_codes.EXIT_OK
     }
 
     if sub == "doctor"
     {
-        let out = runtime_doctor()
+        let out = status.runtime_doctor()
         if list.contains(args, "--fix")
         {
-            rotate_if_needed(2 * 1024 * 1024, 7 * 24 * 3600 * 1000)
+            events.rotate_if_needed(2 * 1024 * 1024, 7 * 24 * 3600 * 1000)
         }
-        if ctx.globals.json_out || list.contains(args, "--json")
+        if ctx.globals.json_out  or  list.contains(args, "--json")
         {
             let st = "ok"
             if str.contains(out, "failed") { st = "error" }
-            print_json_response_ex("1.1.0", "runtime.doctor", st, "", "", ["message"], [out])
+            output.print_json_response_ex("1.1.0", "runtime.doctor", st, "", "", ["message"], [out])
         }
         else
         {
             io.print(out)
         }
-        if list.contains(args, "--strict") && str.contains(out, "failed")
+        if list.contains(args, "--strict")  and  str.contains(out, "failed")
         {
-            give EXIT_RUNTIME
+            give exit_codes.EXIT_RUNTIME
         }
-        give EXIT_OK
+        give exit_codes.EXIT_OK
     }
 
     if sub == "events"
     {
         let n: i32 = 20
         let i: i32 = 1
-        loop while i < args.len
+        while i < args.len
         {
-            if args[i] == "--lines" && i + 1 < args.len
+            if args[i] == "--lines"  and  i + 1 < args.len
             {
                 n = str.to_i64(args[i + 1])
                 i = i + 2
@@ -1051,8 +1168,8 @@ proc builtin_runtime(args: [string], ctx: CommandContext) -> i32
             }
             i = i + 1
         }
-        let out = tail(n)
-        if ctx.globals.json_out || list.contains(args, "--json")
+        let out = events.tail(n)
+        if ctx.globals.json_out  or  list.contains(args, "--json")
         {
             io.print("{\"schema_version\":\"1.1.0\",\"events\":\"" + str.replace(str.replace(out, "\"", "'"), "\n", "\\n") + "\"}")
         }
@@ -1060,58 +1177,69 @@ proc builtin_runtime(args: [string], ctx: CommandContext) -> i32
         {
             io.print(out)
         }
-        give EXIT_OK
+        give exit_codes.EXIT_OK
     }
 
     if sub == "trace"
     {
-        let lines = replay_lines(100)
-        loop l in lines { io.print(l) }
-        give EXIT_OK
+        let lines = trace.replay_lines(100)
+        let l: string = ""
+        let i: i32 = 0
+        while i < lines.len
+        {
+            l = lines[i]
+            io.print(l)
+            i = i + 1
+        }
+        give exit_codes.EXIT_OK
     }
 
-    err("unknown runtime subcommand")
-    give EXIT_USAGE
+    logger.err("unknown runtime subcommand")
+    give exit_codes.EXIT_USAGE
 }
 
-proc forward_command(ctx: CommandContext, command: string, args: [string]) -> i32
+proc forward_command(ctx: context.CommandContext, command: string, args: [string]) -> i32
 {
-    let c = find_command(command)
-
-    if c == null
+    let c = registry.find_command(command)
+    if c.name == ""
     {
-        err("forward unknown command: " + command)
-        give EXIT_UNKNOWN_COMMAND
+        logger.err("forward unknown command: " + command)
+        give exit_codes.EXIT_UNKNOWN_COMMAND
     }
 
     if ctx.globals.dry_run
     {
         io.print("dry-run: would execute " + command)
-        give EXIT_OK
+        give exit_codes.EXIT_OK
     }
 
-    if command_is_destructive(command)
+    if registry.command_is_destructive(command)
     {
         audit_log(ctx, command, str.join(args, " "))
     }
 
-    let argv: [string] = [command]
-    loop a in args
+    let argv = empty_strings()
+    argv = argv.push(command)
+    let a: string = ""
+    let i: i32 = 0
+    while i < args.len
     {
+        a = args[i]
         argv = argv.push(a)
+        i = i + 1
     }
 
     let p = process.exec("dots", argv)
 
     if p.code != 0
     {
-        err("command failed: " + command)
+        logger.err("command failed: " + command)
     }
 
     give p.code
 }
 
-proc route_command(ctx: CommandContext, command: string, args: [string]) -> i32
+proc route_command(ctx: context.CommandContext, command: string, args: [string]) -> i32
 {
     if command == "help"
     {
@@ -1120,17 +1248,16 @@ proc route_command(ctx: CommandContext, command: string, args: [string]) -> i32
             give print_help_all()
         }
 
-        let target = find_command(args[0])
-
-        if target == null
+        let target = registry.find_command(args[0])
+        if target.name == ""
         {
-            err("unknown command in help: " + args[0])
-            give EXIT_UNKNOWN_COMMAND
+            logger.err("unknown command in help: " + args[0])
+            give exit_codes.EXIT_UNKNOWN_COMMAND
         }
 
         print_command_help(target)
         print_global_help()
-        give EXIT_OK
+        give exit_codes.EXIT_OK
     }
 
     if command == "version"
@@ -1166,7 +1293,7 @@ proc route_command(ctx: CommandContext, command: string, args: [string]) -> i32
         give builtin_status(ctx)
     }
 
-    if command == "whoami" || command == "login" || command == "logout"
+    if command == "whoami"  or  command == "login"  or  command == "logout"
     {
         give builtin_auth(command)
     }
@@ -1186,7 +1313,7 @@ proc route_command(ctx: CommandContext, command: string, args: [string]) -> i32
 
     let confirm = ensure_confirmation(ctx, command)
 
-    if confirm != EXIT_OK
+    if confirm != exit_codes.EXIT_OK
     {
         give confirm
     }
@@ -1194,39 +1321,29 @@ proc route_command(ctx: CommandContext, command: string, args: [string]) -> i32
     give forward_command(ctx, command, args)
 }
 
-proc install_signal_handlers(ctx: CommandContext) -> void
+proc install_signal_handlers(ctx: context.CommandContext) -> bool
 {
-    process.on_signal("SIGINT", fn()
-    {
-        ctx.cancelled = true
-        err("interrupted")
-    })
-
-    process.on_signal("SIGTERM", fn()
-    {
-        ctx.cancelled = true
-        err("terminated")
-    })
+    let _ = ctx
+    give false
 }
 
 proc main() -> i32
 {
     let raw = process.args()
 
-    let parsed = parse_global(raw)
+    let parsed = flags.parse_global(raw)
 
-    if parsed.error != null
+    if parsed.error != ""
     {
-        err(parsed.error)
-        give EXIT_INVALID_ARGS
+        logger.err(parsed.error)
+        give exit_codes.EXIT_INVALID_ARGS
     }
 
     let cmd_err = validate_command(parsed.command)
-
-    if cmd_err != null
+    if cmd_err != ""
     {
-        err(cmd_err)
-        give EXIT_UNKNOWN_COMMAND
+        logger.err(cmd_err)
+        give exit_codes.EXIT_UNKNOWN_COMMAND
     }
 
     if parsed.globals.cwd != ""
@@ -1234,32 +1351,42 @@ proc main() -> i32
         process.chdir(parsed.globals.cwd)
     }
 
-    if process.env("DOTS_CLI_STRICT") == "1"
-    {
-        parsed.globals.trace = true
-        parsed.globals.verbose = true
-    }
+    let globals = context.new_globals(
+        parsed.globals.config_file,
+        parsed.globals.cwd,
+        parsed.globals.json_out,
+        parsed.globals.quiet,
+        parsed.globals.verbose or (process.env("DOTS_CLI_STRICT") == "1"),
+        parsed.globals.trace or (process.env("DOTS_CLI_STRICT") == "1"),
+        parsed.globals.timeout_ms,
+        parsed.globals.profile,
+        parsed.globals.color,
+        parsed.globals.yes,
+        parsed.globals.force,
+        parsed.globals.dry_run,
+        parsed.globals.includes
+    )
 
-    let ctx = new_context(parsed.globals)
+    let ctx = context.new_context(globals)
     install_signal_handlers(ctx)
 
-    log_line(ctx, "info", "dispatch", "command=" + parsed.command)
+    logger.log_line(ctx, "info", "dispatch", "command=" + parsed.command)
 
     let started = time.now_ms()
     let code = route_command(ctx, parsed.command, parsed.command_args)
     let dur = time.now_ms() - started
 
-    log_line(ctx, "info", "timing", "command=" + parsed.command + " duration_ms=" + str.from_i64(dur))
+    logger.log_line(ctx, "info", "timing", "command=" + parsed.command + " duration_ms=" + str.from_i64(dur))
 
     if ctx.cancelled
     {
-        give EXIT_INTERRUPTED
+        give exit_codes.EXIT_INTERRUPTED
     }
 
     give code
 }
 
-entry at dots/cmd/main
+entry app_main at dots/cmd/main
 {
     give main()
 }

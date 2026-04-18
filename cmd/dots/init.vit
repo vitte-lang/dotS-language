@@ -1,9 +1,9 @@
 space dots/cmd/init
 
-pull core/io
-pull core/fs
-pull core/str
-pull core/process
+use core/io
+use core/fs
+use core/str
+use core/process
 
 form InitArgs
 {
@@ -15,9 +15,11 @@ form InitArgs
     license: string
 }
 
-proc usage() -> void
+proc usage() -> bool
 {
     io.print("usage: dots init [--template <name>] [--name <n>] [--org <o>] [--license <id>] [--json]")
+
+    give false
 }
 
 proc parse(argv: [string]) -> InitArgs
@@ -25,19 +27,19 @@ proc parse(argv: [string]) -> InitArgs
     let out = InitArgs(false, false, "default", "", "", "MIT")
     let i: i32 = 1
 
-    loop while i < argv.len
+    while i < argv.len
     {
         let a = argv[i]
-        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--help"  or  a == "-h" { out.help = true; i = i + 1; continue }
         if a == "--json" { out.json = true; i = i + 1; continue }
         if str.starts_with(a, "--template=") { out.template = str.replace(a, "--template=", ""); i = i + 1; continue }
-        if a == "--template" && i + 1 < argv.len { out.template = argv[i + 1]; i = i + 2; continue }
+        if a == "--template"  and  i + 1 < argv.len { out.template = argv[i + 1]; i = i + 2; continue }
         if str.starts_with(a, "--name=") { out.name = str.replace(a, "--name=", ""); i = i + 1; continue }
-        if a == "--name" && i + 1 < argv.len { out.name = argv[i + 1]; i = i + 2; continue }
+        if a == "--name"  and  i + 1 < argv.len { out.name = argv[i + 1]; i = i + 2; continue }
         if str.starts_with(a, "--org=") { out.org = str.replace(a, "--org=", ""); i = i + 1; continue }
-        if a == "--org" && i + 1 < argv.len { out.org = argv[i + 1]; i = i + 2; continue }
+        if a == "--org"  and  i + 1 < argv.len { out.org = argv[i + 1]; i = i + 2; continue }
         if str.starts_with(a, "--license=") { out.license = str.replace(a, "--license=", ""); i = i + 1; continue }
-        if a == "--license" && i + 1 < argv.len { out.license = argv[i + 1]; i = i + 2; continue }
+        if a == "--license"  and  i + 1 < argv.len { out.license = argv[i + 1]; i = i + 2; continue }
         i = i + 1
     }
 
@@ -46,11 +48,11 @@ proc parse(argv: [string]) -> InitArgs
     give out
 }
 
-proc validate(a: InitArgs) -> string?
+proc validate(a: InitArgs) -> string
 {
-    if a.help { give null }
+    if a.help { give "" }
     if a.name == "" { give "name is required" }
-    give null
+    give ""
 }
 
 proc execute(a: InitArgs) -> i32
@@ -66,7 +68,7 @@ proc execute(a: InitArgs) -> i32
     let manifest = "{\n  \"name\": \"" + a.name + "\",\n  \"org\": \"" + a.org + "\",\n  \"template\": \"" + a.template + "\",\n  \"license\": \"" + a.license + "\"\n}\n"
     fs.write_file("dots.json", manifest)
     fs.mkdir_p("src")
-    if !fs.exists("src/main.dotS") { fs.write_file("src/main.dotS", ".io.print.\"hello from dots\".\n") }
+    if not fs.exists("src/main.dotS") { fs.write_file("src/main.dotS", ".io.print.\"hello from dots\".\n") }
 
     if a.json { io.print("{\"command\":\"init\",\"name\":\"" + a.name + "\"}") }
     else { io.print("initialized DotS project: " + a.name) }
@@ -78,7 +80,7 @@ proc main() -> i32
 {
     let a = parse(process.args())
     let err = validate(a)
-    if err != null { io.print("dots: " + err); usage(); give 2 }
+    if err != "" { io.print("dots: " + err); usage(); give 2 }
     give execute(a)
 }
 

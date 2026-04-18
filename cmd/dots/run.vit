@@ -1,16 +1,16 @@
 space dots/cmd/run
 
-pull core/io
-pull core/fs
-pull core/str
-pull core/time
-pull core/process
-pull core/diagnostics
-pull core/semantic
-pull core/diagnostics/reporter
-pull core/diagnostics/formatter
-pull core/parser
-pull modules/loader/resolver
+use core/io
+use core/fs
+use core/str
+use core/time
+use core/process
+use core/diagnostics
+use core/semantic
+use core/diagnostics/reporter
+use core/diagnostics/formatter
+use core/parser
+use modules/loader/resolver
 
 form RunArgs
 {
@@ -25,13 +25,15 @@ form RunArgs
     timeout_ms: i64
 }
 
-proc usage() -> void
+proc usage() -> bool
 {
     io.print("usage: dots run [--watch] [--poll-ms <ms>] [--timeout-ms <ms>] [--env-file <f>] [--entry <e>] [--args -- ...] <file.dotS>")
     io.print("examples:")
     io.print("  dots run src/main.dotS")
     io.print("  dots run --watch --poll-ms 250 --env-file .env src/main.dotS")
     io.print("  dots run --entry main --timeout-ms 30000 src/main.dotS")
+
+    give false
 }
 
 proc parse(argv: [string]) -> RunArgs
@@ -41,7 +43,7 @@ proc parse(argv: [string]) -> RunArgs
     let i: i32 = 1
     let pass = false
 
-    loop while i < argv.len
+    while i < argv.len
     {
         let a = argv[i]
 
@@ -52,7 +54,7 @@ proc parse(argv: [string]) -> RunArgs
             continue
         }
 
-        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--help"  or  a == "-h" { out.help = true; i = i + 1; continue }
         if a == "--json" { out.json = true; i = i + 1; continue }
         if a == "--watch" { out.watch = true; i = i + 1; continue }
 
@@ -70,7 +72,7 @@ proc parse(argv: [string]) -> RunArgs
             continue
         }
 
-        if a == "--poll-ms" && i + 1 < argv.len
+        if a == "--poll-ms"  and  i + 1 < argv.len
         {
             out.poll_ms = str.to_i64(argv[i + 1])
             i = i + 2
@@ -84,7 +86,7 @@ proc parse(argv: [string]) -> RunArgs
             continue
         }
 
-        if a == "--timeout-ms" && i + 1 < argv.len
+        if a == "--timeout-ms"  and  i + 1 < argv.len
         {
             out.timeout_ms = str.to_i64(argv[i + 1])
             i = i + 2
@@ -98,7 +100,7 @@ proc parse(argv: [string]) -> RunArgs
             continue
         }
 
-        if a == "--env-file" && i + 1 < argv.len
+        if a == "--env-file"  and  i + 1 < argv.len
         {
             out.env_file = argv[i + 1]
             i = i + 2
@@ -112,14 +114,14 @@ proc parse(argv: [string]) -> RunArgs
             continue
         }
 
-        if a == "--entry" && i + 1 < argv.len
+        if a == "--entry"  and  i + 1 < argv.len
         {
             out.entry = argv[i + 1]
             i = i + 2
             continue
         }
 
-        if !str.starts_with(a, "-")
+        if not str.starts_with(a, "-")
         {
             out.file = a
             i = i + 1
@@ -130,6 +132,8 @@ proc parse(argv: [string]) -> RunArgs
     }
 
     give out
+
+    give false
 }
 
 proc validate_env_name(name: string) -> bool
@@ -140,7 +144,7 @@ proc validate_env_name(name: string) -> bool
     if str.contains(name, ".") { give false }
     if str.contains(name, "/") { give false }
     if str.contains(name, "\\") { give false }
-    if str.starts_with(name, "0") || str.starts_with(name, "1") || str.starts_with(name, "2") || str.starts_with(name, "3") || str.starts_with(name, "4") || str.starts_with(name, "5") || str.starts_with(name, "6") || str.starts_with(name, "7") || str.starts_with(name, "8") || str.starts_with(name, "9")
+    if str.starts_with(name, "0")  or  str.starts_with(name, "1")  or  str.starts_with(name, "2")  or  str.starts_with(name, "3")  or  str.starts_with(name, "4")  or  str.starts_with(name, "5")  or  str.starts_with(name, "6")  or  str.starts_with(name, "7")  or  str.starts_with(name, "8")  or  str.starts_with(name, "9")
     {
         give false
     }
@@ -151,12 +155,12 @@ proc normalize_env_value(raw: string) -> string
 {
     let v = str.trim(raw)
 
-    if str.starts_with(v, "\"") && str.ends_with(v, "\"")
+    if str.starts_with(v, "\"")  and  str.ends_with(v, "\"")
     {
         v = str.replace(v, "\"", "")
     }
 
-    if str.starts_with(v, "'") && str.ends_with(v, "'")
+    if str.starts_with(v, "'")  and  str.ends_with(v, "'")
     {
         v = str.replace(v, "'", "")
     }
@@ -168,17 +172,17 @@ proc normalize_env_value(raw: string) -> string
     give v
 }
 
-proc load_env_file(path: string) -> string?
+proc load_env_file(path: string) -> string
 {
     if path == ""
     {
-        give null
+        give ""
     }
 
     let raw = fs.read_file(path)
     let lines = str.split(raw, "\n")
 
-    loop l in lines
+    for l in lines
     {
         let line = str.trim(l)
         if line == "" { continue }
@@ -193,7 +197,7 @@ proc load_env_file(path: string) -> string?
         let key = str.trim(kv[0])
         let value = normalize_env_value(kv[1])
 
-        if !validate_env_name(key)
+        if not validate_env_name(key)
         {
             give "invalid env var name: " + key
         }
@@ -201,27 +205,27 @@ proc load_env_file(path: string) -> string?
         process.set_env(key, value)
     }
 
-    give null
+    give ""
 }
 
-proc validate(a: RunArgs) -> string?
+proc validate(a: RunArgs) -> string
 {
     if a.help
     {
-        give null
+        give ""
     }
 
-    if a.file == "" && a.entry == ""
+    if a.file == ""  and  a.entry == ""
     {
         give "missing file or --entry"
     }
 
-    if a.file != "" && !fs.exists(a.file)
+    if a.file != ""  and  not fs.exists(a.file)
     {
         give "entry file not found: " + a.file
     }
 
-    if a.env_file != "" && !fs.exists(a.env_file)
+    if a.env_file != ""  and  not fs.exists(a.env_file)
     {
         give "env file not found: " + a.env_file
     }
@@ -236,12 +240,12 @@ proc validate(a: RunArgs) -> string?
         give "--timeout-ms must be >= 0"
     }
 
-    give null
+    give ""
 }
 
-proc resolve_entry_file(entry: string) -> string?
+proc resolve_entry_file(entry: string) -> string
 {
-    if entry == "" { give null }
+    if entry == "" { give "" }
 
     let candidates = [
         "src/" + entry + ".dotS",
@@ -249,12 +253,12 @@ proc resolve_entry_file(entry: string) -> string?
         entry + ".dotS"
     ]
 
-    loop c in candidates
+    for c in candidates
     {
         if fs.exists(c) { give c }
     }
 
-    give null
+    give ""
 }
 
 proc collect_vitte_imports(path: string) -> [string]
@@ -262,9 +266,9 @@ proc collect_vitte_imports(path: string) -> [string]
     let parsed = parser.parse(fs.read_file(path))
     let out: [string] = []
 
-    loop n in parsed.root.children
+    for n in parsed.root.children
     {
-        if n.kind == "use_stmt" || n.kind == "import_stmt"
+        if n.kind == "use_stmt"  or  n.kind == "import_stmt"
         {
             out = out.push(n.value)
         }
@@ -286,7 +290,7 @@ proc preflight_run(a: RunArgs) -> ([string], [string], [diagnostics.Diagnostic])
     diags = reporter.normalize(res.diagnostics, reporter.default_budget())
     imports = collect_vitte_imports(a.file)
 
-    loop pkg in imports
+    for pkg in imports
     {
         if resolver.has_package(pkg, "")
         {
@@ -300,7 +304,7 @@ proc preflight_run(a: RunArgs) -> ([string], [string], [diagnostics.Diagnostic])
 proc execute_once(a: RunArgs) -> i32
 {
     let env_err = load_env_file(a.env_file)
-    if env_err != null
+    if env_err != ""
     {
         io.print("dots: " + env_err)
         give 2
@@ -345,7 +349,7 @@ proc execute_watch(a: RunArgs) -> i32
     let last_mtime: i64 = -1
     let last_run_at: i64 = 0
 
-    loop while true
+    while true
     {
         if a.timeout_ms > 0
         {
@@ -360,7 +364,7 @@ proc execute_watch(a: RunArgs) -> i32
         let now_mtime = fs.mtime_ms(a.file)
         let now = time.now_ms()
 
-        if now_mtime != last_mtime && (now - last_run_at) >= a.poll_ms
+        if now_mtime != last_mtime  and  (now - last_run_at) >= a.poll_ms
         {
             last_mtime = now_mtime
             last_run_at = now
@@ -390,7 +394,7 @@ proc execute(a: RunArgs) -> i32
         if a.file == ""
         {
             let resolved = resolve_entry_file(a.entry)
-            if resolved == null
+            if resolved == ""
             {
                 io.print("dots: entry not found: " + a.entry)
                 give 2
@@ -400,7 +404,7 @@ proc execute(a: RunArgs) -> i32
         io.print("entry resolution: " + a.entry + " -> " + a.file)
     }
 
-    if !a.watch
+    if not a.watch
     {
         give execute_once(a)
     }
@@ -413,7 +417,7 @@ proc main() -> i32
     let a = parse(process.args())
     let err = validate(a)
 
-    if err != null
+    if err != ""
     {
         io.print("dots: " + err)
         usage()

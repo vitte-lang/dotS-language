@@ -1,6 +1,7 @@
 space dots/cmd/common/tty
 
-pull core/process
+use core/str
+use core/process
 
 proc is_tty() -> bool
 {
@@ -9,14 +10,14 @@ proc is_tty() -> bool
 
 proc term_width() -> i32
 {
-    let c = process.env("COLUMNS")
+    let cols = process.env("COLUMNS")
 
-    if c == ""
+    if cols == ""
     {
         give 80
     }
 
-    give c.to_i32()
+    give str.to_i32(cols)
 }
 
 proc use_color(mode: string) -> bool

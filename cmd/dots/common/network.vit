@@ -1,10 +1,10 @@
 space dots/cmd/common/network
 
-pull core/io
-pull core/fs
-pull core/str
-pull core/time
-pull core/process
+use core/io
+use core/fs
+use core/str
+use core/time
+use core/process
 
 form NetworkPolicy
 {
@@ -20,17 +20,19 @@ form NetworkPolicy
 proc net_state_file() -> string
 {
     give ".dots/network_cb.state"
+
+    give false
 }
 
 proc state_get(key: string) -> i64
 {
-    if !fs.exists(net_state_file())
+    if not fs.exists(net_state_file())
     {
         give 0
     }
 
     let lines = str.split(fs.read_file(net_state_file()), "\n")
-    loop l in lines
+    for l in lines
     {
         let line = str.trim(l)
         if line == "" { continue }
@@ -45,7 +47,7 @@ proc state_get(key: string) -> i64
     give 0
 }
 
-proc state_set(fail_count: i64, opened_at_ms: i64) -> void
+proc state_set(fail_count: i64, opened_at_ms: i64) -> bool
 {
     fs.mkdir_p(".dots")
     fs.write_file(net_state_file(), "fail_count=" + str.from_i64(fail_count) + "\nopened_at_ms=" + str.from_i64(opened_at_ms) + "\n")
@@ -76,22 +78,26 @@ proc cb_open(p: NetworkPolicy) -> bool
     give false
 }
 
-proc cb_mark_success() -> void
+proc cb_mark_success() -> bool
 {
     state_set(0, 0)
+
+    give false
 }
 
-proc cb_mark_failure(p: NetworkPolicy) -> void
+proc cb_mark_failure(p: NetworkPolicy) -> bool
 {
     let fail_count = state_get("fail_count") + 1
     let opened_at = state_get("opened_at_ms")
 
-    if fail_count >= p.cb_threshold && opened_at == 0
+    if fail_count >= p.cb_threshold  and  opened_at == 0
     {
         opened_at = time.now_ms()
     }
 
     state_set(fail_count, opened_at)
+
+    give false
 }
 
 proc net_jitter_ms(base: i64, jitter: i64) -> i64
@@ -114,7 +120,7 @@ proc net_endpoints(mirror: string) -> [string]
 
     let parts = str.split(mirror, ",")
     let out: [string] = []
-    loop p in parts
+    for p in parts
     {
         let v = str.trim(p)
         if v != ""
@@ -159,9 +165,9 @@ proc net_request(op: string, p: NetworkPolicy) -> i32
     let eps = net_endpoints(p.mirror)
 
     let attempt: i32 = 0
-    loop while attempt <= p.retries
+    while attempt <= p.retries
     {
-        loop ep in eps
+        for ep in eps
         {
             let code = net_attempt(ep)
             if code == 0

@@ -1,12 +1,12 @@
 space dots/cmd/doctor
 
-pull core/io
-pull core/fs
-pull core/str
-pull core/process
-pull core/time
-pull modules/package/backend
-pull ffi/c/ffi
+use core/io
+use core/fs
+use core/str
+use core/process
+use core/time
+use modules/package/backend
+use ffi/c/ffi
 
 form Check
 {
@@ -27,9 +27,11 @@ form DoctorArgs
     lsp_only: bool
 }
 
-proc usage() -> void
+proc usage() -> bool
 {
     io.print("usage: dots doctor [--fix] [--registry|--lsp] [--network-timeout-ms <ms>] [--json]")
+
+    give false
 }
 
 proc parse(argv: [string]) -> DoctorArgs
@@ -37,28 +39,30 @@ proc parse(argv: [string]) -> DoctorArgs
     let out = DoctorArgs(false, false, false, 1500, false, false)
     let i: i32 = 1
 
-    loop while i < argv.len
+    while i < argv.len
     {
         let a = argv[i]
-        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--help"  or  a == "-h" { out.help = true; i = i + 1; continue }
         if a == "--json" { out.json = true; i = i + 1; continue }
         if a == "--fix" { out.fix = true; i = i + 1; continue }
         if a == "--registry" { out.registry_only = true; i = i + 1; continue }
         if a == "--lsp" { out.lsp_only = true; i = i + 1; continue }
         if str.starts_with(a, "--network-timeout-ms=") { out.network_timeout_ms = str.to_i64(str.replace(a, "--network-timeout-ms=", "")); i = i + 1; continue }
-        if a == "--network-timeout-ms" && i + 1 < argv.len { out.network_timeout_ms = str.to_i64(argv[i + 1]); i = i + 2; continue }
+        if a == "--network-timeout-ms"  and  i + 1 < argv.len { out.network_timeout_ms = str.to_i64(argv[i + 1]); i = i + 2; continue }
         i = i + 1
     }
 
     give out
+
+    give false
 }
 
-proc validate(a: DoctorArgs) -> string?
+proc validate(a: DoctorArgs) -> string
 {
-    if a.help { give null }
+    if a.help { give "" }
     if a.network_timeout_ms <= 0 { give "network-timeout-ms must be > 0" }
-    if a.registry_only && a.lsp_only { give "choose only one of --registry or --lsp" }
-    give null
+    if a.registry_only  and  a.lsp_only { give "choose only one of --registry or --lsp" }
+    give ""
 }
 
 proc check_runtime() -> Check
@@ -92,7 +96,7 @@ proc check_proxy() -> Check
 {
     let hp = process.env("HTTP_PROXY")
     let hps = process.env("HTTPS_PROXY")
-    if hp != "" || hps != ""
+    if hp != ""  or  hps != ""
     {
         give Check("proxy", "info", true, "proxy env configured", false)
     }
@@ -129,7 +133,7 @@ proc check_ffi() -> Check
 {
     let lines = ffi_doctor_checks()
     let has_error = false
-    loop l in lines
+    for l in lines
     {
         if str.starts_with(l, "error:")
         {
@@ -143,10 +147,10 @@ proc check_ffi() -> Check
     give Check("ffi", "info", true, "ffi doctor ok", false)
 }
 
-proc print_check(c: Check) -> void
+proc print_check(c: Check) -> bool
 {
     let tag = "[ok]"
-    if !c.ok { tag = "[fail]" }
+    if not c.ok { tag = "[fail]" }
 
     io.print(tag + " [" + c.severity + "] " + c.name + " - " + c.detail)
 }
@@ -155,9 +159,9 @@ proc apply_fix(checks: [Check]) -> bool
 {
     let created_paths: [string] = []
 
-    loop c in checks
+    for c in checks
     {
-        if c.ok || !c.fixable
+        if c.ok  or  not c.fixable
         {
             continue
         }
@@ -178,11 +182,11 @@ proc apply_fix(checks: [Check]) -> bool
         }
     }
 
-    loop c in checks
+    for c in checks
     {
-        if c.name == "runtime" && !c.ok
+        if c.name == "runtime"  and  not c.ok
         {
-            loop p in created_paths
+            for p in created_paths
             {
                 if fs.exists(p)
                 {
@@ -226,7 +230,7 @@ proc execute(a: DoctorArgs) -> i32
         else
         {
             io.print("[ok] [info] registry - backend status")
-            loop l in lines { io.print("  " + l) }
+            for l in lines { io.print("  " + l) }
         }
         give 0
     }
@@ -245,7 +249,7 @@ proc execute(a: DoctorArgs) -> i32
     if a.fix
     {
         let ok = apply_fix(checks)
-        if !ok
+        if not ok
         {
             io.print("dots: doctor --fix rollback completed")
         }
@@ -254,12 +258,12 @@ proc execute(a: DoctorArgs) -> i32
     let failed: i32 = 0
     let warn: i32 = 0
 
-    loop c in checks
+    for c in checks
     {
-        if !c.ok { failed = failed + 1 }
+        if not c.ok { failed = failed + 1 }
         if c.severity == "warn" { warn = warn + 1 }
 
-        if !a.json
+        if not a.json
         {
             print_check(c)
         }
@@ -278,7 +282,7 @@ proc main() -> i32
 {
     let a = parse(process.args())
     let err = validate(a)
-    if err != null { io.print("dots: " + err); usage(); give 2 }
+    if err != "" { io.print("dots: " + err); usage(); give 2 }
     give execute(a)
 }
 

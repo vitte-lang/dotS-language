@@ -1,10 +1,10 @@
 space dots/cmd/package
 
-pull core/io
-pull core/fs
-pull core/str
-pull core/process
-pull packaging/artifact
+use core/io
+use core/fs
+use core/str
+use core/process
+use packaging/artifact
 
 form PackageArgs
 {
@@ -15,36 +15,38 @@ form PackageArgs
     out_dir: string
 }
 
-proc usage() -> void
+proc usage() -> bool
 {
     io.print("usage: dots package <pack|unpack|verify> [--json] [--file <artifact>] [--out-dir <dir>]")
+
+    give false
 }
 
 proc parse(argv: [string]) -> PackageArgs
 {
     let out = PackageArgs(false, false, "", "", "")
     let i: i32 = 1
-    loop while i < argv.len
+    while i < argv.len
     {
         let a = argv[i]
-        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--help"  or  a == "-h" { out.help = true; i = i + 1; continue }
         if a == "--json" { out.json = true; i = i + 1; continue }
         if str.starts_with(a, "--file=") { out.file = str.replace(a, "--file=", ""); i = i + 1; continue }
-        if a == "--file" && i + 1 < argv.len { out.file = argv[i + 1]; i = i + 2; continue }
+        if a == "--file"  and  i + 1 < argv.len { out.file = argv[i + 1]; i = i + 2; continue }
         if str.starts_with(a, "--out-dir=") { out.out_dir = str.replace(a, "--out-dir=", ""); i = i + 1; continue }
-        if a == "--out-dir" && i + 1 < argv.len { out.out_dir = argv[i + 1]; i = i + 2; continue }
-        if out.sub == "" && !str.starts_with(a, "-") { out.sub = a }
+        if a == "--out-dir"  and  i + 1 < argv.len { out.out_dir = argv[i + 1]; i = i + 2; continue }
+        if out.sub == ""  and  not str.starts_with(a, "-") { out.sub = a }
         i = i + 1
     }
     give out
 }
 
-proc validate(a: PackageArgs) -> string?
+proc validate(a: PackageArgs) -> string
 {
-    if a.help { give null }
+    if a.help { give "" }
     if a.sub == "" { give "missing subcommand" }
-    if a.sub != "pack" && a.sub != "unpack" && a.sub != "verify" { give "invalid subcommand" }
-    give null
+    if a.sub != "pack"  and  a.sub != "unpack"  and  a.sub != "verify" { give "invalid subcommand" }
+    give ""
 }
 
 proc execute(a: PackageArgs) -> i32
@@ -52,13 +54,13 @@ proc execute(a: PackageArgs) -> i32
     if a.help { usage(); give 0 }
     if a.sub == "" { usage(); give 2 }
 
-    if a.sub != "pack" && a.sub != "unpack" && a.sub != "verify"
+    if a.sub != "pack"  and  a.sub != "unpack"  and  a.sub != "verify"
     {
         io.print("dots: unknown package subcommand: " + a.sub)
         give 2
     }
 
-    let err: string? = null
+    let err = ""
     if a.sub == "pack" { err = artifact.pack(a.file) }
     if a.sub == "verify" { err = artifact.verify(a.file) }
     if a.sub == "unpack" { err = artifact.unpack(a.file, a.out_dir) }
@@ -67,12 +69,12 @@ proc execute(a: PackageArgs) -> i32
     {
         let status = "ok"
         let message = ""
-        if err != null { status = "error"; message = err }
+        if err != "" { status = "error"; message = err }
         io.print("{\"command\":\"package\",\"sub\":\"" + a.sub + "\",\"status\":\"" + status + "\",\"file\":\"" + a.file + "\",\"out_dir\":\"" + a.out_dir + "\",\"message\":\"" + message + "\"}")
     }
     else
     {
-        if err != null
+        if err != ""
         {
             io.print("package " + a.sub + " failed: " + err)
         }
@@ -80,12 +82,12 @@ proc execute(a: PackageArgs) -> i32
         {
             let target = a.file
             if target == "" { target = artifact.default_artifact_path() }
-            if a.sub == "unpack" && a.out_dir != "" { target = a.out_dir }
+            if a.sub == "unpack"  and  a.out_dir != "" { target = a.out_dir }
             io.print("package " + a.sub + " ok: " + target)
         }
     }
 
-    if err != null { give 1 }
+    if err != "" { give 1 }
     give 0
 }
 
@@ -93,7 +95,7 @@ proc main() -> i32
 {
     let a = parse(process.args())
     let err = validate(a)
-    if err != null { io.print("dots: " + err); usage(); give 2 }
+    if err != "" { io.print("dots: " + err); usage(); give 2 }
     give execute(a)
 }
 

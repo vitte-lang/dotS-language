@@ -1,12 +1,12 @@
 space dots/cmd/lint
 
-pull core/io
-pull core/fs
-pull core/str
-pull core/list
-pull core/process
-pull modules/loader/resolver
-pull tools/linter/linter
+use core/io
+use core/fs
+use core/str
+use core/list
+use core/process
+use modules/loader/resolver
+use tools/linter/linter
 
 form LintArgs
 {
@@ -19,10 +19,12 @@ form LintArgs
     target: string
 }
 
-proc usage() -> void
+proc usage() -> bool
 {
     io.print("usage: dots lint [--fix] [--rule <r1,r2>] [--exclude-rule <r1,r2>] [--format stylish|json|sarif] [target]")
     io.print("rules: TABS,DOTDOT,TRAILING_SPACES,AST_PARSE,NO_BASH_EXEC_PACKAGE")
+
+    give false
 }
 
 proc split_csv(raw: string) -> [string]
@@ -30,7 +32,7 @@ proc split_csv(raw: string) -> [string]
     if raw == "" { give [] }
     let parts = str.split(raw, ",")
     let out: [string] = []
-    loop p in parts
+    for p in parts
     {
         let v = str.trim(p)
         if v != "" { out = out.push(v) }
@@ -43,24 +45,24 @@ proc parse(argv: [string]) -> LintArgs
     let out = LintArgs(false, false, false, "stylish", [], [], ".")
     let i: i32 = 1
 
-    loop while i < argv.len
+    while i < argv.len
     {
         let a = argv[i]
 
-        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--help"  or  a == "-h" { out.help = true; i = i + 1; continue }
         if a == "--json" { out.json = true; i = i + 1; continue }
         if a == "--fix" { out.fix = true; i = i + 1; continue }
 
         if str.starts_with(a, "--rule=") { out.rules = split_csv(str.replace(a, "--rule=", "")); i = i + 1; continue }
-        if a == "--rule" && i + 1 < argv.len { out.rules = split_csv(argv[i + 1]); i = i + 2; continue }
+        if a == "--rule"  and  i + 1 < argv.len { out.rules = split_csv(argv[i + 1]); i = i + 2; continue }
 
         if str.starts_with(a, "--exclude-rule=") { out.exclude_rules = split_csv(str.replace(a, "--exclude-rule=", "")); i = i + 1; continue }
-        if a == "--exclude-rule" && i + 1 < argv.len { out.exclude_rules = split_csv(argv[i + 1]); i = i + 2; continue }
+        if a == "--exclude-rule"  and  i + 1 < argv.len { out.exclude_rules = split_csv(argv[i + 1]); i = i + 2; continue }
 
         if str.starts_with(a, "--format=") { out.format = str.replace(a, "--format=", ""); i = i + 1; continue }
-        if a == "--format" && i + 1 < argv.len { out.format = argv[i + 1]; i = i + 2; continue }
+        if a == "--format"  and  i + 1 < argv.len { out.format = argv[i + 1]; i = i + 2; continue }
 
-        if !str.starts_with(a, "-") { out.target = a; i = i + 1; continue }
+        if not str.starts_with(a, "-") { out.target = a; i = i + 1; continue }
 
         i = i + 1
     }
@@ -70,7 +72,7 @@ proc parse(argv: [string]) -> LintArgs
 
 proc validate_rule_name(r: string) -> bool
 {
-    if r == "TABS" || r == "DOTDOT" || r == "TRAILING_SPACES" || r == "AST_PARSE" || r == "NO_BASH_EXEC_PACKAGE"
+    if r == "TABS"  or  r == "DOTDOT"  or  r == "TRAILING_SPACES"  or  r == "AST_PARSE"  or  r == "NO_BASH_EXEC_PACKAGE"
     {
         give true
     }
@@ -78,37 +80,37 @@ proc validate_rule_name(r: string) -> bool
     give false
 }
 
-proc validate(a: LintArgs) -> string?
+proc validate(a: LintArgs) -> string
 {
-    if a.help { give null }
+    if a.help { give "" }
 
-    if a.format != "stylish" && a.format != "json" && a.format != "sarif"
+    if a.format != "stylish"  and  a.format != "json"  and  a.format != "sarif"
     {
         give "invalid --format"
     }
 
-    if !fs.exists(a.target)
+    if not fs.exists(a.target)
     {
         give "target not found: " + a.target
     }
 
-    loop r in a.rules
+    for r in a.rules
     {
-        if !validate_rule_name(r)
+        if not validate_rule_name(r)
         {
             give "unknown lint rule: " + r
         }
     }
 
-    loop r in a.exclude_rules
+    for r in a.exclude_rules
     {
-        if !validate_rule_name(r)
+        if not validate_rule_name(r)
         {
             give "unknown excluded lint rule: " + r
         }
     }
 
-    give null
+    give ""
 }
 
 proc collect_files(target: string) -> [string]
@@ -117,7 +119,7 @@ proc collect_files(target: string) -> [string]
 
     if fs.is_file(target)
     {
-        if str.ends_with(target, ".dotS") || str.ends_with(target, ".vit")
+        if str.ends_with(target, ".dotS")  or  str.ends_with(target, ".vit")
         {
             out = out.push(target)
         }
@@ -126,24 +128,24 @@ proc collect_files(target: string) -> [string]
     }
 
     let files = fs.read_dir(target)
-    loop f in files
+    for f in files
     {
         let p = target + "/" + f
-        if str.ends_with(p, ".dotS") || str.ends_with(p, ".vit")
+        if str.ends_with(p, ".dotS")  or  str.ends_with(p, ".vit")
         {
             out = out.push(p)
         }
     }
 
-    if target == "." || str.contains(target, "vitte")
+    if target == "."  or  str.contains(target, "vitte")
     {
         let pkgs = resolver.discover_packages("")
-        loop pkg in pkgs
+        for pkg in pkgs
         {
             let mod = resolver.package_mod_file(pkg, "")
             let info = resolver.package_info_file(pkg, "")
-            if mod != null && fs.exists(mod) { out = out.push(mod) }
-            if info != null && fs.exists(info) { out = out.push(info) }
+            if mod != ""  and  fs.exists(mod) { out = out.push(mod) }
+            if info != ""  and  fs.exists(info) { out = out.push(info) }
         }
     }
 
@@ -170,24 +172,24 @@ proc lint_file(path: string, a: LintArgs) -> [string]
     let out = linter.lint_file(path)
     let filtered: [string] = []
 
-    loop e in out
+    for e in out
     {
-        if str.contains(e, ": TABS") && !rule_enabled(a, "TABS") { continue }
-        if str.contains(e, ": DOTDOT") && !rule_enabled(a, "DOTDOT") { continue }
-        if str.contains(e, ": TRAILING_SPACES") && !rule_enabled(a, "TRAILING_SPACES") { continue }
-        if str.contains(e, ": AST_PARSE") && !rule_enabled(a, "AST_PARSE") { continue }
+        if str.contains(e, ": TABS")  and  not rule_enabled(a, "TABS") { continue }
+        if str.contains(e, ": DOTDOT")  and  not rule_enabled(a, "DOTDOT") { continue }
+        if str.contains(e, ": TRAILING_SPACES")  and  not rule_enabled(a, "TRAILING_SPACES") { continue }
+        if str.contains(e, ": AST_PARSE")  and  not rule_enabled(a, "AST_PARSE") { continue }
         filtered = filtered.push(e)
     }
 
     let src = fs.read_file(path)
     let lines = str.split(src, "\n")
     let ln: i32 = 1
-    loop l in lines
+    for l in lines
     {
         if rule_enabled(a, "NO_BASH_EXEC_PACKAGE")
         {
-            let is_pkg_path = str.contains(path, "cmd/dots/install.vit") || str.contains(path, "cmd/dots/update.vit") || str.contains(path, "cmd/dots/publish.vit") || str.contains(path, "modules/package/")
-            if is_pkg_path && str.contains(l, "process.exec(\"bash\"")
+            let is_pkg_path = str.contains(path, "cmd/dots/install.vit")  or  str.contains(path, "cmd/dots/update.vit")  or  str.contains(path, "cmd/dots/publish.vit")  or  str.contains(path, "modules/package/")
+            if is_pkg_path  and  str.contains(l, "process.exec(\"bash\"")
             {
                 filtered = filtered.push(path + ":" + str.from_i64(ln) + ": NO_BASH_EXEC_PACKAGE forbidden process.exec(\"bash\")")
             }
@@ -196,9 +198,10 @@ proc lint_file(path: string, a: LintArgs) -> [string]
     }
 
     give filtered
+
 }
 
-proc print_sarif(errs: [string]) -> void
+proc print_sarif(errs: [string]) -> bool
 {
     let n = str.from_i64(errs.len)
     io.print("{\"$schema\":\"https://json.schemastore.org/sarif-2.1.0.json\",\"version\":\"2.1.0\",\"runs\":[{\"tool\":{\"driver\":{\"name\":\"dots-lint\"}},\"results_count\":\"" + n + "\"}]}")
@@ -211,10 +214,10 @@ proc execute(a: LintArgs) -> i32
     let files = collect_files(a.target)
     let errs: [string] = []
 
-    loop f in files
+    for f in files
     {
         let e = lint_file(f, a)
-        loop x in e { errs = errs.push(x) }
+        for x in e { errs = errs.push(x) }
     }
 
     if a.fix
@@ -226,13 +229,13 @@ proc execute(a: LintArgs) -> i32
     {
         print_sarif(errs)
     }
-    else if a.json || a.format == "json"
+    else if a.json  or  a.format == "json"
     {
         io.print("{\"command\":\"lint\",\"errors\":\"" + str.from_i64(errs.len) + "\",\"files\":\"" + str.from_i64(files.len) + "\"}")
     }
     else
     {
-        loop e in errs { io.print("lint: " + e) }
+        for e in errs { io.print("lint: " + e) }
         io.print("files=" + str.from_i64(files.len) + " errors=" + str.from_i64(errs.len))
     }
 
@@ -244,7 +247,7 @@ proc main() -> i32
 {
     let a = parse(process.args())
     let err = validate(a)
-    if err != null { io.print("dots: " + err); usage(); give 2 }
+    if err != "" { io.print("dots: " + err); usage(); give 2 }
     give execute(a)
 }
 

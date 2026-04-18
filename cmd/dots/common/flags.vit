@@ -1,22 +1,45 @@
 space dots/cmd/common/flags
 
-pull core/str
-pull dots/cmd/common/context
-pull dots/cmd/common/path
+use core/str
+use dots/cmd/common/context as context
+use dots/cmd/common/path
 
 form ParsedCLI
 {
     command: string
     command_args: [string]
-    globals: GlobalOptions
-    error: string?
+    globals: context.GlobalOptions
+    error: string
+}
+
+proc empty_strings() -> [string]
+{
+    let out: [string] = []
+    give out
+}
+
+proc single_string(value: string) -> [string]
+{
+    let out = empty_strings()
+    set out = out.push(value)
+    give out
+}
+
+proc make_globals(config_file: string, cwd: string, json_out: bool, quiet: bool, verbose: bool, trace: bool, timeout_ms: i64, profile: string, color: string, yes: bool, force: bool, dry_run: bool, includes: [string]) -> context.GlobalOptions
+{
+    give context.new_globals(config_file, cwd, json_out, quiet, verbose, trace, timeout_ms, profile, color, yes, force, dry_run, includes)
+}
+
+proc make_parsed_cli(command: string, command_args: [string], config_file: string, cwd: string, json_out: bool, quiet: bool, verbose: bool, trace: bool, timeout_ms: i64, profile: string, color: string, yes: bool, force: bool, dry_run: bool, includes: [string], error: string) -> ParsedCLI
+{
+    give ParsedCLI(command, command_args, make_globals(config_file, cwd, json_out, quiet, verbose, trace, timeout_ms, profile, color, yes, force, dry_run, includes), error)
 }
 
 proc parse_list(raw: string) -> [string]
 {
     if raw == ""
     {
-        give []
+        give empty_strings()
     }
 
     give str.split(raw, ",")
@@ -24,16 +47,30 @@ proc parse_list(raw: string) -> [string]
 
 proc parse_global(args: [string]) -> ParsedCLI
 {
-    let g = default_globals()
+    let config_file = ""
+    let cwd = "."
+    let json_out = false
+    let quiet = false
+    let verbose = false
+    let trace = false
+    let timeout_ms: i64 = 30000
+    let profile = "default"
+    let color = "auto"
+    let yes = false
+    let force = false
+    let dry_run = false
+    let includes: [string] = empty_strings()
+    let error = ""
 
     let cmd = ""
-    let cmd_args: [string] = []
+    let cmd_args: [string] = empty_strings()
 
     let i: i32 = 1
+    let a: string = ""
 
-    loop while i < args.len
+    while i < args.len
     {
-        let a = args[i]
+        a = args[i]
 
         if cmd != ""
         {
@@ -42,20 +79,20 @@ proc parse_global(args: [string]) -> ParsedCLI
             continue
         }
 
-        if !str.starts_with(a, "-")
+        if not str.starts_with(a, "-")
         {
             cmd = a
             i = i + 1
             continue
         }
 
-        if a == "--help" || a == "-h"
+        if a == "--help"  or  a == "-h"
         {
             cmd = "help"
 
-            if i + 1 < args.len && !str.starts_with(args[i + 1], "-")
+            if i + 1 < args.len  and  not str.starts_with(args[i + 1], "-")
             {
-                cmd_args = [args[i + 1]]
+                cmd_args = single_string(args[i + 1])
             }
 
             i = i + 1
@@ -64,99 +101,140 @@ proc parse_global(args: [string]) -> ParsedCLI
 
         if str.starts_with(a, "--config=")
         {
-            g.config_file = normalize_path(str.replace(a, "--config=", ""))
+            config_file = path.normalize_path(str.replace(a, "--config=", ""))
             i = i + 1
             continue
         }
 
-        if a == "--config" && i + 1 < args.len
+        if a == "--config"  and  i + 1 < args.len
         {
-            g.config_file = normalize_path(args[i + 1])
+            config_file = path.normalize_path(args[i + 1])
             i = i + 2
             continue
         }
 
         if str.starts_with(a, "--cwd=")
         {
-            g.cwd = normalize_path(str.replace(a, "--cwd=", ""))
+            cwd = path.normalize_path(str.replace(a, "--cwd=", ""))
             i = i + 1
             continue
         }
 
-        if a == "--cwd" && i + 1 < args.len
+        if a == "--cwd"  and  i + 1 < args.len
         {
-            g.cwd = normalize_path(args[i + 1])
+            cwd = path.normalize_path(args[i + 1])
             i = i + 2
             continue
         }
 
-        if a == "--json" { g.json_out = true; i = i + 1; continue }
-        if a == "--quiet" { g.quiet = true; i = i + 1; continue }
-        if a == "--verbose" { g.verbose = true; i = i + 1; continue }
-        if a == "--trace" { g.trace = true; i = i + 1; continue }
-        if a == "--yes" { g.yes = true; i = i + 1; continue }
-        if a == "--force" { g.force = true; i = i + 1; continue }
-        if a == "--dry-run" { g.dry_run = true; i = i + 1; continue }
-
-        if str.starts_with(a, "--timeout-ms=")
+        if a == "--json"
         {
-            g.timeout_ms = str.to_i64(str.replace(a, "--timeout-ms=", ""))
+            json_out = true
+            i = i + 1
+            continue
+        }
+        if a == "--quiet"
+        {
+            quiet = true
+            i = i + 1
+            continue
+        }
+        if a == "--verbose"
+        {
+            verbose = true
+            i = i + 1
+            continue
+        }
+        if a == "--trace"
+        {
+            trace = true
+            i = i + 1
+            continue
+        }
+        if a == "--yes"
+        {
+            yes = true
+            i = i + 1
+            continue
+        }
+        if a == "--force"
+        {
+            force = true
+            i = i + 1
+            continue
+        }
+        if a == "--dry-run"
+        {
+            dry_run = true
             i = i + 1
             continue
         }
 
-        if a == "--timeout-ms" && i + 1 < args.len
+        if str.starts_with(a, "--timeout-ms=")
         {
-            g.timeout_ms = str.to_i64(args[i + 1])
+            timeout_ms = str.to_i64(str.replace(a, "--timeout-ms=", ""))
+            i = i + 1
+            continue
+        }
+
+        if a == "--timeout-ms"  and  i + 1 < args.len
+        {
+            timeout_ms = str.to_i64(args[i + 1])
             i = i + 2
             continue
         }
 
         if str.starts_with(a, "--profile=")
         {
-            g.profile = str.replace(a, "--profile=", "")
+            profile = str.replace(a, "--profile=", "")
             i = i + 1
             continue
         }
 
-        if a == "--profile" && i + 1 < args.len
+        if a == "--profile"  and  i + 1 < args.len
         {
-            g.profile = args[i + 1]
+            profile = args[i + 1]
             i = i + 2
             continue
         }
 
         if str.starts_with(a, "--color=")
         {
-            g.color = str.replace(a, "--color=", "")
+            color = str.replace(a, "--color=", "")
             i = i + 1
             continue
         }
 
-        if a == "--no-color" { g.color = "never"; i = i + 1; continue }
-
-        if a == "--color" && i + 1 < args.len
+        if a == "--no-color"
         {
-            g.color = args[i + 1]
+            color = "never"
+            i = i + 1
+            continue
+        }
+
+        if a == "--color"  and  i + 1 < args.len
+        {
+            color = args[i + 1]
             i = i + 2
             continue
         }
 
         if str.starts_with(a, "--include=")
         {
-            g.includes = parse_list(str.replace(a, "--include=", ""))
+            includes = parse_list(str.replace(a, "--include=", ""))
             i = i + 1
             continue
         }
 
-        if a == "--include" && i + 1 < args.len
+        if a == "--include"  and  i + 1 < args.len
         {
-            g.includes = parse_list(args[i + 1])
+            includes = parse_list(args[i + 1])
             i = i + 2
             continue
         }
 
-        give ParsedCLI("", [], g, "unknown global option: " + a)
+        error = "unknown global option: " + a
+        break
     }
 
     if cmd == ""
@@ -166,14 +244,19 @@ proc parse_global(args: [string]) -> ParsedCLI
 
     if str.ends_with(cmd, ".dotS")
     {
-        cmd_args = [cmd]
+        cmd_args = single_string(cmd)
         cmd = "run"
     }
 
-    if g.color != "auto" && g.color != "always" && g.color != "never"
+    if color != "auto"  and  color != "always"  and  color != "never"
     {
-        give ParsedCLI("", [], g, "invalid --color, expected auto|always|never")
+        give make_parsed_cli("", empty_strings(), config_file, cwd, json_out, quiet, verbose, trace, timeout_ms, profile, color, yes, force, dry_run, includes, "invalid --color, expected auto|always|never")
     }
 
-    give ParsedCLI(cmd, cmd_args, g, null)
+    if error != ""
+    {
+        give make_parsed_cli("", empty_strings(), config_file, cwd, json_out, quiet, verbose, trace, timeout_ms, profile, color, yes, force, dry_run, includes, error)
+    }
+
+    give make_parsed_cli(cmd, cmd_args, config_file, cwd, json_out, quiet, verbose, trace, timeout_ms, profile, color, yes, force, dry_run, includes, "")
 }

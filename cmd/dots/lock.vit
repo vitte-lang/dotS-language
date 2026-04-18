@@ -1,16 +1,16 @@
 space dots/cmd/lock
 
-pull core/io
-pull core/fs
-pull core/str
-pull core/process
+use core/io
+use core/fs
+use core/str
+use core/process
 
-pull dots/cmd/common/args
-pull dots/cmd/common/path
-pull dots/cmd/common/validate
-pull dots/cmd/common/base_command
-pull dots/cmd/common/result
-pull dots/cmd/common/output
+use dots/cmd/common/args
+use dots/cmd/common/path
+use dots/cmd/common/validate
+use dots/cmd/common/base_command
+use dots/cmd/common/result
+use dots/cmd/common/output
 
 form LockArgs
 {
@@ -20,16 +20,18 @@ form LockArgs
     out_file: string
 }
 
-proc usage() -> void
+proc usage() -> bool
 {
     print_usage_for("lock")
+
+    give false
 }
 
 proc parse(argv: [string]) -> LockArgs
 {
     let out = LockArgs(false, false, false, "dots.lock")
 
-    if has_flag(argv, "--help") || has_flag(argv, "-h")
+    if has_flag(argv, "--help")  or  has_flag(argv, "-h")
     {
         out.help = true
     }
@@ -38,7 +40,7 @@ proc parse(argv: [string]) -> LockArgs
     out.strict = has_flag(argv, "--strict")
 
     let of = value_of(argv, "--out")
-    if of != null
+    if of != ""
     {
         out.out_file = of
     }
@@ -54,7 +56,7 @@ proc validate(a: LockArgs) -> Result
     }
 
     let e = in_enum(a.out_file, ["dots.lock", "lock.json"], "out_file")
-    if e != null
+    if e != ""
     {
         give err(e)
     }
@@ -74,7 +76,7 @@ proc execute(a: LockArgs) -> i32
     if a.strict { mode = "strict" }
 
     let out_path = secure_join(".", a.out_file)
-    if out_path == null
+    if out_path == ""
     {
         io.print("dots: invalid out path")
         give 2
@@ -101,7 +103,7 @@ proc main() -> i32
     let a = parse(process.args())
     let v = validate(a)
 
-    if !v.ok
+    if not v.ok
     {
         io.print("dots: " + v.error)
         usage()

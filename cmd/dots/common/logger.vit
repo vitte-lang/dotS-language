@@ -1,39 +1,40 @@
 space dots/cmd/common/logger
 
-pull core/io
-pull core/time
-pull core/str
-pull core/security/redact
-pull dots/cmd/common/context
+use core/io
+use core/time
+use core/str
+use core/security/redact
+use dots/cmd/common/context as context
 
-proc log_json(ctx: CommandContext, level: string, module: string, msg: string) -> void
+proc log_json(ctx: context.CommandContext, level: string, module: string, msg: string) -> bool
 {
     let ts = str.from_i64(time.now_ms())
-    let safe = redact_secrets(msg)
+    let safe = redact.redact_secrets(msg)
     let line = "{\"ts\":\"" + ts + "\",\"level\":\"" + level + "\",\"module\":\"" + module + "\",\"run_id\":\"" + ctx.run_id + "\",\"msg\":\"" + safe + "\"}"
     io.print(line)
+    give false
 }
 
-proc log_line(ctx: CommandContext, level: string, module: string, msg: string) -> void
+proc log_line(ctx: context.CommandContext, level: string, module: string, msg: string) -> bool
 {
-    let safe = redact_secrets(msg)
+    let safe = redact.redact_secrets(msg)
 
     if ctx.globals.json_out
     {
         log_json(ctx, level, module, safe)
-        give
+
     }
 
-    if ctx.globals.quiet && level != "error"
-    {
-        give
-    }
+    if ctx.globals.quiet  and  level != "error"
+    {}
 
     let ts = str.from_i64(time.now_ms())
     io.print("[" + ts + "] " + level + " " + module + " " + safe)
+    give false
 }
 
-proc err(msg: string) -> void
+proc err(msg: string) -> bool
 {
-    io.print("dots: " + redact_secrets(msg))
+    io.print("dots: " + redact.redact_secrets(msg))
+    give false
 }

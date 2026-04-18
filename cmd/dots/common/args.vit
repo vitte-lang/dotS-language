@@ -1,11 +1,11 @@
 space dots/cmd/common/args
 
-pull core/str
+use core/str
 
 proc has_flag(argv: [string], flag: string) -> bool
 {
     let i: i32 = 0
-    loop while i < argv.len
+    while i < argv.len
     {
         if argv[i] == flag
         {
@@ -17,12 +17,12 @@ proc has_flag(argv: [string], flag: string) -> bool
     give false
 }
 
-proc value_of(argv: [string], key: string) -> string?
+proc value_of(argv: [string], key: string) -> string
 {
     let prefix = key + "="
     let i: i32 = 0
 
-    loop while i < argv.len
+    while i < argv.len
     {
         let a = argv[i]
 
@@ -31,7 +31,7 @@ proc value_of(argv: [string], key: string) -> string?
             give str.replace(a, prefix, "")
         }
 
-        if a == key && i + 1 < argv.len
+        if a == key  and  i + 1 < argv.len
         {
             give argv[i + 1]
         }
@@ -39,7 +39,7 @@ proc value_of(argv: [string], key: string) -> string?
         i = i + 1
     }
 
-    give null
+    give ""
 }
 
 proc positionals(argv: [string]) -> [string]
@@ -48,7 +48,7 @@ proc positionals(argv: [string]) -> [string]
     let skip_next = false
     let i: i32 = 1
 
-    loop while i < argv.len
+    while i < argv.len
     {
         let a = argv[i]
 
@@ -59,14 +59,14 @@ proc positionals(argv: [string]) -> [string]
             continue
         }
 
-        if str.starts_with(a, "--") && !str.contains(a, "=")
+        if str.starts_with(a, "--")  and  not str.contains(a, "=")
         {
             skip_next = true
             i = i + 1
             continue
         }
 
-        if !str.starts_with(a, "-")
+        if not str.starts_with(a, "-")
         {
             out = out.push(a)
         }

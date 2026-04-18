@@ -1,8 +1,8 @@
 space dots/cmd/benchmark
 
-pull core/io
-pull core/str
-pull core/process
+use core/io
+use core/str
+use core/process
 
 form BenchArgs
 {
@@ -15,9 +15,11 @@ form BenchArgs
     fail_on_regression: bool
 }
 
-proc usage() -> void
+proc usage() -> bool
 {
     io.print("usage: dots benchmark [--mode smoke|quick|stress|nightly] [--bench <name>] [--output jsonl|csv|prom] [--compare baseline|last] [--fail-on-regression]")
+
+    give false
 }
 
 proc parse(argv: [string]) -> BenchArgs
@@ -25,24 +27,24 @@ proc parse(argv: [string]) -> BenchArgs
     let out = BenchArgs(false, false, "quick", "", "both", "", false)
     let i: i32 = 1
 
-    loop while i < argv.len
+    while i < argv.len
     {
         let a = argv[i]
-        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--help"  or  a == "-h" { out.help = true; i = i + 1; continue }
         if a == "--json" { out.json = true; i = i + 1; continue }
         if a == "--fail-on-regression" { out.fail_on_regression = true; i = i + 1; continue }
 
         if str.starts_with(a, "--mode=") { out.mode = str.replace(a, "--mode=", ""); i = i + 1; continue }
-        if a == "--mode" && i + 1 < argv.len { out.mode = argv[i + 1]; i = i + 2; continue }
+        if a == "--mode"  and  i + 1 < argv.len { out.mode = argv[i + 1]; i = i + 2; continue }
 
         if str.starts_with(a, "--bench=") { out.bench = str.replace(a, "--bench=", ""); i = i + 1; continue }
-        if a == "--bench" && i + 1 < argv.len { out.bench = argv[i + 1]; i = i + 2; continue }
+        if a == "--bench"  and  i + 1 < argv.len { out.bench = argv[i + 1]; i = i + 2; continue }
 
         if str.starts_with(a, "--output=") { out.output = str.replace(a, "--output=", ""); i = i + 1; continue }
-        if a == "--output" && i + 1 < argv.len { out.output = argv[i + 1]; i = i + 2; continue }
+        if a == "--output"  and  i + 1 < argv.len { out.output = argv[i + 1]; i = i + 2; continue }
 
         if str.starts_with(a, "--compare=") { out.compare = str.replace(a, "--compare=", ""); i = i + 1; continue }
-        if a == "--compare" && i + 1 < argv.len { out.compare = argv[i + 1]; i = i + 2; continue }
+        if a == "--compare"  and  i + 1 < argv.len { out.compare = argv[i + 1]; i = i + 2; continue }
 
         i = i + 1
     }
@@ -50,13 +52,13 @@ proc parse(argv: [string]) -> BenchArgs
     give out
 }
 
-proc validate(a: BenchArgs) -> string?
+proc validate(a: BenchArgs) -> string
 {
-    if a.help { give null }
-    if a.mode != "smoke" && a.mode != "quick" && a.mode != "stress" && a.mode != "nightly" { give "invalid mode" }
-    if a.output != "both" && a.output != "jsonl" && a.output != "csv" && a.output != "prom" { give "invalid output" }
-    if a.compare != "" && a.compare != "baseline" && a.compare != "last" { give "invalid compare" }
-    give null
+    if a.help { give "" }
+    if a.mode != "smoke"  and  a.mode != "quick"  and  a.mode != "stress"  and  a.mode != "nightly" { give "invalid mode" }
+    if a.output != "both"  and  a.output != "jsonl"  and  a.output != "csv"  and  a.output != "prom" { give "invalid output" }
+    if a.compare != ""  and  a.compare != "baseline"  and  a.compare != "last" { give "invalid compare" }
+    give ""
 }
 
 proc execute(a: BenchArgs) -> i32
@@ -101,7 +103,7 @@ proc main() -> i32
 {
     let a = parse(process.args())
     let err = validate(a)
-    if err != null { io.print("dots: " + err); usage(); give 2 }
+    if err != "" { io.print("dots: " + err); usage(); give 2 }
     give execute(a)
 }
 

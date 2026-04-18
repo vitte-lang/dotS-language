@@ -1,56 +1,56 @@
 space dots/cmd/common/validate
 
-pull core/fs
-pull core/str
+use core/fs
+use core/str
 
-proc required_str(value: string, field: string) -> string?
+proc required_str(value: string, label: string) -> string
 {
     if value == ""
     {
-        give field + " is required"
+        give label + " is required"
     }
 
-    give null
+    give ""
 }
 
-proc in_enum(value: string, allowed: [string], field: string) -> string?
+proc in_enum(value: string, allowed: [string], label: string) -> string
 {
-    loop a in allowed
+    for a in allowed
     {
         if value == a
         {
-            give null
+            give ""
         }
     }
 
-    give field + " must be one of: " + str.join(allowed, "|")
+    give label + " must be one of: " + str.join(allowed, "|")
 }
 
-proc in_range_i64(value: i64, min: i64, max: i64, field: string) -> string?
+proc in_range_i64(value: i64, min: i64, max: i64, label: string) -> string
 {
-    if value < min || value > max
+    if value < min  or  value > max
     {
-        give field + " out of range"
+        give label + " out of range"
     }
 
-    give null
+    give ""
 }
 
-proc path_exists(path: string, field: string) -> string?
+proc path_exists(path: string, label: string) -> string
 {
-    if !fs.exists(path)
+    if not fs.exists(path)
     {
-        give field + " not found: " + path
+        give label + " not found: " + path
     }
 
-    give null
+    give ""
 }
 
-proc validate_network_options(retries: i32, jitter_ms: i64, cb_threshold: i32, timeout_ms: i64) -> string?
+proc validate_network_options(retries: i32, jitter_ms: i64, cb_threshold: i32, timeout_ms: i64) -> string
 {
     if retries <= 0 { give "--retries must be > 0" }
     if jitter_ms < 0 { give "--jitter-ms must be >= 0" }
     if cb_threshold <= 0 { give "--cb-threshold must be > 0" }
     if timeout_ms < 0 { give "--timeout-ms must be >= 0" }
-    give null
+    give ""
 }

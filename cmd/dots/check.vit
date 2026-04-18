@@ -1,13 +1,13 @@
 space dots/cmd/check
 
-pull core/io
-pull core/fs
-pull core/str
-pull core/time
-pull core/process
-pull core/semantic
-pull core/diagnostics/reporter
-pull core/diagnostics/formatter
+use core/io
+use core/fs
+use core/str
+use core/time
+use core/process
+use core/semantic
+use core/diagnostics/reporter
+use core/diagnostics/formatter
 
 form CheckArgs
 {
@@ -16,9 +16,11 @@ form CheckArgs
     file: string
 }
 
-proc usage() -> void
+proc usage() -> bool
 {
     io.print("usage: dots check [--json] <file.dotS>")
+
+    give false
 }
 
 proc parse(argv: [string]) -> CheckArgs
@@ -26,24 +28,24 @@ proc parse(argv: [string]) -> CheckArgs
     let out = CheckArgs(false, false, "")
     let i: i32 = 1
 
-    loop while i < argv.len
+    while i < argv.len
     {
         let a = argv[i]
-        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--help"  or  a == "-h" { out.help = true; i = i + 1; continue }
         if a == "--json" { out.json = true; i = i + 1; continue }
-        if !str.starts_with(a, "-") { out.file = a; i = i + 1; continue }
+        if not str.starts_with(a, "-") { out.file = a; i = i + 1; continue }
         i = i + 1
     }
 
     give out
 }
 
-proc validate(a: CheckArgs) -> string?
+proc validate(a: CheckArgs) -> string
 {
-    if a.help { give null }
+    if a.help { give "" }
     if a.file == "" { give "missing file" }
-    if !fs.exists(a.file) { give "file not found: " + a.file }
-    give null
+    if not fs.exists(a.file) { give "file not found: " + a.file }
+    give ""
 }
 
 proc execute(a: CheckArgs) -> i32
@@ -56,7 +58,7 @@ proc execute(a: CheckArgs) -> i32
     let diags = reporter.normalize(res.diagnostics, reporter.default_budget())
     let dur = time.now_ms() - start
     let exit_code: i32 = 0
-    if !res.ok { exit_code = 1 }
+    if not res.ok { exit_code = 1 }
 
     if a.json
     {
@@ -88,7 +90,7 @@ proc main() -> i32
 {
     let a = parse(process.args())
     let err = validate(a)
-    if err != null { io.print("dots: " + err); usage(); give 2 }
+    if err != "" { io.print("dots: " + err); usage(); give 2 }
     give execute(a)
 }
 

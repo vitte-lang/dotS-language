@@ -1,14 +1,20 @@
 space dots/cmd/install
 
-pull core/io
-pull core/fs
-pull core/str
-pull core/time
-pull core/process
+use core/io
+use core/fs
+use core/str
+use core/time
+use core/process
 
-pull dots/cmd/common/output
-pull dots/cmd/common/validate
-pull modules/package/install
+use dots/cmd/common/output
+use dots/cmd/common/validate
+use modules/package/install
+
+proc empty_strings() -> [string]
+{
+    let out: [string] = []
+    give out
+}
 
 form InstallArgs
 {
@@ -27,20 +33,22 @@ form InstallArgs
     timeout_ms: i64
 }
 
-proc usage() -> void
+proc usage() -> bool
 {
     io.print("usage: dots install [--global|--local] [--locked] [--offline] [--mirror <url[,url]>] [--retries <n>] [--jitter-ms <ms>] [--cb-threshold <n>] [--timeout-ms <ms>] [--dry-run] [--json] <pkg...>")
+
+    give false
 }
 
 proc parse(argv: [string]) -> InstallArgs
 {
-    let out = InstallArgs(false, false, false, false, "", false, true, false, [], 2, 50, 3, 0)
+    let out = InstallArgs(false, false, false, false, "", false, true, false, empty_strings(), 2, 50, 3, 0)
     let i: i32 = 1
 
-    loop while i < argv.len
+    while i < argv.len
     {
         let a = argv[i]
-        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--help"  or  a == "-h" { out.help = true; i = i + 1; continue }
         if a == "--json" { out.json = true; i = i + 1; continue }
         if a == "--dry-run" { out.dry_run = true; i = i + 1; continue }
         if a == "--offline" { out.offline = true; i = i + 1; continue }
@@ -48,32 +56,32 @@ proc parse(argv: [string]) -> InstallArgs
         if a == "--local" { out.local = true; out.global = false; i = i + 1; continue }
         if a == "--locked" { out.locked = true; i = i + 1; continue }
         if str.starts_with(a, "--mirror=") { out.mirror = str.replace(a, "--mirror=", ""); i = i + 1; continue }
-        if a == "--mirror" && i + 1 < argv.len { out.mirror = argv[i + 1]; i = i + 2; continue }
+        if a == "--mirror"  and  i + 1 < argv.len { out.mirror = argv[i + 1]; i = i + 2; continue }
         if str.starts_with(a, "--retries=") { out.retries = str.to_i64(str.replace(a, "--retries=", "")); i = i + 1; continue }
-        if a == "--retries" && i + 1 < argv.len { out.retries = str.to_i64(argv[i + 1]); i = i + 2; continue }
+        if a == "--retries"  and  i + 1 < argv.len { out.retries = str.to_i64(argv[i + 1]); i = i + 2; continue }
         if str.starts_with(a, "--jitter-ms=") { out.jitter_ms = str.to_i64(str.replace(a, "--jitter-ms=", "")); i = i + 1; continue }
-        if a == "--jitter-ms" && i + 1 < argv.len { out.jitter_ms = str.to_i64(argv[i + 1]); i = i + 2; continue }
+        if a == "--jitter-ms"  and  i + 1 < argv.len { out.jitter_ms = str.to_i64(argv[i + 1]); i = i + 2; continue }
         if str.starts_with(a, "--cb-threshold=") { out.cb_threshold = str.to_i64(str.replace(a, "--cb-threshold=", "")); i = i + 1; continue }
-        if a == "--cb-threshold" && i + 1 < argv.len { out.cb_threshold = str.to_i64(argv[i + 1]); i = i + 2; continue }
+        if a == "--cb-threshold"  and  i + 1 < argv.len { out.cb_threshold = str.to_i64(argv[i + 1]); i = i + 2; continue }
         if str.starts_with(a, "--timeout-ms=") { out.timeout_ms = str.to_i64(str.replace(a, "--timeout-ms=", "")); i = i + 1; continue }
-        if a == "--timeout-ms" && i + 1 < argv.len { out.timeout_ms = str.to_i64(argv[i + 1]); i = i + 2; continue }
-        if !str.starts_with(a, "-") { out.packages = out.packages.push(a); i = i + 1; continue }
+        if a == "--timeout-ms"  and  i + 1 < argv.len { out.timeout_ms = str.to_i64(argv[i + 1]); i = i + 2; continue }
+        if not str.starts_with(a, "-") { out.packages = out.packages.push(a); i = i + 1; continue }
         i = i + 1
     }
 
     give out
 }
 
-proc validate(a: InstallArgs) -> string?
+proc validate(a: InstallArgs) -> string
 {
-    if a.help { give null }
+    if a.help { give "" }
     if a.packages.len == 0 { give "missing package list" }
-    if a.locked && !fs.exists("dots.lock") { give "--locked requires dots.lock" }
+    if a.locked  and  not fs.exists("dots.lock") { give "--locked requires dots.lock" }
 
     let n = validate_network_options(a.retries, a.jitter_ms, a.cb_threshold, a.timeout_ms)
-    if n != null { give n }
+    if n != "" { give n }
 
-    give null
+    give ""
 }
 
 proc execute(a: InstallArgs) -> i32
@@ -102,10 +110,10 @@ proc execute(a: InstallArgs) -> i32
     let endpoint = ""
     let start = time.now_ms()
 
-    loop pkg in a.packages
+    for pkg in a.packages
     {
         let r = install_package(pkg, a.mirror, a.offline, a.retries, a.jitter_ms, a.cb_threshold, a.timeout_ms)
-        if !r.ok
+        if not r.ok
         {
             failed = failed + 1
             last_error = r.error.code
@@ -140,7 +148,7 @@ proc main() -> i32
 {
     let a = parse(process.args())
     let err = validate(a)
-    if err != null { io.print("dots: " + err); usage(); give 2 }
+    if err != "" { io.print("dots: " + err); usage(); give 2 }
     give execute(a)
 }
 

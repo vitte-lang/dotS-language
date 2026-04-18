@@ -1,10 +1,10 @@
 space dots/cmd/test
 
-pull core/io
-pull core/fs
-pull core/str
-pull core/time
-pull core/process
+use core/io
+use core/fs
+use core/str
+use core/time
+use core/process
 
 form TestArgs
 {
@@ -20,9 +20,11 @@ form TestArgs
     retry: i32
 }
 
-proc usage() -> void
+proc usage() -> bool
 {
     io.print("usage: dots test [--filter <pat>] [--shuffle] [--seed <n>] [--update-snapshots] [--junit <file>] [--fail-fast] [--retry <n>] [target]")
+
+    give false
 }
 
 proc parse(argv: [string]) -> TestArgs
@@ -30,29 +32,29 @@ proc parse(argv: [string]) -> TestArgs
     let out = TestArgs(false, false, "", false, 0, false, "", "tests", false, 0)
     let i: i32 = 1
 
-    loop while i < argv.len
+    while i < argv.len
     {
         let a = argv[i]
 
-        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--help"  or  a == "-h" { out.help = true; i = i + 1; continue }
         if a == "--json" { out.json = true; i = i + 1; continue }
         if a == "--shuffle" { out.shuffle = true; i = i + 1; continue }
         if a == "--update-snapshots" { out.update_snapshots = true; i = i + 1; continue }
         if a == "--fail-fast" { out.fail_fast = true; i = i + 1; continue }
 
         if str.starts_with(a, "--filter=") { out.filter = str.replace(a, "--filter=", ""); i = i + 1; continue }
-        if a == "--filter" && i + 1 < argv.len { out.filter = argv[i + 1]; i = i + 2; continue }
+        if a == "--filter"  and  i + 1 < argv.len { out.filter = argv[i + 1]; i = i + 2; continue }
 
         if str.starts_with(a, "--seed=") { out.seed = str.to_i64(str.replace(a, "--seed=", "")); i = i + 1; continue }
-        if a == "--seed" && i + 1 < argv.len { out.seed = str.to_i64(argv[i + 1]); i = i + 2; continue }
+        if a == "--seed"  and  i + 1 < argv.len { out.seed = str.to_i64(argv[i + 1]); i = i + 2; continue }
 
         if str.starts_with(a, "--junit=") { out.junit_file = str.replace(a, "--junit=", ""); i = i + 1; continue }
-        if a == "--junit" && i + 1 < argv.len { out.junit_file = argv[i + 1]; i = i + 2; continue }
+        if a == "--junit"  and  i + 1 < argv.len { out.junit_file = argv[i + 1]; i = i + 2; continue }
 
         if str.starts_with(a, "--retry=") { out.retry = str.to_i64(str.replace(a, "--retry=", "")); i = i + 1; continue }
-        if a == "--retry" && i + 1 < argv.len { out.retry = str.to_i64(argv[i + 1]); i = i + 2; continue }
+        if a == "--retry"  and  i + 1 < argv.len { out.retry = str.to_i64(argv[i + 1]); i = i + 2; continue }
 
-        if !str.starts_with(a, "-") { out.target = a; i = i + 1; continue }
+        if not str.starts_with(a, "-") { out.target = a; i = i + 1; continue }
 
         i = i + 1
     }
@@ -63,13 +65,15 @@ proc parse(argv: [string]) -> TestArgs
     }
 
     give out
+
+    give false
 }
 
-proc validate(a: TestArgs) -> string?
+proc validate(a: TestArgs) -> string
 {
-    if a.help { give null }
+    if a.help { give "" }
 
-    if !fs.exists(a.target)
+    if not fs.exists(a.target)
     {
         give "target not found: " + a.target
     }
@@ -79,7 +83,7 @@ proc validate(a: TestArgs) -> string?
         give "--retry must be >= 0"
     }
 
-    give null
+    give ""
 }
 
 proc list_tests(target: string) -> [string]
@@ -87,7 +91,7 @@ proc list_tests(target: string) -> [string]
     let out: [string] = []
     let files = fs.read_dir(target)
 
-    loop f in files
+    for f in files
     {
         if str.ends_with(f, ".test.vit")
         {
@@ -114,7 +118,7 @@ proc rotate_tests(tests: [string], seed: i64) -> [string]
     let out: [string] = []
     let i: i32 = 0
 
-    loop while i < tests.len
+    while i < tests.len
     {
         let idx = (i + shift) % tests.len
         out = out.push(tests[idx])
@@ -130,7 +134,7 @@ proc run_one_test(path: string, retry: i32) -> i32
     let i: i32 = 0
     let code: i32 = 0
 
-    loop while i < attempts
+    while i < attempts
     {
         let p = process.exec("dots", ["run", path])
         code = p.code
@@ -146,11 +150,11 @@ proc run_one_test(path: string, retry: i32) -> i32
     give code
 }
 
-proc write_junit(path: string, tests: [string], failed: i32, duration_ms: i64) -> void
+proc write_junit(path: string, tests: [string], failed: i32, duration_ms: i64) -> bool
 {
     let xml = "<testsuite tests=\"" + str.from_i64(tests.len) + "\" failures=\"" + str.from_i64(failed) + "\" time=\"" + str.from_i64(duration_ms) + "\">"
 
-    loop t in tests
+    for t in tests
     {
         xml = xml + "<testcase name=\"" + t + "\"/>"
     }
@@ -169,7 +173,7 @@ proc execute(a: TestArgs) -> i32
     if a.filter != ""
     {
         let filtered: [string] = []
-        loop t in run
+        for t in run
         {
             if str.contains(t, a.filter)
             {
@@ -189,7 +193,7 @@ proc execute(a: TestArgs) -> i32
     let failed: i32 = 0
     let start = time.now_ms()
 
-    loop t in run
+    for t in run
     {
         let code = run_one_test(t, a.retry)
 
@@ -233,7 +237,7 @@ proc main() -> i32
 {
     let a = parse(process.args())
     let err = validate(a)
-    if err != null { io.print("dots: " + err); usage(); give 2 }
+    if err != "" { io.print("dots: " + err); usage(); give 2 }
     give execute(a)
 }
 

@@ -1,7 +1,7 @@
 space dots/cmd/common/path
 
-pull core/str
-pull core/process
+use core/str
+use core/process
 
 proc normalize_path(raw: string) -> string
 {
@@ -25,16 +25,16 @@ proc normalize_path(raw: string) -> string
     give cwd + "/" + raw
 }
 
-proc secure_join(base: string, name: string) -> string?
+proc secure_join(base: string, name: string) -> string
 {
     if str.contains(name, "..")
     {
-        give null
+        give ""
     }
 
     if str.starts_with(name, "/")
     {
-        give null
+        give ""
     }
 
     if str.ends_with(base, "/")

@@ -1,7 +1,7 @@
 space dots/cmd/common/context
 
-pull core/time
-pull core/str
+use core/time
+use core/str
 
 form GlobalOptions
 {
@@ -30,6 +30,7 @@ form CommandContext
 
 proc default_globals() -> GlobalOptions
 {
+    let empty: [string] = []
     give GlobalOptions(
         "",
         ".",
@@ -43,8 +44,13 @@ proc default_globals() -> GlobalOptions
         false,
         false,
         false,
-        []
+        empty
     )
+}
+
+proc new_globals(config_file: string, cwd: string, json_out: bool, quiet: bool, verbose: bool, trace: bool, timeout_ms: i64, profile: string, color: string, yes: bool, force: bool, dry_run: bool, includes: [string]) -> GlobalOptions
+{
+    give GlobalOptions(config_file, cwd, json_out, quiet, verbose, trace, timeout_ms, profile, color, yes, force, dry_run, includes)
 }
 
 proc new_context(globals: GlobalOptions) -> CommandContext

@@ -1,8 +1,8 @@
 space dots/cmd/uninstall
 
-pull core/io
-pull core/str
-pull core/process
+use core/io
+use core/str
+use core/process
 
 form UninstallArgs
 {
@@ -14,9 +14,11 @@ form UninstallArgs
     packages: [string]
 }
 
-proc usage() -> void
+proc usage() -> bool
 {
     io.print("usage: dots uninstall [--global|--local] [--dry-run] [--json] <pkg...>")
+
+    give false
 }
 
 proc parse(argv: [string]) -> UninstallArgs
@@ -24,26 +26,26 @@ proc parse(argv: [string]) -> UninstallArgs
     let out = UninstallArgs(false, false, false, false, true, [])
     let i: i32 = 1
 
-    loop while i < argv.len
+    while i < argv.len
     {
         let a = argv[i]
-        if a == "--help" || a == "-h" { out.help = true; i = i + 1; continue }
+        if a == "--help"  or  a == "-h" { out.help = true; i = i + 1; continue }
         if a == "--json" { out.json = true; i = i + 1; continue }
         if a == "--dry-run" { out.dry_run = true; i = i + 1; continue }
         if a == "--global" { out.global = true; out.local = false; i = i + 1; continue }
         if a == "--local" { out.local = true; out.global = false; i = i + 1; continue }
-        if !str.starts_with(a, "-") { out.packages = out.packages.push(a); i = i + 1; continue }
+        if not str.starts_with(a, "-") { out.packages = out.packages.push(a); i = i + 1; continue }
         i = i + 1
     }
 
     give out
 }
 
-proc validate(a: UninstallArgs) -> string?
+proc validate(a: UninstallArgs) -> string
 {
-    if a.help { give null }
+    if a.help { give "" }
     if a.packages.len == 0 { give "missing package list" }
-    give null
+    give ""
 }
 
 proc execute(a: UninstallArgs) -> i32
@@ -59,7 +61,7 @@ proc execute(a: UninstallArgs) -> i32
         give 0
     }
 
-    loop p in a.packages
+    for p in a.packages
     {
         io.print("uninstall " + p + " (" + scope + ")")
     }
@@ -76,7 +78,7 @@ proc main() -> i32
 {
     let a = parse(process.args())
     let err = validate(a)
-    if err != null { io.print("dots: " + err); usage(); give 2 }
+    if err != "" { io.print("dots: " + err); usage(); give 2 }
     give execute(a)
 }
 
