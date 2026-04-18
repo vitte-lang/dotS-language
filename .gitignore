@@ -1,1 +1,5 @@
 .dots/
+*.bak
+/.vitte-crash/
+/.vitte-cache/
+/bench/scenarios/
