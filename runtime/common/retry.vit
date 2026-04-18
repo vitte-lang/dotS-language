@@ -1,6 +1,6 @@
 space runtime/common/retry
 
-pull runtime/common/config
+use runtime/common/config
 
 form RetryBudget
 {
@@ -18,7 +18,7 @@ proc new_budget() -> RetryBudget
 
 proc consume_connect(b: RetryBudget) -> RetryBudget
 {
-    if b.total <= 0 || b.connect_left <= 0 { give b }
+    if b.total <= 0  or  b.connect_left <= 0 { give b }
     b.total = b.total - 1
     b.connect_left = b.connect_left - 1
     b.spent = b.spent + 1
@@ -27,7 +27,7 @@ proc consume_connect(b: RetryBudget) -> RetryBudget
 
 proc consume_application(b: RetryBudget) -> RetryBudget
 {
-    if b.total <= 0 || b.application_left <= 0 { give b }
+    if b.total <= 0  or  b.application_left <= 0 { give b }
     b.total = b.total - 1
     b.application_left = b.application_left - 1
     b.spent = b.spent + 1
@@ -36,10 +36,10 @@ proc consume_application(b: RetryBudget) -> RetryBudget
 
 proc can_retry_connect(b: RetryBudget) -> bool
 {
-    give b.total > 0 && b.connect_left > 0
+    give b.total > 0  and  b.connect_left > 0
 }
 
 proc can_retry_application(b: RetryBudget) -> bool
 {
-    give b.total > 0 && b.application_left > 0
+    give b.total > 0  and  b.application_left > 0
 }

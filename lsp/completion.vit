@@ -1,8 +1,8 @@
 space lsp/completion
 
-pull core/str
-pull lsp/model
-pull modules/loader/resolver
+use core/str
+use lsp/model
+use modules/loader/resolver
 
 form CompletionItemEx
 {
@@ -19,10 +19,10 @@ form CompletionItemEx
 
 proc kind_for(label: string) -> i32
 {
-    if label == "proc" || label == "entry" { give 3 }      # Function
-    if label == "space" || str.contains(label, "/") { give 9 }  # Module
-    if label == "let" || label == "const" { give 6 }       # Variable
-    if label == "if" || label == "else" || label == "loop" || label == "form" || label == "pull" || label == "give" || label == "at" { give 14 } # Keyword
+    if label == "proc"  or  label == "entry" { give 3 }      # Function
+    if label == "space"  or  str.contains(label, "/") { give 9 }  # Module
+    if label == "let"  or  label == "const" { give 6 }       # Variable
+    if label == "if"  or  label == "else"  or  label == "loop"  or  label == "form"  or  label == "pull"  or  label == "give"  or  label == "at" { give 14 } # Keyword
     give 6
 }
 
@@ -38,13 +38,13 @@ proc fuzzy_score(candidate: string, q: string) -> i32
 proc completion_context_trigger(doc: Document, line: i32, character: i32) -> string
 {
     let l = line_at(doc.text, line)
-    if l == "" || character <= 0 || character > l.len { give "default" }
+    if l == ""  or  character <= 0  or  character > l.len { give "default" }
     let dotted = dotted_prefix(doc.text, line, character)
     if str.starts_with(dotted, "import.") { give "import" }
     if str.starts_with(dotted, "use.") { give "use" }
     let prev = l[character - 1]
     if prev == 46 { give "dot" }   # .
-    if prev == 32 || prev == 9 { give "space" }
+    if prev == 32  or  prev == 9 { give "space" }
     give "default"
 }
 
@@ -73,27 +73,27 @@ proc completion_items(doc: Document, line: i32, character: i32) -> [CompletionIt
 
     let keywords = ["space", "pull", "form", "proc", "const", "let", "give", "loop", "if", "else", "entry", "at"]
     let cand: [string] = []
-    if trigger != "import" && trigger != "use"
+    if trigger != "import"  and  trigger != "use"
     {
-        loop k in keywords
+        for k in keywords
         {
-            if trigger == "dot" && k == "space" { continue }
+            if trigger == "dot"  and  k == "space" { continue }
             cand = cand.push(k)
         }
     }
-    loop s in doc.symbols { cand = cand.push(s) }
-    loop s2 in load_index_symbols(doc.uri) { cand = cand.push(s2) }
-    if trigger == "import" || trigger == "use"
+    for s in doc.symbols { cand = cand.push(s) }
+    for s2 in load_index_symbols(doc.uri) { cand = cand.push(s2) }
+    if trigger == "import"  or  trigger == "use"
     {
-        loop pkg in resolver.discover_packages("") { cand = cand.push(pkg) }
+        for pkg in resolver.discover_packages("") { cand = cand.push(pkg) }
     }
     else
     {
-        loop pkg in resolver.discover_packages("") { cand = cand.push(pkg) }
+        for pkg in resolver.discover_packages("") { cand = cand.push(pkg) }
     }
 
     let ranked: [string] = []
-    loop c in cand
+    for c in cand
     {
         let score = fuzzy_score(c, prefix)
         if score <= 0 { continue }
@@ -103,10 +103,10 @@ proc completion_items(doc: Document, line: i32, character: i32) -> [CompletionIt
 
     # stable sort asc by sort key.
     let i: i32 = 0
-    loop while i < ranked.len
+    while i < ranked.len
     {
         let j: i32 = i + 1
-        loop while j < ranked.len
+        while j < ranked.len
         {
             if ranked[j] < ranked[i]
             {
@@ -120,18 +120,18 @@ proc completion_items(doc: Document, line: i32, character: i32) -> [CompletionIt
     }
 
     let out: [CompletionItemEx] = []
-    loop r in ranked
+    for r in ranked
     {
         let p = str.split(r, "|")
         if p.len < 2 { continue }
         let label = p[1]
         let snippet = snippet_for(label)
         let fmt = 1
-        if label == "proc" || label == "form" || label == "entry" { fmt = 2 }
+        if label == "proc"  or  label == "form"  or  label == "entry" { fmt = 2 }
         let detail = "dots symbol"
         if resolver.has_package(label, "") { detail = "vitte package" }
         let insert = snippet
-        if trigger == "import" || trigger == "use"
+        if trigger == "import"  or  trigger == "use"
         {
             insert = label
         }
@@ -145,7 +145,7 @@ proc completion_result_json(doc: Document, line: i32, character: i32) -> string
     let items = completion_items(doc, line, character)
     let out = "["
     let i: i32 = 0
-    loop while i < items.len
+    while i < items.len
     {
         let it = items[i]
         if i > 0 { out = out + "," }

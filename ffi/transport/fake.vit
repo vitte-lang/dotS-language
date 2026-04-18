@@ -1,24 +1,32 @@
 space ffi/transport/fake
 
-pull core/process
-pull ffi/transport/types
+use core/process
+use ffi/transport/types as transport_types
 
-proc transport_fake(backend: string, symbol: string, handle_id: string, args_csv: string, request_deadline_ms: i64, cancel_token: string) -> TransportResult
+proc transport_fake(backend: string, symbol: string, handle_id: string, args_csv: string, request_deadline_ms: i64, cancel_token: string) -> transport_types.TransportResult
 {
-    if process.env("DOTS_FFI_CHAOS") == "1" && process.env("DOTS_BACKEND_SEED") == "13"
+    let code: i32 = 0
+    let out = "{\"protocol_version\":\"1.1\",\"backend_name\":\"" + backend + "\",\"backend_version\":\"fake-1\",\"value\":\"ok\",\"count\":1,\"endpoint\":\"fake://" + backend + "\"}"
+    let err = ""
+    let endpoint = "fake://" + backend
+    let version = "fake-1"
+
+    if process.env("DOTS_FFI_CHAOS") == "1"  and  process.env("DOTS_BACKEND_SEED") == "13"
     {
-        give TransportResult(1, "{\"protocol_version\":\"1.1\",\"backend_name\":\"" + backend + "\",\"backend_version\":\"chaos\",\"error_type\":\"TIMEOUT\",\"error_message\":\"chaos timeout\",\"error_category\":\"application\",\"retryable\":true,\"retry_after_ms\":1,\"endpoint\":\"fake://" + backend + "\"}", "", "fake://" + backend, backend, "chaos")
+        code = 1
+        version = "chaos"
+        out = "{\"protocol_version\":\"1.1\",\"backend_name\":\"" + backend + "\",\"backend_version\":\"chaos\",\"error_type\":\"TIMEOUT\",\"error_message\":\"chaos timeout\",\"error_category\":\"application\",\"retryable\":true,\"retry_after_ms\":1,\"endpoint\":\"fake://" + backend + "\"}"
     }
-    if process.env("DOTS_FFI_FAKE_FAIL") == "1"
+    else if process.env("DOTS_FFI_FAKE_FAIL") == "1"
     {
-        give TransportResult(1, "{\"protocol_version\":\"1.1\",\"backend_name\":\"" + backend + "\",\"backend_version\":\"fake-1\",\"error_type\":\"CALL_FAILED\",\"error_message\":\"fake failure\",\"error_category\":\"application\",\"retryable\":true,\"retry_after_ms\":10,\"endpoint\":\"fake://" + backend + "\"}", "", "fake://" + backend, backend, "fake-1")
+        code = 1
+        out = "{\"protocol_version\":\"1.1\",\"backend_name\":\"" + backend + "\",\"backend_version\":\"fake-1\",\"error_type\":\"CALL_FAILED\",\"error_message\":\"fake failure\",\"error_category\":\"application\",\"retryable\":true,\"retry_after_ms\":10,\"endpoint\":\"fake://" + backend + "\"}"
     }
 
-    let out = "{\"protocol_version\":\"1.1\",\"backend_name\":\"" + backend + "\",\"backend_version\":\"fake-1\",\"value\":\"ok\",\"count\":1,\"endpoint\":\"fake://" + backend + "\"}"
     if symbol == "missing_symbol"
     {
+        code = 2
         out = "{\"protocol_version\":\"1.1\",\"backend_name\":\"" + backend + "\",\"backend_version\":\"fake-1\",\"error_type\":\"SYMBOL_NOT_FOUND\",\"error_message\":\"missing symbol\",\"error_category\":\"resolve\",\"retryable\":false,\"retry_after_ms\":0,\"endpoint\":\"fake://" + backend + "\"}"
-        give TransportResult(2, out, "", "fake://" + backend, backend, "fake-1")
     }
 
     if process.env("DOTS_FFI_FAKE_PROTOCOL_BAD") == "1"
@@ -26,10 +34,11 @@ proc transport_fake(backend: string, symbol: string, handle_id: string, args_csv
         out = "{\"protocol_version\":\"1.2\",\"backend_name\":\"" + backend + "\",\"backend_version\":\"fake-1\",\"value\":\"ok\",\"count\":1,\"endpoint\":\"fake://" + backend + "\"}"
     }
 
-    give TransportResult(0, out, "", "fake://" + backend, backend, "fake-1")
+    if code != 0  and  version == "fake-1" { err = "fake error" }
+    give transport_types.TransportResult(code, out, err, endpoint, backend, version)
 }
 
 proc transport_fake_status(backend: string, symbol: string, handle_id: string, args_csv: string, request_deadline_ms: i64, cancel_token: string) -> string
 {
-    give summary(transport_fake(backend, symbol, handle_id, args_csv, request_deadline_ms, cancel_token))
+    give transport_types.summary(transport_fake(backend, symbol, handle_id, args_csv, request_deadline_ms, cancel_token))
 }

@@ -1,6 +1,6 @@
 space runtime/events
 
-pull runtime/common/events
+use runtime/common/events
 
 proc append(component: string, severity: string, message: string) -> void
 {

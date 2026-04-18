@@ -1,9 +1,9 @@
 space lsp/hover
 
-pull core/str
-pull lsp/model
-pull lsp/goto_definition
-pull modules/loader/resolver
+use core/str
+use lsp/model
+use lsp/goto_definition
+use modules/loader/resolver
 
 proc inferred_type_from_line(def_line: string) -> string
 {
@@ -21,7 +21,7 @@ proc hover_markdown(doc: Document, line: i32, character: i32) -> string
 {
     let sym = symbol_at(doc, line, character)
     if sym == "" { give "" }
-    if str.starts_with(sym, "import.") || str.starts_with(sym, "use.")
+    if str.starts_with(sym, "import.")  or  str.starts_with(sym, "use.")
     {
         let parts = str.split(sym, ".")
         if parts.len >= 2

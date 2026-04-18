@@ -1,7 +1,7 @@
 space modules/loader/importer
 
-pull core/fs
-pull modules/loader/resolver
+use core/fs
+use modules/loader/resolver
 
 form ImportedPackage
 {
@@ -12,10 +12,10 @@ form ImportedPackage
     info: string
 }
 
-proc import_package(name: string, root_override: string) -> ImportedPackage?
+proc import_package(name: string, root_override: string) -> ImportedPackage
 {
     let path = resolver.resolve_package(name, root_override)
-    if path == null { give null }
+    if path == "" { give ImportedPackage(name, "", "", "", "") }
 
     let root = resolver.packages_root(root_override)
     let source = ""
@@ -23,7 +23,7 @@ proc import_package(name: string, root_override: string) -> ImportedPackage?
 
     let info_path = resolver.package_info_file(name, root_override)
     let info = ""
-    if info_path != null && fs.exists(info_path)
+    if info_path != ""  and  fs.exists(info_path)
     {
         info = fs.read_file(info_path)
     }
@@ -34,13 +34,13 @@ proc import_package(name: string, root_override: string) -> ImportedPackage?
 proc import_package_source(name: string, root_override: string) -> string
 {
     let pkg = import_package(name, root_override)
-    if pkg == null { give "" }
+    if pkg.path == "" { give "" }
     give pkg.source
 }
 
 proc import_package_info(name: string, root_override: string) -> string
 {
     let pkg = import_package(name, root_override)
-    if pkg == null { give "" }
+    if pkg.path == "" { give "" }
     give pkg.info
 }

@@ -1,0 +1,7 @@
+space std/core/option
+
+pick Option
+{
+    case Some(value: string)
+    case None
+}

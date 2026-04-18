@@ -1,17 +1,17 @@
 space modules/package/backend/lock
 
-pull core/fs
-pull core/str
-pull core/time
-pull core/process
+use core/fs
+use core/str
+use core/time
+use core/process
 
-pull modules/package/backend/state
-pull modules/package/backend/policy
-pull modules/package/backend/stats
+use modules/package/backend/state as state
+use modules/package/backend/policy as policy
+use modules/package/backend/stats as stats
 
 proc lock_dir() -> string
 {
-    give state_root() + "/mutation.lock.d"
+    give state.state_root() + "/mutation.lock.d"
 }
 
 proc lock_owner_file() -> string
@@ -23,11 +23,15 @@ proc lock_state_file() -> string
 {
     give lock_dir() + "/state.v2.jsonl"
 }
-proc lock_fence_file() -> string { give state_root() + "/lock_fence.seq" }
+
+proc lock_fence_file() -> string
+{
+    give state.state_root() + "/lock_fence.seq"
+}
 
 proc lock_stale_ms(default_ms: i64) -> i64
 {
-    let v = env_i64("DOTS_LOCK_STALE_MS", default_ms)
+    let v = policy.env_i64("DOTS_LOCK_STALE_MS", default_ms)
     if v <= 0 { give default_ms }
     give v
 }
@@ -63,27 +67,34 @@ proc owner_token() -> string
 
 proc owner_last_seen_ms() -> i64
 {
-    if !fs.exists(lock_owner_file()) { give 0 }
-    let raw = fs.read_file(lock_owner_file())
+    let raw = ""
+    let lines: [string] = []
+    let p: [string] = []
+    let q: [string] = []
+    let l: i32 = 0
+    let line = ""
+    if not fs.exists(lock_owner_file()) { give 0 }
+    raw = fs.read_file(lock_owner_file())
     if str.contains(raw, "\"k\":\"last_seen_ms\"")
     {
-        let p = str.split(raw, "\"k\":\"last_seen_ms\",\"value\":\"")
+        p = str.split(raw, "\"k\":\"last_seen_ms\",\"value\":\"")
         if p.len >= 2
         {
-            let q = str.split(p[1], "\"")
+            q = str.split(p[1], "\"")
             if q.len >= 1 { give str.to_i64(q[0]) }
         }
     }
     if str.contains(raw, "last_seen_ms=")
     {
-        let lines = str.split(raw, "\n")
-        loop l in lines
+        lines = str.split(raw, "\n")
+        while l < lines.len
         {
-            let line = str.trim(l)
+            line = str.trim(lines[l])
             if str.starts_with(line, "last_seen_ms=")
             {
                 give str.to_i64(str.replace(line, "last_seen_ms=", ""))
             }
+            l = l + 1
         }
     }
     give 0
@@ -91,30 +102,37 @@ proc owner_last_seen_ms() -> i64
 
 proc owner_started_ms() -> i64
 {
-    if !fs.exists(lock_owner_file()) { give 0 }
-    let raw = fs.read_file(lock_owner_file())
+    let raw = ""
+    let lines: [string] = []
+    let p: [string] = []
+    let q: [string] = []
+    let l: i32 = 0
+    let line = ""
+    if not fs.exists(lock_owner_file()) { give 0 }
+    raw = fs.read_file(lock_owner_file())
     if str.contains(raw, "\"k\":\"started_ms\"")
     {
-        let p = str.split(raw, "\"k\":\"started_ms\",\"value\":\"")
+        p = str.split(raw, "\"k\":\"started_ms\",\"value\":\"")
         if p.len >= 2
         {
-            let q = str.split(p[1], "\"")
+            q = str.split(p[1], "\"")
             if q.len >= 1 { give str.to_i64(q[0]) }
         }
     }
-    let lines = str.split(raw, "\n")
-    loop l in lines
+    lines = str.split(raw, "\n")
+    while l < lines.len
     {
-        let line = str.trim(l)
+        line = str.trim(lines[l])
         if str.starts_with(line, "started_ms=")
         {
             give str.to_i64(str.replace(line, "started_ms=", ""))
         }
+        l = l + 1
     }
     give 0
 }
 
-proc write_owner(token: string) -> void
+proc write_owner(token: string) -> bool
 {
     let started = str.from_i64(time.now_ms())
     let raw = "{\"schema_version\":\"2\",\"k\":\"host\",\"value\":\"" + owner_host() + "\"}\n" +
@@ -125,51 +143,58 @@ proc write_owner(token: string) -> void
               "{\"schema_version\":\"2\",\"k\":\"token\",\"value\":\"" + token + "\"}\n"
     fs.write_file(lock_owner_file(), raw)
     fs.write_file(lock_state_file(), "{\"schema_version\":\"2\",\"k\":\"status\",\"value\":\"held\"}\n")
+    give false
 }
 
 proc read_owner_token() -> string
 {
-    if !fs.exists(lock_owner_file()) { give "" }
-    let raw = fs.read_file(lock_owner_file())
-    if !str.contains(raw, "\"k\":\"token\",\"value\":\"") { give "" }
-    let p = str.split(raw, "\"k\":\"token\",\"value\":\"")
+    let raw = ""
+    let p: [string] = []
+    let q: [string] = []
+    if not fs.exists(lock_owner_file()) { give "" }
+    raw = fs.read_file(lock_owner_file())
+    if not str.contains(raw, "\"k\":\"token\",\"value\":\"") { give "" }
+    p = str.split(raw, "\"k\":\"token\",\"value\":\"")
     if p.len < 2 { give "" }
-    let q = str.split(p[1], "\"")
+    q = str.split(p[1], "\"")
     if q.len < 1 { give "" }
     give q[0]
 }
 
 proc owner_summary() -> string
 {
-    if !fs.exists(lock_owner_file()) { give "" }
-    let raw = fs.read_file(lock_owner_file())
+    let raw = ""
     let host = ""
     let pid = ""
     let tok = ""
+    let short = ""
+    let p: [string] = []
+    let q: [string] = []
+    let i: i32 = 0
+    if not fs.exists(lock_owner_file()) { give "" }
+    raw = fs.read_file(lock_owner_file())
     if str.contains(raw, "\"k\":\"host\",\"value\":\"")
     {
-        let p = str.split(raw, "\"k\":\"host\",\"value\":\"")
+        p = str.split(raw, "\"k\":\"host\",\"value\":\"")
         if p.len >= 2
         {
-            let q = str.split(p[1], "\"")
+            q = str.split(p[1], "\"")
             if q.len >= 1 { host = q[0] }
         }
     }
     if str.contains(raw, "\"k\":\"pid\",\"value\":\"")
     {
-        let p = str.split(raw, "\"k\":\"pid\",\"value\":\"")
+        p = str.split(raw, "\"k\":\"pid\",\"value\":\"")
         if p.len >= 2
         {
-            let q = str.split(p[1], "\"")
+            q = str.split(p[1], "\"")
             if q.len >= 1 { pid = q[0] }
         }
     }
     tok = read_owner_token()
-    if tok != "" && tok.len > 12
+    if tok != "" and tok.len > 12
     {
-        let short = ""
-        let i: i32 = 0
-        loop while i < 12
+        while i < 12
         {
             short = short + str.from_i64(tok[i])
             i = i + 1
@@ -179,39 +204,50 @@ proc owner_summary() -> string
     give host + ":" + pid + ":" + tok
 }
 
-proc heartbeat() -> void
+proc heartbeat() -> bool
 {
-    if !fs.exists(lock_owner_file()) { give }
-    let raw = fs.read_file(lock_owner_file())
-    let now = str.from_i64(time.now_ms())
+    let raw = ""
+    let now = ""
+    let lines: [string] = []
+    let out = ""
+    let p: [string] = []
+    let q: [string] = []
+    let l: i32 = 0
+    let line = ""
+    if not fs.exists(lock_owner_file()) { give false }
+    raw = fs.read_file(lock_owner_file())
+    now = str.from_i64(time.now_ms())
     if str.contains(raw, "\"k\":\"last_seen_ms\",\"value\":\"")
     {
-        let p = str.split(raw, "\"k\":\"last_seen_ms\",\"value\":\"")
+        p = str.split(raw, "\"k\":\"last_seen_ms\",\"value\":\"")
         if p.len >= 2
         {
-            let q = str.split(p[1], "\"")
+            q = str.split(p[1], "\"")
             if q.len >= 1
             {
                 let from = "\"k\":\"last_seen_ms\",\"value\":\"" + q[0] + "\""
                 let to = "\"k\":\"last_seen_ms\",\"value\":\"" + now + "\""
                 raw = str.replace(raw, from, to)
                 fs.write_file(lock_owner_file(), raw)
-                give
             }
         }
     }
     if str.contains(raw, "last_seen_ms=")
     {
-        let lines = str.split(raw, "\n")
-        let out = ""
-        loop l in lines
+        lines = str.split(raw, "\n")
+        while l < lines.len
         {
-            let line = str.trim(l)
-            if str.starts_with(line, "last_seen_ms=") { line = "last_seen_ms=" + now }
+            line = str.trim(lines[l])
+            if str.starts_with(line, "last_seen_ms=")
+            {
+                line = "last_seen_ms=" + now
+            }
             if line != "" { out = out + line + "\n" }
+            l = l + 1
         }
         fs.write_file(lock_owner_file(), out)
     }
+    give false
 }
 
 proc is_stale(stale_ms: i64) -> bool
@@ -224,39 +260,36 @@ proc is_stale(stale_ms: i64) -> bool
 
 proc try_acquire_once(stale_ms: i64) -> bool
 {
-    fs.mkdir_p(state_root())
-
+    fs.mkdir_p(state.state_root())
     if fs.exists(lock_dir())
     {
         if is_stale(stale_ms)
         {
             fs.remove_all(lock_dir())
-            stat_inc("stale_lock_recovered_total")
+            stats.stat_inc("stale_lock_recovered_total")
         }
         else
         {
-            stat_inc("lock_contention_total")
+            stats.stat_inc("lock_contention_total")
             give false
         }
     }
-
-    # Native FS wrapper: create lock dir and claim token without shell mkdir exec.
     fs.mkdir_p(lock_dir())
-    if !fs.exists(lock_dir())
+    if not fs.exists(lock_dir()) { give false }
+    if fs.exists(lock_owner_file())
     {
-        give false
-    }
-        if fs.exists(lock_owner_file())
+        if is_stale(stale_ms)
         {
-            if is_stale(stale_ms)
-            {
-                fs.remove_all(lock_dir())
-                stat_inc("stale_lock_recovered_total")
-            }
-            stat_inc("lock_contention_total")
+            fs.remove_all(lock_dir())
+            stats.stat_inc("stale_lock_recovered_total")
+            fs.mkdir_p(lock_dir())
+        }
+        else
+        {
+            stats.stat_inc("lock_contention_total")
             give false
         }
-
+    }
     let tok = owner_token()
     write_owner(tok)
     give read_owner_token() == tok
@@ -267,33 +300,27 @@ proc acquire_mutation_lock(stale_ms: i64, wait_budget_ms: i64, base_delay_ms: i6
     let started = time.now_ms()
     let attempt: i64 = 0
     let stale = lock_stale_ms(stale_ms)
-    let cap_delay = env_i64("DOTS_LOCK_BACKOFF_CAP_MS", 250)
+    let cap_delay = policy.env_i64("DOTS_LOCK_BACKOFF_CAP_MS", 250)
+    let dynamic_ttl_boost: i64 = 0
     if cap_delay < 10 { cap_delay = 10 }
-    let dynamic_ttl_boost = str.to_i64(jsonl_get(file_stats(), "lock_contention_total")) / 10
+    dynamic_ttl_boost = str.to_i64(state.jsonl_get(state.file_stats(), "lock_contention_total")) / 10
     if dynamic_ttl_boost > 60000 { dynamic_ttl_boost = 60000 }
     stale = stale + dynamic_ttl_boost
-
-    loop while true
+    while true
     {
         if try_acquire_once(stale)
         {
-            jsonl_set(file_stats(), "lock_wait_ms", str.from_i64(time.now_ms() - started))
+            state.jsonl_set(state.file_stats(), "lock_wait_ms", str.from_i64(time.now_ms() - started))
             give true
         }
-        stat_inc("lock_contention_total")
-
-        if wait_budget_ms <= 0
-        {
-            give false
-        }
-
+        stats.stat_inc("lock_contention_total")
+        if wait_budget_ms <= 0 { give false }
         if (time.now_ms() - started) >= wait_budget_ms
         {
-            jsonl_set(file_stats(), "lock_wait_ms", str.from_i64(time.now_ms() - started))
+            state.jsonl_set(state.file_stats(), "lock_wait_ms", str.from_i64(time.now_ms() - started))
             give false
         }
-
-        let delay = jitter_delay(base_delay_ms, jitter_ms, jitter_policy, attempt)
+        let delay = policy.jitter_delay(base_delay_ms, jitter_ms, jitter_policy, attempt)
         if delay < 5 { delay = 5 }
         if delay > cap_delay { delay = cap_delay }
         heartbeat()
@@ -304,12 +331,13 @@ proc acquire_mutation_lock(stale_ms: i64, wait_budget_ms: i64, base_delay_ms: i6
     give false
 }
 
-proc release_mutation_lock() -> void
+proc release_mutation_lock() -> bool
 {
     if fs.exists(lock_dir())
     {
         fs.remove_all(lock_dir())
     }
+    give false
 }
 
 proc is_lock_held() -> bool

@@ -1,8 +1,8 @@
 space lsp/model
 
-pull core/str
-pull core/time
-pull core/fs
+use core/str
+use core/time
+use core/fs
 
 form Document
 {
@@ -43,7 +43,7 @@ proc normalize_uri(uri: string) -> string
     u = str.replace(u, "%2F", "/")
     if str.starts_with(u, "file://")
     {
-        if str.starts_with(u, "file:///") && str.contains(u, ":/")
+        if str.starts_with(u, "file:///")  and  str.contains(u, ":/")
         {
             # keep windows style: file:///C:/...
             give u
@@ -87,7 +87,7 @@ proc simple_hash(raw: string) -> string
 {
     let sum: i64 = 0
     let i: i32 = 0
-    loop while i < raw.len
+    while i < raw.len
     {
         sum = sum + str.to_i64(str.from_i64(raw[i]))
         i = i + 1
@@ -99,7 +99,7 @@ proc find_doc_index(docs: [Document], uri: string) -> i32
 {
     let u = normalize_uri(uri)
     let i: i32 = 0
-    loop while i < docs.len
+    while i < docs.len
     {
         if docs[i].uri == u { give i }
         i = i + 1
@@ -111,7 +111,7 @@ proc extract_symbols(text: string) -> [string]
 {
     let out: [string] = []
     let lines = str.split(text, "\n")
-    loop l in lines
+    for l in lines
     {
         let line = str.trim(l)
         if str.starts_with(line, "space ")
@@ -145,10 +145,10 @@ proc extract_deps_pull(text: string) -> [string]
 {
     let out: [string] = []
     let lines = str.split(text, "\n")
-    loop l in lines
+    for l in lines
     {
         let line = str.trim(l)
-        if !str.starts_with(line, "pull ") { continue }
+        if not str.starts_with(line, "pull ") { continue }
         let p = str.split(line, " ")
         if p.len >= 2
         {
@@ -162,10 +162,10 @@ proc extract_deps_space(text: string) -> [string]
 {
     let out: [string] = []
     let lines = str.split(text, "\n")
-    loop l in lines
+    for l in lines
     {
         let line = str.trim(l)
-        if !str.starts_with(line, "space ") { continue }
+        if not str.starts_with(line, "space ") { continue }
         let p = str.split(line, " ")
         if p.len >= 2
         {
@@ -203,7 +203,7 @@ proc remove_document(docs: [Document], uri: string) -> [Document]
 {
     let u = normalize_uri(uri)
     let out: [Document] = []
-    loop d in docs
+    for d in docs
     {
         if d.uri == u { continue }
         out = out.push(d)
@@ -212,7 +212,7 @@ proc remove_document(docs: [Document], uri: string) -> [Document]
     give out
 }
 
-proc find_doc(docs: [Document], uri: string) -> Document?
+proc find_doc(docs: [Document], uri: string) -> Option[Document]
 {
     let idx = find_doc_index(docs, uri)
     if idx < 0 { give null }
@@ -222,7 +222,7 @@ proc find_doc(docs: [Document], uri: string) -> Document?
 proc line_at(text: string, line: i32) -> string
 {
     let lines = str.split(text, "\n")
-    if line < 0 || line >= lines.len { give "" }
+    if line < 0  or  line >= lines.len { give "" }
     give lines[line]
 }
 
@@ -238,7 +238,7 @@ proc word_prefix(text: string, line: i32, character: i32) -> string
     x = str.replace(x, "\t", " ")
     let parts = str.split(x, " ")
     let out = ""
-    loop p in parts
+    for p in parts
     {
         if str.trim(p) != "" { out = str.trim(p) }
     }
@@ -250,11 +250,11 @@ proc dotted_prefix(text: string, line: i32, character: i32) -> string
     let l = line_at(text, line)
     if l == "" { give "" }
     let cut = l
-    if character >= 0 && character < l.len
+    if character >= 0  and  character < l.len
     {
         cut = ""
         let i: i32 = 0
-        loop while i < character
+        while i < character
         {
             cut = cut + str.from_i64(l[i])
             i = i + 1
@@ -267,7 +267,7 @@ proc dotted_prefix(text: string, line: i32, character: i32) -> string
     cut = str.replace(cut, "\t", " ")
     let parts = str.split(cut, " ")
     let out = ""
-    loop p in parts
+    for p in parts
     {
         if str.trim(p) != "" { out = str.trim(p) }
     }
@@ -277,7 +277,7 @@ proc dotted_prefix(text: string, line: i32, character: i32) -> string
 proc diag_state_get(states: [DiagState], uri: string) -> string
 {
     let u = normalize_uri(uri)
-    loop s in states
+    for s in states
     {
         if s.uri == u { give s.hash }
     }
@@ -289,7 +289,7 @@ proc diag_state_set(states: [DiagState], uri: string, hash: string) -> [DiagStat
     let u = normalize_uri(uri)
     let out = states
     let i: i32 = 0
-    loop while i < out.len
+    while i < out.len
     {
         if out[i].uri == u
         {
@@ -306,7 +306,7 @@ proc persist_index(docs: [Document]) -> void
 {
     fs.mkdir_p(".dots/lsp")
     let out = ""
-    loop d in docs
+    for d in docs
     {
         let symbols = str.join(d.symbols, ",")
         let pulls = str.join(d.deps_pull, ",")
@@ -319,15 +319,15 @@ proc persist_index(docs: [Document]) -> void
 proc load_index_symbols(uri: string) -> [string]
 {
     let out: [string] = []
-    if !fs.exists(index_file()) { give out }
+    if not fs.exists(index_file()) { give out }
     let lines = str.split(fs.read_file(index_file()), "\n")
-    loop l in lines
+    for l in lines
     {
         let line = str.trim(l)
         if line == "" { continue }
-        if !str.contains(line, "\"uri\":\"" + normalize_uri(uri) + "\"") { continue }
+        if not str.contains(line, "\"uri\":\"" + normalize_uri(uri) + "\"") { continue }
         let pat = "\"symbols\":\""
-        if !str.contains(line, pat) { continue }
+        if not str.contains(line, pat) { continue }
         let p = str.split(line, pat)
         if p.len < 2 { continue }
         let q = str.split(p[1], "\"")

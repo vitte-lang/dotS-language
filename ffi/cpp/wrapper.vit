@@ -1,7 +1,7 @@
 space ffi/cpp/wrapper
 
-pull ffi/c/ffi
-pull ffi/c/call
+use ffi/c/ffi
+use ffi/c/call
 
 form CppHandle
 {

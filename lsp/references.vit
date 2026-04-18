@@ -1,8 +1,8 @@
 space lsp/references
 
-pull core/str
-pull lsp/model
-pull lsp/goto_definition
+use core/str
+use lsp/model
+use lsp/goto_definition
 
 proc references_result_json(doc: Document, line: i32, character: i32, include_declaration: bool) -> string
 {
@@ -14,16 +14,16 @@ proc references_result_json(doc: Document, line: i32, character: i32, include_de
     let lines = str.split(doc.text, "\n")
     let i: i32 = 0
     let first = true
-    loop while i < lines.len
+    while i < lines.len
     {
         if str.contains(lines[i], s)
         {
-            if !include_declaration && i == def_line
+            if not include_declaration  and  i == def_line
             {
                 i = i + 1
                 continue
             }
-            if !first { out = out + "," }
+            if not first { out = out + "," }
             first = false
             out = out + "{\"uri\":\"" + doc.uri + "\",\"range\":{\"start\":{\"line\":" + str.from_i64(i) + ",\"character\":0},\"end\":{\"line\":" + str.from_i64(i) + ",\"character\":1}}}"
         }
@@ -40,21 +40,21 @@ proc references_result_json_workspace(docs: [Document], doc: Document, line: i32
 
     let out = "["
     let first = true
-    loop d in docs
+    for d in docs
     {
         let def_line = find_definition_line(d, s)
         let lines = str.split(d.text, "\n")
         let i: i32 = 0
-        loop while i < lines.len
+        while i < lines.len
         {
             if str.contains(lines[i], s)
             {
-                if !include_declaration && i == def_line
+                if not include_declaration  and  i == def_line
                 {
                     i = i + 1
                     continue
                 }
-                if !first { out = out + "," }
+                if not first { out = out + "," }
                 first = false
                 out = out + "{\"uri\":\"" + d.uri + "\",\"range\":{\"start\":{\"line\":" + str.from_i64(i) + ",\"character\":0},\"end\":{\"line\":" + str.from_i64(i) + ",\"character\":1}}}"
             }

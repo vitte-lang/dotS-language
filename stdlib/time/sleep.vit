@@ -1,6 +1,6 @@
 space stdlib/time/sleep
 
-pull core/time
+use core/time
 
 proc ms(duration_ms: i64) -> void
 {

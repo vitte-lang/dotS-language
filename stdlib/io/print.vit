@@ -1,7 +1,7 @@
 space stdlib/io/print
 
-pull core/io
-pull core/str
+use core/io
+use core/str
 
 proc line(message: string) -> void
 {
@@ -10,7 +10,7 @@ proc line(message: string) -> void
 
 proc lines(items: [string]) -> void
 {
-    loop item in items
+    for item in items
     {
         io.print(item)
     }
@@ -24,7 +24,7 @@ proc prefixed(prefix: string, message: string) -> void
 proc numbered(items: [string]) -> void
 {
     let i: i32 = 0
-    loop while i < items.len
+    while i < items.len
     {
         io.print(str.from_i64(i + 1) + ". " + items[i])
         i = i + 1

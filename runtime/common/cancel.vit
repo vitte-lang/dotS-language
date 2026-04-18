@@ -1,8 +1,8 @@
 space runtime/common/cancel
 
-pull core/str
-pull core/time
-pull core/process
+use core/str
+use core/time
+use core/process
 
 form CancelToken
 {
@@ -12,7 +12,7 @@ form CancelToken
     deadline_ms: i64
 }
 
-proc make(id: string, timeout_ms: i64) -> CancelToken
+proc new(id: string, timeout_ms: i64) -> CancelToken
 {
     let now = time.now_ms()
     let dl = 0
@@ -24,13 +24,12 @@ proc from_env(timeout_ms: i64) -> CancelToken
 {
     let rid = process.env("DOTS_REQUEST_ID")
     if rid == "" { rid = "req-" + str.from_i64(time.now_ms()) }
-    give make(rid, timeout_ms)
+    give new(rid, timeout_ms)
 }
 
 proc cancel(t: CancelToken) -> CancelToken
 {
-    t.cancelled = true
-    give t
+    give CancelToken(t.id, true, t.created_ms, t.deadline_ms)
 }
 
 proc is_cancelled(t: CancelToken) -> bool
@@ -38,9 +37,9 @@ proc is_cancelled(t: CancelToken) -> bool
     if t.cancelled { give true }
 
     let env = process.env("DOTS_CANCEL_TOKEN")
-    if env == "1" || env == "true" || env == "cancelled" { give true }
+    if env == "1"  or  env == "true"  or  env == "cancelled" { give true }
 
-    if t.deadline_ms > 0 && time.now_ms() > t.deadline_ms { give true }
+    if t.deadline_ms > 0  and  time.now_ms() > t.deadline_ms { give true }
     give false
 }
 

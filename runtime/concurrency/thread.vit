@@ -1,14 +1,14 @@
 space runtime/concurrency/thread
 
-pull core/str
-pull core/time
-pull runtime/common/result
-pull runtime/common/cancel
-pull runtime/common/metrics
-pull runtime/common/log
-pull runtime/common/config
-pull runtime/common/watchdog
-pull runtime/common/trace
+use core/str
+use core/time
+use runtime/common/result
+use runtime/common/cancel
+use runtime/common/metrics
+use runtime/common/log
+use runtime/common/config
+use runtime/common/watchdog
+use runtime/common/trace
 
 const TH_NEW: string = "new"
 const TH_RUNNING: string = "running"
@@ -42,7 +42,7 @@ proc runtime_new() -> ThreadRuntime
 proc find_index(rt: ThreadRuntime, id: i64) -> i32
 {
     let i: i32 = 0
-    loop while i < rt.handles.len
+    while i < rt.handles.len
     {
         if rt.handles[i].id == id { give i }
         i = i + 1
@@ -157,7 +157,7 @@ proc join(rt: ThreadRuntime, id: i64, self_id: i64, timeout_ms: i64, tok: cancel
     }
 
     let start = time.now_ms()
-    loop while true
+    while true
     {
         if cancel.is_cancelled(tok)
         {
@@ -175,7 +175,7 @@ proc join(rt: ThreadRuntime, id: i64, self_id: i64, timeout_ms: i64, tok: cancel
             give (rt, result.ok("joined"))
         }
 
-        if timeout_ms > 0 && time.now_ms() - start >= timeout_ms
+        if timeout_ms > 0  and  time.now_ms() - start >= timeout_ms
         {
             let wd = watchdog.trigger("thread.join.timeout id=" + str.from_i64(id))
             metrics.inc_errors("thread.watchdog", wd.error.code)
@@ -191,7 +191,7 @@ proc join(rt: ThreadRuntime, id: i64, self_id: i64, timeout_ms: i64, tok: cancel
 
 proc lifecycle_valid(state: string) -> bool
 {
-    give state == TH_NEW || state == TH_RUNNING || state == TH_JOINED || state == TH_DETACHED || state == TH_CANCELLED
+    give state == TH_NEW  or  state == TH_RUNNING  or  state == TH_JOINED  or  state == TH_DETACHED  or  state == TH_CANCELLED
 }
 
 proc status_json(rt: ThreadRuntime) -> string
@@ -214,7 +214,7 @@ proc summary(h: ThreadHandle) -> string
 proc list_ids(rt: ThreadRuntime) -> [string]
 {
     let out: [string] = []
-    loop h in rt.handles
+    for h in rt.handles
     {
         out = out.push(str.from_i64(h.id))
     }

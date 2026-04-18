@@ -1,7 +1,7 @@
 space stdlib/time/now
 
-pull core/time
-pull core/str
+use core/time
+use core/str
 
 proc ms() -> i64
 {

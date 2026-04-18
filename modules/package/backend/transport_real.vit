@@ -1,13 +1,13 @@
 space modules/package/backend/transport_real
 
-pull core/str
-pull core/time
-pull core/process
+use core/str
+use core/time
+use core/process
 
-pull modules/package/backend/types
-pull modules/package/backend/transport_fake
-pull modules/package/backend/protocol_real
-pull modules/package/backend/errors
+use modules/package/backend/types as backend_types
+use modules/package/backend/transport_fake as backend_transport_fake
+use modules/package/backend/protocol_real as backend_protocol_real
+use modules/package/backend/errors as backend_errors
 
 proc real_backend_bin() -> string
 {
@@ -21,20 +21,21 @@ proc real_stub_enabled() -> bool
     give process.env("DOTS_REGISTRY_REAL_STUB") == "1"
 }
 
-proc transport_real(op: string, arg: string, ep: string, connect_timeout_ms: i64, request_timeout_ms: i64, overall_timeout_ms: i64) -> BackendResult
+proc transport_real(op: string, arg: string, ep: string, connect_timeout_ms: i64, request_timeout_ms: i64, overall_timeout_ms: i64) -> backend_types.BackendResult
 {
     let started = time.now_ms()
 
     if real_stub_enabled()
     {
-        if op == "install" { give transport_install(arg, "real://stub/" + ep) }
-        if op == "update" { give transport_update("real://stub/" + ep) }
-        if op == "publish" { give transport_publish(arg, "real://stub/" + ep) }
-        give backend_err(E_UNKNOWN_OP, "protocol", "unsupported backend op: " + op, false, 400, 0, ep)
+        if op == "install" { give backend_transport_fake.transport_install(arg, "real://stub/" + ep) }
+        if op == "update" { give backend_transport_fake.transport_update("real://stub/" + ep) }
+        if op == "publish" { give backend_transport_fake.transport_publish(arg, "real://stub/" + ep) }
+        give backend_types.backend_err(backend_types.E_UNKNOWN_OP, "protocol", "unsupported backend op: " + op, false, 400, 0, ep)
     }
 
     let bin = real_backend_bin()
-    let argv: [string] = [op]
+    let argv: [string] = []
+    argv = argv.push(op)
     if arg != "" { argv = argv.push(arg) }
     argv = argv.push("--endpoint")
     argv = argv.push(ep)
@@ -57,39 +58,39 @@ proc transport_real(op: string, arg: string, ep: string, connect_timeout_ms: i64
     }
 
     let p = process.exec(bin, argv)
-    if p.out != "" && !protocol_real_is_json_object(p.out)
+    if p.out != ""  and  not backend_protocol_real.protocol_real_is_json_object(p.out)
     {
-        give backend_parse_error(ep, "stdout is not strict JSON object")
+        give backend_errors.backend_parse_error(ep, "stdout is not strict JSON object")
     }
 
     if p.code == 0
     {
-        let proto = protocol_real_field(p.out, "protocol_version")
-        if !protocol_real_supported(proto)
+        let proto = backend_protocol_real.protocol_real_field(p.out, "protocol_version")
+        if not backend_protocol_real.protocol_real_supported(proto)
         {
-            give backend_err(E_REAL_BACKEND_PROTOCOL, "protocol", backend_default_error_message(E_REAL_BACKEND_PROTOCOL, bin), false, 502, 0, ep)
+            give backend_types.backend_err(backend_types.E_REAL_BACKEND_PROTOCOL, "protocol", backend_errors.backend_default_error_message(backend_types.E_REAL_BACKEND_PROTOCOL, bin), false, 502, 0, ep)
         }
 
-        let count = str.to_i64(protocol_real_field(p.out, "count"))
-        let value = protocol_real_field(p.out, "value")
-        let endpoint = protocol_real_field(p.out, "endpoint")
+        let count = str.to_i64(backend_protocol_real.protocol_real_field(p.out, "count"))
+        let value = backend_protocol_real.protocol_real_field(p.out, "value")
+        let endpoint = backend_protocol_real.protocol_real_field(p.out, "endpoint")
         if value == "" { value = "ok" }
         if endpoint == "" { endpoint = "real://" + ep }
-        give backend_ok(value, count, endpoint, time.now_ms() - started)
+        give backend_types.backend_ok(value, count, endpoint, time.now_ms() - started)
     }
 
-    let code = protocol_real_field(p.out, "error_type")
-    let message = protocol_real_field(p.out, "error_message")
-    let category = protocol_real_field(p.out, "error_category")
+    let code = backend_protocol_real.protocol_real_field(p.out, "error_type")
+    let message = backend_protocol_real.protocol_real_field(p.out, "error_message")
+    let category = backend_protocol_real.protocol_real_field(p.out, "error_category")
     if category == "" { category = "network" }
-    let endpoint = protocol_real_field(p.out, "endpoint")
+    let endpoint = backend_protocol_real.protocol_real_field(p.out, "endpoint")
     if endpoint == "" { endpoint = ep }
-    let retryable = protocol_real_field(p.out, "retryable") == "true"
-    let retry_after_ms = str.to_i64(protocol_real_field(p.out, "retry_after_ms"))
-    let http_status = str.to_i64(protocol_real_field(p.out, "http_status"))
+    let retryable = backend_protocol_real.protocol_real_field(p.out, "retryable") == "true"
+    let retry_after_ms = str.to_i64(backend_protocol_real.protocol_real_field(p.out, "retry_after_ms"))
+    let http_status = str.to_i64(backend_protocol_real.protocol_real_field(p.out, "http_status"))
 
-    if code == "" { code = E_REAL_BACKEND_ERROR }
-    if message == "" { message = backend_default_error_message(code, bin) }
+    if code == "" { code = backend_types.E_REAL_BACKEND_ERROR }
+    if message == "" { message = backend_errors.backend_default_error_message(code, bin) }
 
-    give backend_err(code, category, message, retryable, http_status, retry_after_ms, endpoint)
+    give backend_types.backend_err(code, category, message, retryable, http_status, retry_after_ms, endpoint)
 }

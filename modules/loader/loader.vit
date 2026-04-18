@@ -1,14 +1,14 @@
 space modules/loader/loader
 
-pull modules/loader/resolver
-pull modules/loader/importer
+use modules/loader/resolver
+use modules/loader/importer
 
 proc available_packages(root_override: string) -> [string]
 {
     give resolver.discover_packages(root_override)
 }
 
-proc load_package(name: string, root_override: string) -> importer.ImportedPackage?
+proc load_package(name: string, root_override: string) -> importer.ImportedPackage
 {
     give importer.import_package(name, root_override)
 }

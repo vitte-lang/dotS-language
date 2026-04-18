@@ -8,4 +8,4 @@ use stdlib/fs/stat as stat
 use stdlib/fs/walk as walk
 use stdlib/fs/write as write
 
-share copy, path, read, remove, stat, walk, write
+

@@ -1,6 +1,6 @@
 space runtime/memory/value
 
-pull core/str
+use core/str
 
 form Value
 {

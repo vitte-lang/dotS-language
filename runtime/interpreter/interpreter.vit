@@ -1,21 +1,27 @@
 space runtime/interpreter
 
-pull core/str
-pull runtime/common/metrics
-pull runtime/common/log
-pull runtime/common/trace
-pull runtime/common/result
-pull runtime/interpreter/frame
-pull runtime/interpreter/environment
-pull runtime/interpreter/closure
-pull runtime/interpreter/dispatch
-pull runtime/interpreter/evaluator
+use core/str
+use runtime/common/metrics
+use runtime/common/log
+use runtime/common/trace
+use runtime/common/result
+use runtime/interpreter/frame
+use runtime/interpreter/environment
+use runtime/interpreter/closure
+use runtime/interpreter/dispatch
+use runtime/interpreter/evaluator
 
 form Interpreter
 {
     mode: string
     eval_total: i64
     last_ir_hash: string
+}
+
+form InterpreterExecuteResult
+{
+    interpreter: Interpreter
+    result: result.RuntimeResult
 }
 
 proc new() -> Interpreter
@@ -28,31 +34,31 @@ proc execute_fallback(ir_hash: string) -> result.RuntimeResult
     let it = new()
     let env = environment.new()
     let fr = frame.new("fallback:" + ir_hash, env)
-    let it2, r = execute(it, fr, ir_hash)
-    if !r.ok
+    let exec = execute(it, fr, ir_hash)
+    if not exec.result.ok
     {
-        give r
+        give exec.result
     }
-    give result.with_value(r, "interpreted:" + it2.last_ir_hash)
+    give result.with_value(exec.result, "interpreted:" + exec.interpreter.last_ir_hash)
 }
 
-proc execute(it: Interpreter, fr: frame.Frame, ir_hash: string) -> (Interpreter, result.RuntimeResult)
+proc execute(state: Interpreter, fr: frame.Frame, ir_hash: string) -> InterpreterExecuteResult
 {
     let seed = closure.new("main", ir_hash)
     let fr2 = frame.bind(fr, "ir_hash", ir_hash)
     let fr3 = frame.bind(fr2, "closure_label", closure.label(seed))
     let route = dispatch.route("exec", ir_hash)
     let r = evaluator.evaluate(route, fr3)
-    it.eval_total = it.eval_total + 1
-    it.last_ir_hash = ir_hash
+    state.eval_total = state.eval_total + 1
+    state.last_ir_hash = ir_hash
     metrics.inc_ops("interpreter.execute")
     trace.append("interpreter.execute", route)
-    if !r.ok
+    if not r.ok
     {
         log.record("error", "runtime.interpreter", "execute failed for " + ir_hash)
-        give (it, r)
+        give InterpreterExecuteResult(state, r)
     }
-    give (it, result.with_value(r, "interpreted:" + ir_hash))
+    give InterpreterExecuteResult(state, result.with_value(r, "interpreted:" + ir_hash))
 }
 
 proc status_json(it: Interpreter) -> string

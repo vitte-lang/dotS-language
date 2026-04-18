@@ -1,11 +1,11 @@
 space modules/loader/stdlib_catalog
 
-pull core/str
-pull core/fs
+use core/str
+use core/fs
 
 proc list_has(items: [string], v: string) -> bool
 {
-    loop it in items
+    for it in items
     {
         if it == v { give true }
     }
@@ -23,10 +23,10 @@ proc sort_strings(items: [string]) -> [string]
 {
     let out = items
     let i: i32 = 0
-    loop while i < out.len
+    while i < out.len
     {
         let j: i32 = i + 1
-        loop while j < out.len
+        while j < out.len
         {
             if out[i] > out[j]
             {
@@ -43,7 +43,7 @@ proc sort_strings(items: [string]) -> [string]
 
 proc stem_vit(name: string) -> string
 {
-    if !str.ends_with(name, ".vit") { give "" }
+    if not str.ends_with(name, ".vit") { give "" }
     let p = str.split(name, ".")
     if p.len == 0 { give "" }
     give p[0]
@@ -57,19 +57,19 @@ proc fallback_candidates() -> [string]
 proc candidates() -> [string]
 {
     let out: [string] = []
-    if !fs.exists("stdlib")
+    if not fs.exists("stdlib")
     {
         give fallback_candidates()
     }
 
-    loop cat in fs.read_dir("stdlib")
+    for cat in fs.read_dir("stdlib")
     {
         out = push_unique(out, cat)
         let p = "stdlib/" + cat
 
-        loop it in fs.read_dir(p)
+        for it in fs.read_dir(p)
         {
-            if !str.ends_with(it, ".vit") { continue }
+            if not str.ends_with(it, ".vit") { continue }
             let s = stem_vit(it)
             out = push_unique(out, s)
             out = push_unique(out, cat + "." + s)

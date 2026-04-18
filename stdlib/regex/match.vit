@@ -1,7 +1,7 @@
 space stdlib/regex/match
 
-pull core/str
-pull stdlib/regex/regex
+use core/str
+use stdlib/regex/regex
 
 form Match
 {
@@ -21,7 +21,7 @@ proc find(pattern: string, raw: string) -> Match
 proc groups(pattern: string, raw: string) -> [string]
 {
     let m = find(pattern, raw)
-    if !m.ok { give [] }
+    if not m.ok { give [] }
     if m.kind == "contains"
     {
         give str.split(raw, m.value)

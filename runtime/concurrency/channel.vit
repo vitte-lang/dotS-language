@@ -1,14 +1,14 @@
 space runtime/concurrency/channel
 
-pull core/str
-pull core/time
-pull runtime/common/result
-pull runtime/common/cancel
-pull runtime/common/metrics
-pull runtime/common/config
-pull runtime/common/retry
-pull runtime/common/watchdog
-pull runtime/common/trace
+use core/str
+use core/time
+use runtime/common/result
+use runtime/common/cancel
+use runtime/common/metrics
+use runtime/common/config
+use runtime/common/retry
+use runtime/common/watchdog
+use runtime/common/trace
 
 const CH_POLICY_DROP: string = "drop"
 const CH_POLICY_BLOCK: string = "block"
@@ -25,10 +25,10 @@ form Channel
     closed: bool
 }
 
-proc make(id: i64, capacity: i32, policy: string) -> Channel
+proc new(id: i64, capacity: i32, policy: string) -> Channel
 {
     if capacity < 0 { capacity = 0 }
-    if policy != CH_POLICY_DROP && policy != CH_POLICY_BLOCK { policy = CH_POLICY_BLOCK }
+    if policy != CH_POLICY_DROP  and  policy != CH_POLICY_BLOCK { policy = CH_POLICY_BLOCK }
     give Channel(id, capacity, policy, [], 0, 0, 0, false)
 }
 
@@ -74,7 +74,7 @@ proc send(ch: Channel, value: string, timeout_ms: i64, tok: cancel.CancelToken) 
 
     let start = time.now_ms()
     let budget = retry.new_budget()
-    loop while true
+    while true
     {
         if cancel.is_cancelled(tok)
         {
@@ -82,8 +82,8 @@ proc send(ch: Channel, value: string, timeout_ms: i64, tok: cancel.CancelToken) 
             give (ch, result.err(result.E_CANCELLED, "send cancelled", false))
         }
 
-        let full = is_bounded(ch) && buffered(ch) >= ch.capacity
-        if !full
+        let full = is_bounded(ch)  and  buffered(ch) >= ch.capacity
+        if not full
         {
             ch.queue = ch.queue.push(value)
             ch.sent = ch.sent + 1
@@ -102,14 +102,14 @@ proc send(ch: Channel, value: string, timeout_ms: i64, tok: cancel.CancelToken) 
         }
 
         metrics.append_metric("channel_wait_send_total", 1, "id=" + str.from_i64(ch.id))
-        if !retry.can_retry_application(budget)
+        if not retry.can_retry_application(budget)
         {
             metrics.inc_errors("channel.send", result.E_LOCK_BUSY)
             give (ch, result.err(result.E_LOCK_BUSY, "send retry budget exhausted", true))
         }
         budget = retry.consume_application(budget)
 
-        if timeout_ms > 0 && time.now_ms() - start >= timeout_ms
+        if timeout_ms > 0  and  time.now_ms() - start >= timeout_ms
         {
             let wd = watchdog.trigger("channel.send.timeout id=" + str.from_i64(ch.id))
             metrics.inc_errors("channel.watchdog", wd.error.code)
@@ -131,7 +131,7 @@ proc recv(ch: Channel, timeout_ms: i64, tok: cancel.CancelToken) -> (Channel, re
     }
     let start = time.now_ms()
     let budget = retry.new_budget()
-    loop while true
+    while true
     {
         if cancel.is_cancelled(tok)
         {
@@ -144,7 +144,7 @@ proc recv(ch: Channel, timeout_ms: i64, tok: cancel.CancelToken) -> (Channel, re
             let v = ch.queue[0]
             let out: [string] = []
             let i: i32 = 1
-            loop while i < ch.queue.len
+            while i < ch.queue.len
             {
                 out = out.push(ch.queue[i])
                 i = i + 1
@@ -155,12 +155,12 @@ proc recv(ch: Channel, timeout_ms: i64, tok: cancel.CancelToken) -> (Channel, re
             metrics.observe_latency("runtime", "all", time.now_ms() - start)
             trace.append("channel.recv", "id=" + str.from_i64(ch.id))
             let inv = check_invariants(ch)
-            if !inv.ok { give (ch, inv) }
+            if not inv.ok { give (ch, inv) }
             give (ch, result.ok(v))
         }
 
         metrics.append_metric("channel_wait_recv_total", 1, "id=" + str.from_i64(ch.id))
-        if !retry.can_retry_application(budget)
+        if not retry.can_retry_application(budget)
         {
             metrics.inc_errors("channel.recv", result.E_LOCK_BUSY)
             give (ch, result.err(result.E_LOCK_BUSY, "recv retry budget exhausted", true))
@@ -173,7 +173,7 @@ proc recv(ch: Channel, timeout_ms: i64, tok: cancel.CancelToken) -> (Channel, re
             give (ch, result.err(result.E_CHANNEL_CLOSED, "channel closed", false))
         }
 
-        if timeout_ms > 0 && time.now_ms() - start >= timeout_ms
+        if timeout_ms > 0  and  time.now_ms() - start >= timeout_ms
         {
             let wd = watchdog.trigger("channel.recv.timeout id=" + str.from_i64(ch.id))
             metrics.inc_errors("channel.watchdog", wd.error.code)
@@ -200,7 +200,7 @@ proc drain(ch: Channel) -> (Channel, [string])
     ch.recv = ch.recv + ch.queue.len
     ch.queue = []
     let inv = check_invariants(ch)
-    if !inv.ok
+    if not inv.ok
     {
         trace.append("channel.drain.error", "id=" + str.from_i64(ch.id))
     }

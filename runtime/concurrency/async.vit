@@ -1,11 +1,11 @@
 space runtime/concurrency/async
 
-pull core/time
-pull runtime/common/result
-pull runtime/common/cancel
-pull runtime/common/metrics
-pull runtime/common/config
-pull runtime/concurrency/future
+use core/time
+use runtime/common/result
+use runtime/common/cancel
+use runtime/common/metrics
+use runtime/common/config
+use runtime/concurrency/future
 
 const AS_NEW: string = "new"
 const AS_RUNNING: string = "running"
@@ -50,7 +50,7 @@ proc run(task: AsyncTask, value: string, tok: cancel.CancelToken) -> (AsyncTask,
 
 proc to_future(task: AsyncTask) -> future.Future
 {
-    let f = future.make(task.id)
+    let f = future.new(task.id)
     if task.state == AS_DONE
     {
         give future.resolve(f, task.value)
@@ -69,7 +69,7 @@ proc await(task: AsyncTask, timeout_ms: i64, tok: cancel.CancelToken) -> result.
         timeout_ms = config.load().timeout_global_ms
     }
     let start = time.now_ms()
-    loop while true
+    while true
     {
         if cancel.is_cancelled(tok)
         {
@@ -80,7 +80,7 @@ proc await(task: AsyncTask, timeout_ms: i64, tok: cancel.CancelToken) -> result.
         if task.state == AS_DONE { give result.ok(task.value) }
         if task.state == AS_CANCELLED { give result.err(result.E_CANCELLED, "task cancelled", false) }
 
-        if timeout_ms > 0 && time.now_ms() - start >= timeout_ms
+        if timeout_ms > 0  and  time.now_ms() - start >= timeout_ms
         {
             metrics.inc_errors("async.await", result.E_RUNTIME_TIMEOUT)
             give result.err(result.E_RUNTIME_TIMEOUT, "await timeout", true)

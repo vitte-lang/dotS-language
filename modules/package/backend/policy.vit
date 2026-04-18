@@ -1,11 +1,11 @@
 space modules/package/backend/policy
 
-pull core/str
-pull core/time
-pull core/process
-pull modules/package/backend/types
-pull modules/package/backend/state
-pull modules/package/backend/stats
+use core/str
+use core/time
+use core/process
+use modules/package/backend/types as backend_types
+use modules/package/backend/state as state
+use modules/package/backend/stats as stats
 
 form RetryPolicy
 {
@@ -27,11 +27,11 @@ proc env_i32(name: string, fallback: i32) -> i32
     let v = process.env(name)
     if v == "" { give fallback }
     let n = str.to_i64(v)
-    if str.from_i64(n) != v && !(str.starts_with(v, "-") && str.from_i64(n) == str.replace(v, "-", ""))
+    if str.from_i64(n) != v  and  not (str.starts_with(v, "-")  and  str.from_i64(n) == str.replace(v, "-", ""))
     {
-        stat_inc("policy_env_invalid_total")
-        append_event_component("POLICY_ENV", "invalid numeric env " + name + "=" + v, "warn", "policy")
-        if backend_strict() { give fallback }
+        stats.stat_inc("policy_env_invalid_total")
+        state.append_event_component("POLICY_ENV", "invalid numeric env " + name + "=" + v, "warn", "policy")
+        if state.backend_strict() { give fallback }
         give fallback
     }
     give n
@@ -42,11 +42,11 @@ proc env_i64(name: string, fallback: i64) -> i64
     let v = process.env(name)
     if v == "" { give fallback }
     let n = str.to_i64(v)
-    if str.from_i64(n) != v && !(str.starts_with(v, "-") && str.from_i64(n) == str.replace(v, "-", ""))
+    if str.from_i64(n) != v  and  not (str.starts_with(v, "-")  and  str.from_i64(n) == str.replace(v, "-", ""))
     {
-        stat_inc("policy_env_invalid_total")
-        append_event_component("POLICY_ENV", "invalid numeric env " + name + "=" + v, "warn", "policy")
-        if backend_strict() { give fallback }
+        stats.stat_inc("policy_env_invalid_total")
+        state.append_event_component("POLICY_ENV", "invalid numeric env " + name + "=" + v, "warn", "policy")
+        if state.backend_strict() { give fallback }
         give fallback
     }
     give n
@@ -55,11 +55,11 @@ proc env_i64(name: string, fallback: i64) -> i64
 proc bounded_i32(name: string, fallback: i32, min_v: i32, max_v: i32) -> i32
 {
     let v = env_i32(name, fallback)
-    if v < min_v || v > max_v
+    if v < min_v  or  v > max_v
     {
-        stat_inc("policy_env_invalid_total")
-        append_event_component("POLICY_ENV", "out-of-range env " + name + "=" + str.from_i64(v), "warn", "policy")
-        if backend_strict() { give fallback }
+        stats.stat_inc("policy_env_invalid_total")
+        state.append_event_component("POLICY_ENV", "out-of-range env " + name + "=" + str.from_i64(v), "warn", "policy")
+        if state.backend_strict() { give fallback }
         give fallback
     }
     give v
@@ -68,11 +68,11 @@ proc bounded_i32(name: string, fallback: i32, min_v: i32, max_v: i32) -> i32
 proc bounded_i64(name: string, fallback: i64, min_v: i64, max_v: i64) -> i64
 {
     let v = env_i64(name, fallback)
-    if v < min_v || v > max_v
+    if v < min_v  or  v > max_v
     {
-        stat_inc("policy_env_invalid_total")
-        append_event_component("POLICY_ENV", "out-of-range env " + name + "=" + str.from_i64(v), "warn", "policy")
-        if backend_strict() { give fallback }
+        stats.stat_inc("policy_env_invalid_total")
+        state.append_event_component("POLICY_ENV", "out-of-range env " + name + "=" + str.from_i64(v), "warn", "policy")
+        if state.backend_strict() { give fallback }
         give fallback
     }
     give v
@@ -82,10 +82,10 @@ proc valid_jitter_policy(raw: string) -> string
 {
     let p = str.trim(raw)
     if p == "" { p = "equal" }
-    if p != "none" && p != "equal" && p != "full"
+    if p != "none"  and  p != "equal"  and  p != "full"
     {
-        stat_inc("policy_env_invalid_total")
-        append_event_component("POLICY_ENV", "invalid DOTS_JITTER_POLICY=" + p + ", fallback=equal", "warn", "policy")
+        stats.stat_inc("policy_env_invalid_total")
+        state.append_event_component("POLICY_ENV", "invalid DOTS_JITTER_POLICY=" + p + ", fallback=equal", "warn", "policy")
         give "equal"
     }
     give p
@@ -115,15 +115,25 @@ proc retry_on_list() -> [string]
     let raw = process.env("DOTS_RETRY_ON")
     if raw == ""
     {
-        give ["connect:*", E_TIMEOUT, E_ENDPOINT_UNREACHABLE, E_REAL_BACKEND_ERROR, "application:E_TIMEOUT"]
+        let out: [string] = []
+        out = out.push("connect:*")
+        out = out.push(backend_types.E_TIMEOUT)
+        out = out.push(backend_types.E_ENDPOINT_UNREACHABLE)
+        out = out.push(backend_types.E_REAL_BACKEND_ERROR)
+        out = out.push("application:E_TIMEOUT")
+        give out
     }
 
     let out: [string] = []
     let p = str.split(raw, ",")
-    loop x in p
+    let x: string = ""
+    let i: i32 = 0
+    while i < p.len
     {
+        x = p[i]
         let v = str.trim(x)
         if v != "" { out = out.push(v) }
+        i = i + 1
     }
 
     give out
@@ -131,15 +141,19 @@ proc retry_on_list() -> [string]
 
 proc should_retry(code: string, retryable: bool, remaining_budget: i32) -> bool
 {
-    if !retryable { give false }
+    if not retryable { give false }
     if remaining_budget <= 0 { give false }
 
     let allow = retry_on_list()
-    loop c in allow
+    let c: string = ""
+    let i: i32 = 0
+    while i < allow.len
     {
-        if c == "connect:*" || c == "application:*" { give true }
+        c = allow[i]
+        if c == "connect:*"  or  c == "application:*" { give true }
         if c == code { give true }
         if str.ends_with(c, ":" + code) { give true }
+        i = i + 1
     }
 
     give false
@@ -159,7 +173,7 @@ proc stable_seed() -> i64
     if rid == "" { rid = str.from_i64(time.now_ms()) }
     let sum: i64 = 0
     let i: i32 = 0
-    loop while i < rid.len
+    while i < rid.len
     {
         sum = sum + str.to_i64(str.from_i64(rid[i]))
         i = i + 1
@@ -177,7 +191,7 @@ proc pseudo_rand(mod: i64, salt: i64) -> i64
 
 proc jitter_delay(base_ms: i64, jitter_ms: i64, policy: string, salt: i64) -> i64
 {
-    if jitter_ms <= 0 || policy == "none"
+    if jitter_ms <= 0  or  policy == "none"
     {
         give base_ms
     }
@@ -195,12 +209,23 @@ proc jitter_delay(base_ms: i64, jitter_ms: i64, policy: string, salt: i64) -> i6
 
 proc with_spent(p: RetryPolicy, spent: i32) -> RetryPolicy
 {
-    p.retry_budget_spent = spent
-    give p
+    give RetryPolicy(
+        p.retries_connect,
+        p.retries_application,
+        p.global_budget,
+        spent,
+        p.base_delay_ms,
+        p.jitter_ms,
+        p.jitter_policy,
+        p.connect_timeout_ms,
+        p.request_timeout_ms,
+        p.overall_timeout_ms,
+        p.cancel_token
+    )
 }
 
 proc is_cancelled(token: string) -> bool
 {
     if token == "" { give false }
-    give token == "1" || token == "cancelled" || token == "true"
+    give token == "1"  or  token == "cancelled"  or  token == "true"
 }

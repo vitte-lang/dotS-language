@@ -1,10 +1,10 @@
 space runtime/exception/handler
 
-pull runtime/common/result
-pull runtime/common/log
-pull runtime/common/events
-pull runtime/exception/exception
-pull runtime/exception/stacktrace
+use runtime/common/result
+use runtime/common/log
+use runtime/common/events
+use runtime/exception/exception
+use runtime/exception/stacktrace
 
 form Handler
 {
@@ -27,7 +27,7 @@ proc capture(h: Handler, ex: exception.Exception, st: stacktrace.StackTrace) -> 
     }
     log.record("error", "runtime.exception", msg)
     events.append("exception", "error", h.scope + ":" + ex.code)
-    if h.strict && ex.code == result.E_PANIC
+    if h.strict  and  ex.code == result.E_PANIC
     {
         give result.err(ex.code, msg, false)
     }

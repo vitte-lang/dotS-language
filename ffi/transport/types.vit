@@ -1,6 +1,6 @@
 space ffi/transport/types
 
-pull core/str
+use core/str
 
 form TransportResult
 {

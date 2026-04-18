@@ -1,19 +1,19 @@
 space runtime/vm
 
-pull core/str
-pull core/process
-pull core/time
-pull runtime/common/result
-pull runtime/common/cancel
-pull runtime/common/metrics
-pull runtime/common/log
-pull runtime/common/config
-pull runtime/common/events
-pull runtime/common/trace
-pull runtime/common/panic
-pull runtime/vm/bytecode
-pull runtime/vm/dispatcher
-pull runtime/vm/optimizer
+use core/str
+use core/process
+use core/time
+use runtime/common/result
+use runtime/common/cancel
+use runtime/common/metrics
+use runtime/common/log
+use runtime/common/config
+use runtime/common/events
+use runtime/common/trace
+use runtime/common/panic
+use runtime/vm/bytecode
+use runtime/vm/dispatcher
+use runtime/vm/optimizer
 
 form VM
 {
@@ -25,26 +25,32 @@ form VM
     opcode_exec_total: i64
 }
 
+form VMExecResult
+{
+    vm: VM
+    result: result.RuntimeResult
+}
+
 proc new() -> VM
 {
-    let c = config.load()
-    give VM(c.strict, 0, 0, c.instruction_budget, c.safe_point_interval, 0)
+    let cfg = config.load()
+    give VM(cfg.strict, 0, 0, cfg.instruction_budget, cfg.safe_point_interval, 0)
 }
 
-proc safe_point(vm: VM, tok: cancel.CancelToken) -> (VM, result.RuntimeResult)
+proc safe_point(machine: VM, tok: cancel.CancelToken) -> VMExecResult
 {
-    vm.safe_points_total = vm.safe_points_total + 1
+    let next = VM(machine.strict, machine.safe_points_total + 1, machine.interrupted_total, machine.instruction_budget, machine.safe_point_interval, machine.opcode_exec_total)
     if cancel.is_cancelled(tok)
     {
-        vm.interrupted_total = vm.interrupted_total + 1
+        let interrupted = VM(next.strict, next.safe_points_total, next.interrupted_total + 1, next.instruction_budget, next.safe_point_interval, next.opcode_exec_total)
         metrics.inc_errors("vm.safe_point", result.E_CANCELLED)
-        give (vm, result.err(result.E_CANCELLED, "vm interrupted", false))
+        give VMExecResult(interrupted, result.err(result.E_CANCELLED, "vm interrupted", false))
     }
     metrics.inc_ops("vm.safe_point")
-    give (vm, result.ok("continue"))
+    give VMExecResult(next, result.ok("continue"))
 }
 
-proc execute(vm: VM, code_in: [string], tok: cancel.CancelToken, timeout_ms: i64) -> (VM, result.RuntimeResult)
+proc execute(machine: VM, code_in: [string], tok: cancel.CancelToken, timeout_ms: i64) -> VMExecResult
 {
     if timeout_ms <= 0
     {
@@ -52,52 +58,52 @@ proc execute(vm: VM, code_in: [string], tok: cancel.CancelToken, timeout_ms: i64
     }
     let start = time.now_ms()
     let code = optimizer.optimize(bytecode.encode(code_in))
-    if !bytecode.validate(code)
+    if not bytecode.validate(code)
     {
         metrics.inc_errors("vm.execute", result.E_PANIC)
         events.append("vm", "error", "invalid bytecode")
-        give (vm, result.err(result.E_PANIC, "invalid bytecode", false))
+        give VMExecResult(machine, result.err(result.E_PANIC, "invalid bytecode", false))
     }
     let i: i32 = 0
 
     while i < code.len
     {
-        vm.instruction_budget = vm.instruction_budget - 1
-        if vm.instruction_budget <= 0
+        machine = VM(machine.strict, machine.safe_points_total, machine.interrupted_total, machine.instruction_budget - 1, machine.safe_point_interval, machine.opcode_exec_total)
+        if machine.instruction_budget <= 0
         {
             metrics.inc_errors("vm.execute", result.E_RUNTIME_TIMEOUT)
             events.append("vm", "error", "instruction budget exhausted")
-            give (vm, result.err(result.E_RUNTIME_TIMEOUT, "instruction budget exhausted", false))
+            give VMExecResult(machine, result.err(result.E_RUNTIME_TIMEOUT, "instruction budget exhausted", false))
         }
 
-        if vm.safe_point_interval > 0 && (i % vm.safe_point_interval) == 0
+        if machine.safe_point_interval > 0  and  (i % machine.safe_point_interval) == 0
         {
-            let vm2, sp = safe_point(vm, tok)
-            vm = vm2
-            if !sp.ok
+            let sp_res = safe_point(machine, tok)
+            machine = sp_res.vm
+            if not sp_res.result.ok
             {
                 events.append("vm", "warn", "interrupted at safe point")
-                give (vm, sp)
+                give sp_res
             }
         }
 
-        if timeout_ms > 0 && time.now_ms() - start >= timeout_ms
+        if timeout_ms > 0  and  time.now_ms() - start >= timeout_ms
         {
             metrics.inc_errors("vm.execute", result.E_RUNTIME_TIMEOUT)
             events.append("vm", "error", "vm timeout reached")
-            give (vm, result.err(result.E_RUNTIME_TIMEOUT, "vm timeout", true))
+            give VMExecResult(machine, result.err(result.E_RUNTIME_TIMEOUT, "vm timeout", true))
         }
 
         let op = code[i]
         let step = dispatcher.execute(op)
-        if !step.ok
+        if not step.ok
         {
             metrics.inc_errors("vm.dispatch", step.error.code)
             events.append("vm", "error", "dispatch trap")
-            give (vm, step)
+            give VMExecResult(machine, step)
         }
         metrics.append_metric("opcode_exec_total", 1, "op=" + op)
-        vm.opcode_exec_total = vm.opcode_exec_total + 1
+        machine = VM(machine.strict, machine.safe_points_total, machine.interrupted_total, machine.instruction_budget, machine.safe_point_interval, machine.opcode_exec_total + 1)
         trace.append("vm.op", op + ":" + step.value)
         i = i + 1
     }
@@ -105,43 +111,43 @@ proc execute(vm: VM, code_in: [string], tok: cancel.CancelToken, timeout_ms: i64
     metrics.inc_ops("vm.execute")
     metrics.observe_latency("runtime", "all", time.now_ms() - start)
     let ok = result.ok("ok")
-    give (vm, panic.with_panic_boundary("vm.execute", ok))
+    give VMExecResult(machine, panic.with_panic_boundary("vm.execute", ok))
 }
 
-proc status_json(vm: VM) -> string
+proc status_json(machine: VM) -> string
 {
     give "{" +
         "\"schema_version\":\"1.1.0\"," +
-        "\"strict\":\"" + str.from_bool(vm.strict) + "\"," +
-        "\"safe_points_total\":\"" + str.from_i64(vm.safe_points_total) + "\"," +
-        "\"interrupted_total\":\"" + str.from_i64(vm.interrupted_total) + "\"," +
-        "\"instruction_budget\":\"" + str.from_i64(vm.instruction_budget) + "\"," +
-        "\"safe_point_interval\":\"" + str.from_i64(vm.safe_point_interval) + "\"," +
-        "\"opcode_exec_total\":\"" + str.from_i64(vm.opcode_exec_total) + "\"," +
+        "\"strict\":\"" + str.from_bool(machine.strict) + "\"," +
+        "\"safe_points_total\":\"" + str.from_i64(machine.safe_points_total) + "\"," +
+        "\"interrupted_total\":\"" + str.from_i64(machine.interrupted_total) + "\"," +
+        "\"instruction_budget\":\"" + str.from_i64(machine.instruction_budget) + "\"," +
+        "\"safe_point_interval\":\"" + str.from_i64(machine.safe_point_interval) + "\"," +
+        "\"opcode_exec_total\":\"" + str.from_i64(machine.opcode_exec_total) + "\"," +
         "\"metrics\":" + metrics.status_json() +
     "}"
 }
 
-proc status_prom(vm: VM) -> string
+proc status_prom(machine: VM) -> string
 {
     let out = ""
-    out = out + "dots_runtime_safe_points_total " + str.from_i64(vm.safe_points_total) + "\n"
-    out = out + "dots_runtime_interrupted_total " + str.from_i64(vm.interrupted_total) + "\n"
-    out = out + "dots_runtime_opcode_exec_total " + str.from_i64(vm.opcode_exec_total) + "\n"
+    out = out + "dots_runtime_safe_points_total " + str.from_i64(machine.safe_points_total) + "\n"
+    out = out + "dots_runtime_interrupted_total " + str.from_i64(machine.interrupted_total) + "\n"
+    out = out + "dots_runtime_opcode_exec_total " + str.from_i64(machine.opcode_exec_total) + "\n"
     out = out + metrics.status_prom()
     give out
 }
 
-proc doctor(vm: VM) -> result.RuntimeResult
+proc doctor(machine: VM) -> result.RuntimeResult
 {
-    if vm.strict && vm.interrupted_total > 0
+    if machine.strict  and  machine.interrupted_total > 0
     {
         log.record("warn", "runtime.vm", "strict mode + interruptions detected")
     }
     give result.ok("runtime doctor ok")
 }
 
-proc execute_lines(vm: VM, lines: [string], tok: cancel.CancelToken, timeout_ms: i64) -> (VM, result.RuntimeResult)
+proc execute_lines(machine: VM, lines: [string], tok: cancel.CancelToken, timeout_ms: i64) -> VMExecResult
 {
-    give execute(vm, bytecode.encode(lines), tok, timeout_ms)
+    give execute(machine, bytecode.encode(lines), tok, timeout_ms)
 }

@@ -1,6 +1,6 @@
 space runtime/interpreter/frame
 
-pull runtime/interpreter/environment
+use runtime/interpreter/environment
 
 form Frame
 {

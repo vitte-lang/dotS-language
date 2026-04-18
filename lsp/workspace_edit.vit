@@ -1,6 +1,6 @@
 space lsp/workspace_edit
 
-pull core/str
+use core/str
 
 proc apply_edit_preview_json(edit_json: string) -> string
 {

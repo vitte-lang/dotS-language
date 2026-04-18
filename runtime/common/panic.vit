@@ -1,18 +1,17 @@
 space runtime/common/panic
 
-pull runtime/common/result
-pull runtime/common/log
-pull runtime/common/events
+use runtime/common/result
+use runtime/common/log
+use runtime/common/events
 
 proc with_panic_boundary(proc_name: string, r: result.RuntimeResult) -> result.RuntimeResult
 {
     if r.ok { give r }
 
-    if r.error != null && r.error.code == result.E_PANIC
+    if r.error.code == result.E_PANIC
     {
         log.record("error", "runtime.panic", "panic boundary tripped in " + proc_name + ": " + r.error.message)
         events.append("panic", "error", "panic boundary tripped in " + proc_name)
-        give r
     }
 
     give r

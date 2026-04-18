@@ -1,6 +1,6 @@
 space runtime/exception/exception
 
-pull core/str
+use core/str
 
 form Exception
 {

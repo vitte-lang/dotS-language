@@ -1,6 +1,6 @@
 space runtime/memory/gc_mark
 
-pull core/str
+use core/str
 
 form MarkPlan
 {
@@ -19,7 +19,7 @@ proc plan(live_bytes: i64) -> MarkPlan
 proc run() -> bool
 {
     let p = plan(0)
-    give p.roots_scanned >= 1 && p.objects_marked >= p.roots_scanned
+    give p.roots_scanned >= 1  and  p.objects_marked >= p.roots_scanned
 }
 
 proc summary(p: MarkPlan) -> string

@@ -1,6 +1,6 @@
 space runtime/interpreter/dispatch
 
-pull core/str
+use core/str
 
 form Dispatch
 {

@@ -1,10 +1,10 @@
 space ffi/transport/py
 
-pull core/process
-pull core/str
-pull ffi/transport/types
+use core/process
+use core/str
+use ffi/transport/types as transport_types
 
-proc transport_py(symbol: string, handle_id: string, args_csv: string, timeout_ms: i64, request_deadline_ms: i64, cancel_token: string) -> TransportResult
+proc transport_py(symbol: string, handle_id: string, args_csv: string, timeout_ms: i64, request_deadline_ms: i64, cancel_token: string) -> transport_types.TransportResult
 {
     let bin = process.env("DOTS_FFI_PY_BIN")
     if bin == "" { bin = "dots-ffi-py" }
@@ -19,10 +19,10 @@ proc transport_py(symbol: string, handle_id: string, args_csv: string, timeout_m
         argv = argv.push(str.from_i64(timeout_ms))
     }
     let p = process.exec(bin, argv)
-    give TransportResult(p.code, p.out, p.err, "py://" + bin, "python", "1.1.0")
+    give transport_types.TransportResult(p.code, p.out, "", "py://" + bin, "python", "1.1.0")
 }
 
 proc transport_py_status(symbol: string, handle_id: string, args_csv: string, timeout_ms: i64, request_deadline_ms: i64, cancel_token: string) -> string
 {
-    give summary(transport_py(symbol, handle_id, args_csv, timeout_ms, request_deadline_ms, cancel_token))
+    give transport_types.summary(transport_py(symbol, handle_id, args_csv, timeout_ms, request_deadline_ms, cancel_token))
 }

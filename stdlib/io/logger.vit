@@ -1,9 +1,9 @@
 space stdlib/io/logger
 
-pull core/fs
-pull core/io
-pull core/str
-pull core/time
+use core/fs
+use core/io
+use core/str
+use core/time
 
 proc log_file() -> string
 {

@@ -1,8 +1,8 @@
 space lsp/signature_help
 
-pull core/str
-pull lsp/model
-pull lsp/goto_definition
+use core/str
+use lsp/model
+use lsp/goto_definition
 
 proc signature_help_json(doc: Document, line: i32, character: i32) -> string
 {

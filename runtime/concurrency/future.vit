@@ -1,7 +1,7 @@
 space runtime/concurrency/future
 
-pull core/str
-pull runtime/common/result
+use core/str
+use runtime/common/result
 
 form Future
 {
@@ -11,7 +11,7 @@ form Future
     error_code: string
 }
 
-proc make(id: i64) -> Future
+proc new(id: i64) -> Future
 {
     give Future(id, "pending", "", "")
 }

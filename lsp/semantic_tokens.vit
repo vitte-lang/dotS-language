@@ -1,7 +1,7 @@
 space lsp/semantic_tokens
 
-pull core/str
-pull lsp/model
+use core/str
+use lsp/model
 
 proc semantic_tokens_full_json(doc: Document) -> string
 {
@@ -9,7 +9,7 @@ proc semantic_tokens_full_json(doc: Document) -> string
     let data = "["
     let first = true
     let i: i32 = 0
-    loop while i < lines.len
+    while i < lines.len
     {
         let l = str.trim(lines[i])
         let kind = ""
@@ -19,14 +19,14 @@ proc semantic_tokens_full_json(doc: Document) -> string
         else if str.starts_with(l, "space ") { kind = "space" }
         if kind != ""
         {
-            if !first { data = data + "," }
+            if not first { data = data + "," }
             first = false
             # deltaLine, deltaStart, length, tokenType, tokenModifiers
             data = data + str.from_i64(i) + ",0,4,0,0"
         }
-        if str.contains(l, ".") && str.contains(l, "(")
+        if str.contains(l, ".")  and  str.contains(l, "(")
         {
-            if !first { data = data + "," }
+            if not first { data = data + "," }
             first = false
             data = data + str.from_i64(i) + ",0,3,1,0"
         }

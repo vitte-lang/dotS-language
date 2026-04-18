@@ -1,7 +1,7 @@
 space ffi/c/symbol
 
-pull core/str
-pull ffi/c/ffi
+use core/str
+use ffi/c/ffi
 
 proc signature_from_decl(returns: string, args_csv: string, abi: string) -> FFISignature
 {
@@ -9,7 +9,7 @@ proc signature_from_decl(returns: string, args_csv: string, abi: string) -> FFIS
     if str.trim(args_csv) != ""
     {
         let parts = str.split(args_csv, ",")
-        loop p in parts
+        for p in parts
         {
             let t = str.trim(p)
             if t != "" { args = args.push(t) }
@@ -25,7 +25,7 @@ proc resolve_symbol(handle_id: string, symbol: string, returns: string, args_csv
     give ffi_resolve_symbol(handle_id, symbol, sig, dry_run, timeout_ms)
 }
 
-proc validate_symbol_signature(returns: string, args_csv: string, abi: string) -> string?
+proc validate_symbol_signature(returns: string, args_csv: string, abi: string) -> string
 {
     let sig = signature_from_decl(returns, args_csv, abi)
     give ffi_validate_signature(sig)

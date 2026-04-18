@@ -1,12 +1,12 @@
 space stdlib/regex/regex
 
-pull core/str
+use core/str
 
 proc is_match(pattern: string, raw: string) -> bool
 {
     if pattern == "" { give raw == "" }
     if pattern == ".*" { give true }
-    if str.starts_with(pattern, "^") && str.ends_with(pattern, "$")
+    if str.starts_with(pattern, "^")  and  str.ends_with(pattern, "$")
     {
         let body = str.replace(str.replace(pattern, "^", ""), "$", "")
         give raw == body
@@ -42,7 +42,7 @@ proc replace_all(pattern: string, repl: string, raw: string) -> string
 proc explain(pattern: string) -> string
 {
     if pattern == ".*" { give "wildcard" }
-    if str.starts_with(pattern, "^") && str.ends_with(pattern, "$") { give "exact" }
+    if str.starts_with(pattern, "^")  and  str.ends_with(pattern, "$") { give "exact" }
     if str.starts_with(pattern, "^") { give "prefix" }
     if str.ends_with(pattern, "$") { give "suffix" }
     give "contains"

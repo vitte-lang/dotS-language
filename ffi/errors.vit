@@ -9,7 +9,7 @@ proc normalize_error_category(category: string) -> string
 {
     if category == "parse" { give "parse_error" }
     if category == "protocol" { give "protocol_error" }
-    if category == "parse_error" || category == "protocol_error" { give category }
+    if category == "parse_error"  or  category == "protocol_error" { give category }
     if category == "" { give "protocol_error" }
     give category
 }

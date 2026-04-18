@@ -1,7 +1,7 @@
 space modules/package/backend/types
 
-pull core/str
-pull core/security/redact
+use core/str
+use core/security/redact
 
 form BackendError
 {
@@ -42,7 +42,7 @@ const E_POLICY_INVALID: string = "POLICY_INVALID"
 
 proc clamp_error_message(raw: string) -> string
 {
-    let msg = redact_secrets(raw)
+    let msg = redact.redact_secrets(raw)
     give msg
 }
 

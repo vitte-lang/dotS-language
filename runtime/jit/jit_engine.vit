@@ -1,6 +1,6 @@
 space runtime/jit/engine
 
-pull runtime/common/result
+use runtime/common/result
 
 form JitEngine
 {
@@ -14,7 +14,7 @@ proc new() -> JitEngine
 
 proc execute(engine: JitEngine, machine_code: string) -> result.RuntimeResult
 {
-    if !engine.enabled
+    if not engine.enabled
     {
         give result.err(result.E_NOT_IMPLEMENTED, "jit engine disabled", false)
     }

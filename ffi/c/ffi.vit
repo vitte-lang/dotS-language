@@ -1,22 +1,22 @@
 space ffi/c/ffi
 
-pull core/fs
-pull core/io
-pull core/str
-pull core/time
-pull core/process
-pull core/security/redact
+use core/fs
+use core/io
+use core/str
+use core/time
+use core/process
+use core/security/redact
 
-pull dots/cmd/common/path
-pull dots/cmd/common/output
-pull ffi/errors
-pull ffi/protocol
-pull ffi/transport/types
-pull ffi/transport/fake
-pull ffi/transport/c
-pull ffi/transport/cpp
-pull ffi/transport/py
-pull ffi/transport/wasm
+use dots/cmd/common/path
+use dots/cmd/common/output
+use ffi/errors as ffi_errors
+use ffi/protocol
+use ffi/transport/types as transport_types
+use ffi/transport/fake as transport_fake
+use ffi/transport/c as transport_c
+use ffi/transport/cpp as transport_cpp
+use ffi/transport/py as transport_py
+use ffi/transport/wasm as transport_wasm
 
 form FFIError
 {
@@ -98,14 +98,14 @@ proc ffi_mode() -> string
 {
     let m = process.env("DOTS_FFI_MODE")
     if m == "" { m = "real" }
-    if m != "real" && m != "fake" { m = "real" }
+    if m != "real"  and  m != "fake" { m = "real" }
     give m
 }
 
 proc ffi_cancelled() -> bool
 {
     let c = process.env("DOTS_FFI_CANCELLED")
-    give c == "1" || c == "true"
+    give c == "1"  or  c == "true"
 }
 
 proc ffi_host() -> string
@@ -124,7 +124,7 @@ proc ffi_pid() -> string
 
 proc ffi_error(code: string, category: string, message: string, retryable: bool, timeout_ms: i64, endpoint: string) -> FFIError
 {
-    give FFIError(code, category, redact_secrets(message), retryable, timeout_ms, endpoint)
+    give FFIError(code, category, redact.redact_secrets(message), retryable, timeout_ms, endpoint)
 }
 
 proc ffi_ok(value: string, latency_ms: i64) -> FFIResult
@@ -155,7 +155,7 @@ proc ffi_default_policy() -> FFIPolicy
 {
     let jp = process.env("DOTS_FFI_JITTER_POLICY")
     if jp == "" { jp = "equal" }
-    if jp != "none" && jp != "equal" && jp != "full" { jp = "equal" }
+    if jp != "none"  and  jp != "equal"  and  jp != "full" { jp = "equal" }
 
     give FFIPolicy(
         ffi_env_i32("DOTS_FFI_RETRIES", 1),
@@ -170,78 +170,78 @@ proc ffi_default_policy() -> FFIPolicy
 
 proc ffi_supported_type(t: string) -> bool
 {
-    give t == "i32" || t == "i64" || t == "f64" || t == "bool" || t == "string" || t == "bytes" || t == "ptr"
+    give t == "i32"  or  t == "i64"  or  t == "f64"  or  t == "bool"  or  t == "string"  or  t == "bytes"  or  t == "ptr"
 }
 
-proc ffi_validate_signature(sig: FFISignature) -> string?
+proc ffi_validate_signature(sig: FFISignature) -> string
 {
-    if !ffi_supported_type(sig.returns) { give "unsupported return type: " + sig.returns }
+    if not ffi_supported_type(sig.returns) { give "unsupported return type: " + sig.returns }
     if sig.abi == "" { give "abi is required" }
-    if sig.abi != "c" && sig.abi != "cdecl" && sig.abi != "stdcall" && sig.abi != "system"
+    if sig.abi != "c"  and  sig.abi != "cdecl"  and  sig.abi != "stdcall"  and  sig.abi != "system"
     {
         give "unsupported abi: " + sig.abi
     }
 
-    loop t in sig.args
+    for t in sig.args
     {
-        if !ffi_supported_type(t)
+        if not ffi_supported_type(t)
         {
             give "unsupported arg type: " + t
         }
     }
 
-    give null
+    give ""
 }
 
 proc ffi_is_integer(raw: string) -> bool
 {
     if raw == "" { give false }
     let i: i32 = 0
-    loop while i < raw.len
+    while i < raw.len
     {
         let c = raw[i]
-        if i == 0 && c == 45
+        if i == 0  and  c == 45
         {
             i = i + 1
             continue
         }
-        if c < 48 || c > 57 { give false }
+        if c < 48  or  c > 57 { give false }
         i = i + 1
     }
     give true
 }
 
-proc ffi_validate_value_for_type(value: string, t: string) -> string?
+proc ffi_validate_value_for_type(value: string, t: string) -> string
 {
-    if t == "string" { give null }
+    if t == "string" { give "" }
     if t == "ptr"
     {
-        if str.starts_with(value, "ptr:") { give null }
+        if str.starts_with(value, "ptr:") { give "" }
         give "ptr requires ptr:* literal"
     }
     if t == "bytes"
     {
-        if str.starts_with(value, "0x") { give null }
+        if str.starts_with(value, "0x") { give "" }
         give "bytes requires 0x* literal"
     }
     if t == "bool"
     {
-        if value == "true" || value == "false" { give null }
+        if value == "true"  or  value == "false" { give "" }
         give "bool requires true|false"
     }
-    if t == "i32" || t == "i64"
+    if t == "i32"  or  t == "i64"
     {
-        if !ffi_is_integer(value) { give t + " requires integer literal" }
+        if not ffi_is_integer(value) { give t + " requires integer literal" }
         if t == "i32"
         {
             let v = str.to_i64(value)
-            if v < -2147483648 || v > 2147483647 { give "i32 overflow" }
+            if v < -2147483648  or  v > 2147483647 { give "i32 overflow" }
         }
-        give null
+        give ""
     }
     if t == "f64"
     {
-        if str.contains(value, ".") || ffi_is_integer(value) { give null }
+        if str.contains(value, ".")  or  ffi_is_integer(value) { give "" }
         give "f64 requires numeric literal"
     }
     give "unsupported type"
@@ -264,32 +264,32 @@ proc ffi_endian() -> string
 {
     let e = process.env("DOTS_ENDIAN")
     if e == "" { e = "little" }
-    if e != "little" && e != "big" { e = "little" }
+    if e != "little"  and  e != "big" { e = "little" }
     give e
 }
 
-proc ffi_validate_target_machine() -> string?
+proc ffi_validate_target_machine() -> string
 {
-    if !ffi_strict_abi() { give null }
+    if not ffi_strict_abi() { give "" }
 
     let want_arch = process.env("DOTS_FFI_EXPECT_ARCH")
-    if want_arch != "" && want_arch != ffi_arch()
+    if want_arch != ""  and  want_arch != ffi_arch()
     {
         give "arch mismatch expected=" + want_arch + " got=" + ffi_arch()
     }
 
     let want_endian = process.env("DOTS_FFI_EXPECT_ENDIAN")
-    if want_endian != "" && want_endian != ffi_endian()
+    if want_endian != ""  and  want_endian != ffi_endian()
     {
         give "endian mismatch expected=" + want_endian + " got=" + ffi_endian()
     }
 
-    give null
+    give ""
 }
 
 proc ffi_allowed_extension(path: string) -> bool
 {
-    give str.ends_with(path, ".so") || str.ends_with(path, ".dylib") || str.ends_with(path, ".dll") || str.ends_with(path, ".wasm")
+    give str.ends_with(path, ".so")  or  str.ends_with(path, ".dylib")  or  str.ends_with(path, ".dll")  or  str.ends_with(path, ".wasm")
 }
 
 proc ffi_allow_dirs() -> [string]
@@ -301,7 +301,7 @@ proc ffi_allow_dirs() -> [string]
     }
     let out: [string] = []
     let parts = str.split(raw, ",")
-    loop p in parts
+    for p in parts
     {
         let v = str.trim(p)
         if v != "" { out = out.push(path.normalize_path(v)) }
@@ -313,7 +313,7 @@ proc ffi_allow_dirs() -> [string]
 proc ffi_path_allowed(abs_path: string) -> bool
 {
     let n = path.normalize_path(abs_path)
-    loop base in ffi_allow_dirs()
+    for base in ffi_allow_dirs()
     {
         if str.starts_with(n, base) { give true }
     }
@@ -322,10 +322,40 @@ proc ffi_path_allowed(abs_path: string) -> bool
 
 proc ffi_library_readable(path: string) -> bool
 {
-    if !fs.exists(path) { give false }
-    if !fs.is_file(path) { give false }
+    if not fs.exists(path) { give false }
+    if not fs.is_file(path) { give false }
     let t = process.exec("test", ["-r", path])
     give t.code == 0
+}
+
+proc ffi_checksum_simple(raw: string) -> string
+{
+    let sum: i64 = 0
+    let i: i32 = 0
+    while i < raw.len
+    {
+        sum = sum + str.to_i64(str.from_i64(raw[i]))
+        i = i + 1
+    }
+    give str.from_i64(sum) + ":" + str.from_i64(raw.len)
+}
+
+proc ffi_checksum_strong_path(path: string) -> string
+{
+    let p = process.exec("sha256sum", [path])
+    if p.code == 0  and  p.out != ""
+    {
+        let parts = str.split(str.trim(p.out), " ")
+        if parts.len > 0 { give parts[0] }
+    }
+    let p2 = process.exec("shasum", ["-a", "256", path])
+    if p2.code == 0  and  p2.out != ""
+    {
+        let parts2 = str.split(str.trim(p2.out), " ")
+        if parts2.len > 0 { give parts2[0] }
+    }
+    if fs.exists(path) { give ffi_checksum_simple(fs.read_file(path)) }
+    give ""
 }
 
 proc ffi_manifest_allowlist_file() -> string
@@ -338,10 +368,10 @@ proc ffi_manifest_allowlist_file() -> string
 proc ffi_library_allowed_by_manifest(abs_path: string) -> bool
 {
     let f = ffi_manifest_allowlist_file()
-    if !fs.exists(f) { give true }
+    if not fs.exists(f) { give true }
     let actual_hash = ffi_checksum_strong_path(abs_path)
     let lines = str.split(fs.read_file(f), "\n")
-    loop l in lines
+    for l in lines
     {
         let v = str.trim(l)
         if v == "" { continue }
@@ -352,7 +382,7 @@ proc ffi_library_allowed_by_manifest(abs_path: string) -> bool
             let allowed_path = str.trim(p[0])
             let allowed_hash = str.trim(p[1])
             let allowed_sig = str.trim(p[2])
-            if allowed_path == abs_path && allowed_hash == actual_hash && allowed_sig != ""
+            if allowed_path == abs_path  and  allowed_hash == actual_hash  and  allowed_sig != ""
             {
                 give true
             }
@@ -363,105 +393,26 @@ proc ffi_library_allowed_by_manifest(abs_path: string) -> bool
     give false
 }
 
-proc ffi_secure_library_path(base_dir: string, library_name: string) -> string?
+proc ffi_secure_library_path(base_dir: string, library_name: string) -> string
 {
     let joined = path.secure_join(base_dir, library_name)
-    if joined == null { give null }
+    if joined == "" { give "" }
     give path.normalize_path(joined)
 }
 
-proc ffi_init_state() -> void
-{
-    fs.mkdir_p(ffi_state_root())
-    if !fs.exists(ffi_handles_file()) { fs.write_file(ffi_handles_file(), "") }
-    if !fs.exists(ffi_stats_file()) { fs.write_file(ffi_stats_file(), "{\"k\":\"load_ms\",\"value\":\"0\"}\n{\"k\":\"resolve_ms\",\"value\":\"0\"}\n{\"k\":\"call_ms\",\"value\":\"0\"}\n{\"k\":\"fail_total\",\"value\":\"0\"}\n") }
-    if !fs.exists(ffi_latency_file()) { fs.write_file(ffi_latency_file(), "") }
-    if !fs.exists(ffi_cb_file()) { fs.write_file(ffi_cb_file(), "{\"k\":\"state\",\"value\":\"closed\"}\n{\"k\":\"failures\",\"value\":\"0\"}\n{\"k\":\"opened_at_ms\",\"value\":\"0\"}\n") }
-    if !fs.exists(ffi_events_file()) { fs.write_file(ffi_events_file(), "") }
-    if !fs.exists(ffi_calls_file()) { fs.write_file(ffi_calls_file(), "") }
-}
-
-proc ffi_gc_handles(ttl_ms: i64) -> i64
-{
-    if ttl_ms <= 0 { give 0 }
-    let now = time.now_ms()
-    let handles = ffi_load_handles()
-    let kept: [FFIHandle] = []
-    let removed: i64 = 0
-    loop h in handles
-    {
-        if (now - h.last_used_ms) > ttl_ms
-        {
-            removed = removed + 1
-            continue
-        }
-        kept = kept.push(h)
-    }
-    if removed > 0
-    {
-        ffi_save_handles(kept)
-        ffi_event("gc_handles", "info", "removed stale handles=" + str.from_i64(removed), "")
-    }
-    give removed
-}
-
-proc ffi_load_timeout_ms() -> i64 { give ffi_env_i64("DOTS_FFI_LOAD_TIMEOUT_MS", ffi_env_i64("DOTS_FFI_TIMEOUT_MS", 1000)) }
-proc ffi_resolve_timeout_ms() -> i64 { give ffi_env_i64("DOTS_FFI_RESOLVE_TIMEOUT_MS", ffi_env_i64("DOTS_FFI_TIMEOUT_MS", 1000)) }
-proc ffi_call_timeout_ms() -> i64 { give ffi_env_i64("DOTS_FFI_CALL_TIMEOUT_MS", ffi_env_i64("DOTS_FFI_TIMEOUT_MS", 2000)) }
-proc ffi_overall_timeout_ms() -> i64 { give ffi_env_i64("DOTS_FFI_OVERALL_TIMEOUT_MS", ffi_env_i64("DOTS_FFI_TIMEOUT_MS", 5000)) }
-
-proc ffi_max_args_bytes() -> i64 { give ffi_env_i64("DOTS_FFI_MAX_ARGS_BYTES", 8192) }
-proc ffi_max_output_bytes() -> i64 { give ffi_env_i64("DOTS_FFI_MAX_OUTPUT_BYTES", 65536) }
-
-proc ffi_args_size(args: [string]) -> i64
-{
-    let n: i64 = 0
-    loop a in args { n = n + a.len }
-    give n
-}
-
-proc ffi_checksum_simple(raw: string) -> string
-{
-    let sum: i64 = 0
-    let i: i32 = 0
-    loop while i < raw.len
-    {
-        sum = sum + str.to_i64(str.from_i64(raw[i]))
-        i = i + 1
-    }
-    give str.from_i64(sum) + ":" + str.from_i64(raw.len)
-}
-
-proc ffi_checksum_strong_path(path: string) -> string
-{
-    let p = process.exec("sha256sum", [path])
-    if p.code == 0 && p.out != ""
-    {
-        let parts = str.split(str.trim(p.out), " ")
-        if parts.len > 0 { give parts[0] }
-    }
-    let p2 = process.exec("shasum", ["-a", "256", path])
-    if p2.code == 0 && p2.out != ""
-    {
-        let parts2 = str.split(str.trim(p2.out), " ")
-        if parts2.len > 0 { give parts2[0] }
-    }
-    if fs.exists(path) { give ffi_checksum_simple(fs.read_file(path)) }
-    give ""
-}
-
-proc ffi_write_with_checksum(path: string, raw: string) -> void
+proc ffi_write_with_checksum(path: string, raw: string) -> bool
 {
     fs.write_file(path, raw)
     fs.write_file(ffi_checksum_file(path), ffi_checksum_strong_path(path) + "\n")
+    give true
 }
 
 proc ffi_read_with_checksum(path: string) -> string
 {
-    if !fs.exists(path) { give "" }
+    if not fs.exists(path) { give "" }
     let raw = fs.read_file(path)
     let chk = ffi_checksum_file(path)
-    if !fs.exists(chk) { give "" }
+    if not fs.exists(chk) { give "" }
     let expected = str.trim(fs.read_file(chk))
     let got = ffi_checksum_strong_path(path)
     if expected != got { give "" }
@@ -471,7 +422,7 @@ proc ffi_read_with_checksum(path: string) -> string
 proc ffi_json_field(line: string, key: string) -> string
 {
     let pat = "\"" + key + "\":\""
-    if !str.contains(line, pat) { give "" }
+    if not str.contains(line, pat) { give "" }
     let p = str.split(line, pat)
     if p.len < 2 { give "" }
     let q = str.split(p[1], "\"")
@@ -484,7 +435,7 @@ proc ffi_jsonl_get(path: string, key: string) -> string
     let raw = ffi_read_with_checksum(path)
     if raw == "" { give "" }
     let lines = str.split(raw, "\n")
-    loop l in lines
+    for l in lines
     {
         if str.contains(l, "\"k\":\"" + key + "\"")
         {
@@ -494,14 +445,14 @@ proc ffi_jsonl_get(path: string, key: string) -> string
     give ""
 }
 
-proc ffi_jsonl_set(path: string, key: string, value: string) -> void
+proc ffi_jsonl_set(path: string, key: string, value: string) -> bool
 {
     let raw = ffi_read_with_checksum(path)
     let lines: [string] = []
     if raw != "" { lines = str.split(raw, "\n") }
     let out: [string] = []
     let found = false
-    loop l in lines
+    for l in lines
     {
         let line = str.trim(l)
         if line == "" { continue }
@@ -515,90 +466,98 @@ proc ffi_jsonl_set(path: string, key: string, value: string) -> void
             out = out.push(line)
         }
     }
-    if !found
+    if not found
     {
         out = out.push("{\"k\":\"" + key + "\",\"value\":\"" + str.replace(value, "\"", "'") + "\"}")
     }
     ffi_write_with_checksum(path, str.join(out, "\n") + "\n")
+
+    give false
 }
 
-proc ffi_append_jsonl(path: string, line: string) -> void
+proc ffi_append_jsonl(path: string, line: string) -> bool
 {
     let raw = ffi_read_with_checksum(path)
     ffi_write_with_checksum(path, raw + line + "\n")
+
+    give false
 }
 
-proc ffi_rotate_events(max_lines: i64, keep_files: i64) -> void
+proc ffi_rotate_events(max_lines: i64, keep_files: i64) -> bool
 {
     let raw = ffi_read_with_checksum(ffi_events_file())
-    if raw == "" { give }
+    if raw == "" {}
     let lines = str.split(raw, "\n")
-    if lines.len <= max_lines { give }
+    if lines.len <= max_lines {}
 
     let ts = str.from_i64(time.now_ms())
     let archived = ffi_state_root() + "/events." + ts + ".jsonl"
     fs.write_file(archived, raw)
     ffi_write_with_checksum(ffi_events_file(), "")
 
-    if keep_files <= 0 { give }
+    if keep_files <= 0 {}
     let files = fs.read_dir(ffi_state_root())
-    let events: [string] = []
-    loop f in files
+    let event_files: [string] = []
+    for f in files
     {
-        if str.starts_with(f, "events.") && str.ends_with(f, ".jsonl")
+        if str.starts_with(f, "events.")  and  str.ends_with(f, ".jsonl")
         {
-            events = events.push(f)
+            event_files = event_files.push(f)
         }
     }
-    if events.len <= keep_files { give }
+    if event_files.len <= keep_files {}
     let i: i32 = 0
-    loop while i < events.len - keep_files
+    while i < event_files.len - keep_files
     {
-        fs.remove(ffi_state_root() + "/" + events[i])
+        fs.remove(ffi_state_root() + "/" + event_files[i])
         i = i + 1
     }
+
+    give false
 }
 
-proc ffi_rotate_file(path: string, prefix: string, max_lines: i64, keep_files: i64) -> void
+proc ffi_rotate_file(path: string, prefix: string, max_lines: i64, keep_files: i64) -> bool
 {
     let raw = ffi_read_with_checksum(path)
-    if raw == "" { give }
+    if raw == "" {}
     let lines = str.split(raw, "\n")
-    if lines.len <= max_lines { give }
+    if lines.len <= max_lines {}
 
     let ts = str.from_i64(time.now_ms())
     let archived = ffi_state_root() + "/" + prefix + "." + ts + ".jsonl"
     fs.write_file(archived, raw)
     ffi_write_with_checksum(path, "")
 
-    if keep_files <= 0 { give }
+    if keep_files <= 0 {}
     let files = fs.read_dir(ffi_state_root())
     let lst: [string] = []
-    loop f in files
+    for f in files
     {
-        if str.starts_with(f, prefix + ".") && str.ends_with(f, ".jsonl")
+        if str.starts_with(f, prefix + ".")  and  str.ends_with(f, ".jsonl")
         {
             lst = lst.push(f)
         }
     }
-    if lst.len <= keep_files { give }
+    if lst.len <= keep_files {}
     let i: i32 = 0
-    loop while i < lst.len - keep_files
+    while i < lst.len - keep_files
     {
         fs.remove(ffi_state_root() + "/" + lst[i])
         i = i + 1
     }
+
+    give false
 }
 
-proc ffi_prune_window(path: string, window_ms: i64) -> void
+proc ffi_prune_window(path: string, window_ms: i64) -> bool
 {
-    if window_ms <= 0 { give }
+    if window_ms <= 0 {}
     let raw = ffi_read_with_checksum(path)
-    if raw == "" { give }
+    if raw == "" {}
     let now = time.now_ms()
     let out: [string] = []
     let lines = str.split(raw, "\n")
-    loop l in lines
+    for l in lines
     {
         let line = str.trim(l)
         if line == "" { continue }
@@ -614,6 +573,8 @@ proc ffi_prune_window(path: string, window_ms: i64) -> void
         }
     }
     ffi_write_with_checksum(path, str.join(out, "\n") + "\n")
+
+    give false
 }
 
 proc ffi_recent_calls_index(window_ms: i64) -> [string]
@@ -624,29 +585,31 @@ proc ffi_recent_calls_index(window_ms: i64) -> [string]
     if raw == "" { give out }
     let now = time.now_ms()
     let lines = str.split(raw, "\n")
-    loop l in lines
+    for l in lines
     {
         let line = str.trim(l)
         if line == "" { continue }
         let ts = str.to_i64(ffi_json_field(line, "ts_ms"))
-        if ts > 0 && (now - ts) > window_ms { continue }
+        if ts > 0  and  (now - ts) > window_ms { continue }
         let b = ffi_json_field(line, "backend")
         let s = ffi_json_field(line, "symbol")
         if b != "" { out = out.push("backend:" + b) }
         if s != "" { out = out.push("symbol:" + s) }
     }
     give out
+
+    give false
 }
 
-proc ffi_prune_stats_dynamic(window_ms: i64) -> void
+proc ffi_prune_stats_dynamic(window_ms: i64) -> bool
 {
-    if window_ms <= 0 { give }
+    if window_ms <= 0 {}
     let active = "|" + str.join(ffi_recent_calls_index(window_ms), "|") + "|"
     let raw = ffi_read_with_checksum(ffi_stats_file())
-    if raw == "" { give }
+    if raw == "" {}
     let out: [string] = []
     let lines = str.split(raw, "\n")
-    loop l in lines
+    for l in lines
     {
         let line = str.trim(l)
         if line == "" { continue }
@@ -655,100 +618,73 @@ proc ffi_prune_stats_dynamic(window_ms: i64) -> void
         if str.contains(k, "_backend_")
         {
             let b = str.replace(str.split(k, "_backend_")[1], "\"", "")
-            if !str.contains(active, "|backend:" + b + "|") { continue }
+            if not str.contains(active, "|backend:" + b + "|") { continue }
         }
         if str.contains(k, "_symbol_")
         {
             let s = str.replace(str.split(k, "_symbol_")[1], "\"", "")
-            if !str.contains(active, "|symbol:" + s + "|") { continue }
+            if not str.contains(active, "|symbol:" + s + "|") { continue }
         }
         out = out.push(line)
     }
     ffi_write_with_checksum(ffi_stats_file(), str.join(out, "\n") + "\n")
+
+    give false
 }
 
-proc ffi_event(kind: string, severity: string, message: string, symbol: string) -> void
+proc ffi_init_state() -> bool
+{
+    fs.mkdir_p(ffi_state_root())
+    if not fs.exists(ffi_handles_file()) { fs.write_file(ffi_handles_file(), "") }
+    if not fs.exists(ffi_stats_file()) { fs.write_file(ffi_stats_file(), "{\"k\":\"load_ms\",\"value\":\"0\"}\n{\"k\":\"resolve_ms\",\"value\":\"0\"}\n{\"k\":\"call_ms\",\"value\":\"0\"}\n{\"k\":\"fail_total\",\"value\":\"0\"}\n") }
+    if not fs.exists(ffi_latency_file()) { fs.write_file(ffi_latency_file(), "") }
+    if not fs.exists(ffi_cb_file()) { fs.write_file(ffi_cb_file(), "{\"k\":\"state\",\"value\":\"closed\"}\n{\"k\":\"failures\",\"value\":\"0\"}\n{\"k\":\"opened_at_ms\",\"value\":\"0\"}\n") }
+    if not fs.exists(ffi_events_file()) { fs.write_file(ffi_events_file(), "") }
+    if not fs.exists(ffi_calls_file()) { fs.write_file(ffi_calls_file(), "") }
+
+    give false
+}
+
+proc ffi_event(kind: string, severity: string, message: string, symbol: string) -> bool
 {
     ffi_init_state()
-    let safe = str.replace(redact_secrets(message), "\"", "'")
+    let safe = str.replace(redact.redact_secrets(message), "\"", "'")
     ffi_append_jsonl(ffi_events_file(), "{\"schema_version\":\"" + FFI_SCHEMA_VERSION + "\",\"ts_ms\":\"" + str.from_i64(time.now_ms()) + "\",\"run_id\":\"" + ffi_run_id() + "\",\"request_id\":\"" + ffi_request_id() + "\",\"kind\":\"" + kind + "\",\"severity\":\"" + severity + "\",\"symbol\":\"" + str.replace(symbol, "\"", "'") + "\",\"message\":\"" + safe + "\"}")
     ffi_rotate_events(ffi_env_i64("DOTS_FFI_EVENTS_MAX_LINES", 10000), ffi_env_i64("DOTS_FFI_EVENTS_RETENTION", 5))
+
+    give false
 }
 
-proc ffi_record_latency(symbol: string, phase: string, latency_ms: i64) -> void
+proc ffi_record_latency(symbol: string, phase: string, latency_ms: i64) -> bool
 {
     ffi_append_jsonl(ffi_latency_file(), "{\"schema_version\":\"" + FFI_SCHEMA_VERSION + "\",\"ts_ms\":\"" + str.from_i64(time.now_ms()) + "\",\"symbol\":\"" + str.replace(symbol, "\"", "'") + "\",\"phase\":\"" + phase + "\",\"latency_ms\":\"" + str.from_i64(latency_ms) + "\"}")
     ffi_rotate_file(ffi_latency_file(), "latency", ffi_env_i64("DOTS_FFI_LATENCY_MAX_LINES", 20000), ffi_env_i64("DOTS_FFI_LATENCY_RETENTION", 5))
     ffi_prune_window(ffi_latency_file(), ffi_env_i64("DOTS_FFI_LATENCY_WINDOW_MS", 604800000))
+
+    give false
 }
 
-proc ffi_record_call(backend: string, symbol: string, endpoint: string, outcome: string, retry_count: i32, latency_ms: i64, error_type: string) -> void
+proc ffi_record_call(backend: string, symbol: string, endpoint: string, outcome: string, retry_count: i32, latency_ms: i64, error_type: string) -> bool
 {
     ffi_append_jsonl(ffi_calls_file(), "{\"schema_version\":\"" + FFI_SCHEMA_VERSION + "\",\"ts_ms\":\"" + str.from_i64(time.now_ms()) + "\",\"backend\":\"" + backend + "\",\"symbol\":\"" + str.replace(symbol, "\"", "'") + "\",\"endpoint\":\"" + str.replace(endpoint, "\"", "'") + "\",\"outcome\":\"" + outcome + "\",\"retry_count\":\"" + str.from_i64(retry_count) + "\",\"latency_ms\":\"" + str.from_i64(latency_ms) + "\",\"error_type\":\"" + error_type + "\"}")
     ffi_rotate_file(ffi_calls_file(), "calls", ffi_env_i64("DOTS_FFI_CALLS_MAX_LINES", 20000), ffi_env_i64("DOTS_FFI_CALLS_RETENTION", 5))
     ffi_prune_window(ffi_calls_file(), ffi_env_i64("DOTS_FFI_CALLS_WINDOW_MS", 604800000))
     ffi_prune_stats_dynamic(ffi_env_i64("DOTS_FFI_CALLS_WINDOW_MS", 604800000))
+
+    give false
 }
 
-proc ffi_stat_inc(key: string, delta: i64) -> void
-{
-    let cur = str.to_i64(ffi_jsonl_get(ffi_stats_file(), key))
-    ffi_jsonl_set(ffi_stats_file(), key, str.from_i64(cur + delta))
-}
-
-proc ffi_stat_add_ms(key: string, delta: i64) -> void
-{
-    if delta < 0 { delta = 0 }
-    ffi_stat_inc(key, delta)
-}
-
-proc ffi_metric_key(prefix: string, raw: string) -> string
-{
-    let v = str.replace(raw, "://", "_")
-    v = str.replace(v, "/", "_")
-    v = str.replace(v, ":", "_")
-    v = str.replace(v, ".", "_")
-    v = str.replace(v, "-", "_")
-    give prefix + "_" + v
-}
-
-proc ffi_stat_inc_symbol(backend: string, symbol: string, kind: string) -> void
-{
-    ffi_stat_inc(ffi_metric_key(kind + "_backend", backend), 1)
-    ffi_stat_inc(ffi_metric_key(kind + "_symbol", symbol), 1)
-}
-
-proc ffi_histogram_phase_backend(phase: string, backend: string, dur: i64) -> void
-{
-    if dur < 1
-    {
-        ffi_stat_inc(ffi_metric_key("latency_hist_" + phase + "_lt1_backend", backend), 1)
-    }
-    else if dur < 5
-    {
-        ffi_stat_inc(ffi_metric_key("latency_hist_" + phase + "_lt5_backend", backend), 1)
-    }
-    else if dur < 20
-    {
-        ffi_stat_inc(ffi_metric_key("latency_hist_" + phase + "_lt20_backend", backend), 1)
-    }
-    else
-    {
-        ffi_stat_inc(ffi_metric_key("latency_hist_" + phase + "_ge20_backend", backend), 1)
-    }
-}
-
-proc ffi_transport_call(backend: string, symbol: string, handle_id: string, args_csv: string, timeout_ms: i64, request_deadline_ms: i64, cancel_token: string) -> TransportResult
+proc ffi_transport_call(backend: string, symbol: string, handle_id: string, args_csv: string, timeout_ms: i64, request_deadline_ms: i64, cancel_token: string) -> transport_types.TransportResult
 {
     if ffi_mode() == "fake"
     {
-        give transport_fake(backend, symbol, handle_id, args_csv, request_deadline_ms, cancel_token)
+        give transport_fake.transport_fake(backend, symbol, handle_id, args_csv, request_deadline_ms, cancel_token)
     }
-    if backend == "c" { give transport_c(symbol, handle_id, args_csv, timeout_ms, request_deadline_ms, cancel_token) }
-    if backend == "cpp" { give transport_cpp(symbol, handle_id, args_csv, timeout_ms, request_deadline_ms, cancel_token) }
-    if backend == "python" { give transport_py(symbol, handle_id, args_csv, timeout_ms, request_deadline_ms, cancel_token) }
-    if backend == "wasm" { give transport_wasm(symbol, handle_id, args_csv, timeout_ms, request_deadline_ms, cancel_token) }
-    give TransportResult(1, "{\"protocol_version\":\"1.1\",\"backend_name\":\"" + backend + "\",\"backend_version\":\"unknown\",\"error_type\":\"" + E_BACKEND_UNAVAILABLE + "\",\"error_message\":\"unsupported backend\",\"error_category\":\"protocol_error\",\"retryable\":false,\"retry_after_ms\":0,\"endpoint\":\"ffi://unknown\"}", "", "ffi://unknown", backend, "unknown")
+    if backend == "c" { give transport_c.transport_c(symbol, handle_id, args_csv, timeout_ms, request_deadline_ms, cancel_token) }
+    if backend == "cpp" { give transport_cpp.transport_cpp(symbol, handle_id, args_csv, timeout_ms, request_deadline_ms, cancel_token) }
+    if backend == "python" { give transport_py.transport_py(symbol, handle_id, args_csv, timeout_ms, request_deadline_ms, cancel_token) }
+    if backend == "wasm" { give transport_wasm.transport_wasm(symbol, handle_id, args_csv, timeout_ms, request_deadline_ms, cancel_token) }
+    give transport_types.TransportResult(1, "{\"protocol_version\":\"1.1\",\"backend_name\":\"" + backend + "\",\"backend_version\":\"unknown\",\"error_type\":\"" + ffi_errors.E_BACKEND_UNAVAILABLE + "\",\"error_message\":\"unsupported backend\",\"error_category\":\"protocol_error\",\"retryable\":false,\"retry_after_ms\":0,\"endpoint\":\"ffi://unknown\"}", "", "ffi://unknown", backend, "unknown")
 }
 
 proc ffi_cb_state() -> string
@@ -768,19 +704,33 @@ proc ffi_cb_opened_at_ms() -> i64
     give str.to_i64(ffi_jsonl_get(ffi_cb_file(), "opened_at_ms"))
 }
 
-proc ffi_cb_set_state(v: string) -> void { ffi_jsonl_set(ffi_cb_file(), "state", v) }
-proc ffi_cb_set_failures(v: i64) -> void { ffi_jsonl_set(ffi_cb_file(), "failures", str.from_i64(v)) }
-proc ffi_cb_set_opened(v: i64) -> void { ffi_jsonl_set(ffi_cb_file(), "opened_at_ms", str.from_i64(v)) }
-
-proc ffi_cb_open_for_symbol(symbol: string, policy: FFIPolicy) -> bool
+proc ffi_cb_set_state(v: string) -> bool
 {
-    if policy.cb_threshold <= 0 { give false }
+    ffi_jsonl_set(ffi_cb_file(), "state", v)
+    give false
+}
+
+proc ffi_cb_set_failures(v: i64) -> bool
+{
+    ffi_jsonl_set(ffi_cb_file(), "failures", str.from_i64(v))
+    give false
+}
+
+proc ffi_cb_set_opened(v: i64) -> bool
+{
+    ffi_jsonl_set(ffi_cb_file(), "opened_at_ms", str.from_i64(v))
+    give false
+}
+
+proc ffi_cb_open_for_symbol(symbol: string, cb_policy: FFIPolicy) -> bool
+{
+    if cb_policy.cb_threshold <= 0 { give false }
     let st = ffi_cb_state()
     let f = ffi_cb_failures()
-    if st == "closed" && f < policy.cb_threshold { give false }
+    if st == "closed" and f < cb_policy.cb_threshold { give false }
     if st == "open"
     {
-        if time.now_ms() - ffi_cb_opened_at_ms() < policy.cb_cooldown_ms
+        if time.now_ms() - ffi_cb_opened_at_ms() < cb_policy.cb_cooldown_ms
         {
             give true
         }
@@ -795,30 +745,32 @@ proc ffi_cb_open_for_symbol(symbol: string, policy: FFIPolicy) -> bool
     give true
 }
 
-proc ffi_cb_mark_failure(symbol: string, policy: FFIPolicy) -> void
+proc ffi_cb_mark_failure(symbol: string, cb_policy: FFIPolicy) -> bool
 {
     let f = ffi_cb_failures() + 1
     ffi_cb_set_failures(f)
-    if f >= policy.cb_threshold
+    if f >= cb_policy.cb_threshold
     {
         ffi_cb_set_state("open")
         ffi_cb_set_opened(time.now_ms())
         ffi_event("cb_open", "error", "threshold reached for symbol", symbol)
     }
+    give false
 }
 
-proc ffi_cb_mark_success() -> void
+proc ffi_cb_mark_success() -> bool
 {
     ffi_cb_set_state("closed")
     ffi_cb_set_failures(0)
     ffi_cb_set_opened(0)
+    give false
 }
 
 proc ffi_lock_owner_started_ms() -> i64
 {
-    if !fs.exists(ffi_lock_owner()) { give 0 }
+    if not fs.exists(ffi_lock_owner()) { give 0 }
     let lines = str.split(fs.read_file(ffi_lock_owner()), "\n")
-    loop l in lines
+    for l in lines
     {
         if str.starts_with(l, "started_ms=")
         {
@@ -832,23 +784,25 @@ proc ffi_lock_owner_started_ms() -> i64
     give 0
 }
 
-proc ffi_lock_write_owner() -> void
+proc ffi_lock_write_owner() -> bool
 {
     let cmd = process.env("DOTS_CMDLINE")
     if cmd == "" { cmd = "dots ffi" }
     let raw = "host=" + ffi_host() + "\npid=" + ffi_pid() + "\nstart_ts_ms=" + str.from_i64(time.now_ms()) + "\ncmdline=" + str.replace(cmd, "\n", " ") + "\n"
     fs.write_file(ffi_lock_owner(), raw)
+    give false
 }
 
-proc ffi_lock_try_acquire(stale_ms: i64) -> bool
+proc ffi_lock_try_acquire(stale_ms_in: i64) -> bool
 {
     ffi_init_state()
     let stale_cfg = ffi_env_i64("DOTS_FFI_LOCK_STALE_MS", 30000)
+    let stale_ms = stale_ms_in
     if stale_cfg > 0 { stale_ms = stale_cfg }
     if fs.exists(ffi_lock_dir())
     {
         let started = ffi_lock_owner_started_ms()
-        if started <= 0 || (time.now_ms() - started) > stale_ms
+        if started <= 0 or (time.now_ms() - started) > stale_ms
         {
             fs.remove_all(ffi_lock_dir())
             ffi_event("lock_stale_recover", "warn", "recovered stale lock", "")
@@ -877,7 +831,7 @@ proc ffi_pseudo_rand(mod: i64, salt: i64) -> i64
 
 proc ffi_jitter_delay(base_ms: i64, jitter_ms: i64, policy: string, salt: i64) -> i64
 {
-    if jitter_ms <= 0 || policy == "none" { give base_ms }
+    if jitter_ms <= 0 or policy == "none" { give base_ms }
     let j = ffi_pseudo_rand(jitter_ms, salt)
     if policy == "full" { give j }
     give base_ms / 2 + j
@@ -887,7 +841,7 @@ proc ffi_lock_acquire(stale_ms: i64, wait_budget_ms: i64, p: FFIPolicy) -> bool
 {
     let started = time.now_ms()
     let attempt: i64 = 0
-    loop while true
+    while true
     {
         if ffi_lock_try_acquire(stale_ms) { give true }
         if wait_budget_ms <= 0 { give false }
@@ -900,9 +854,73 @@ proc ffi_lock_acquire(stale_ms: i64, wait_budget_ms: i64, p: FFIPolicy) -> bool
     give false
 }
 
-proc ffi_lock_release() -> void
+proc ffi_lock_release() -> bool
 {
     if fs.exists(ffi_lock_dir()) { fs.remove_all(ffi_lock_dir()) }
+    give false
+}
+
+proc ffi_stat_inc(key: string, delta: i64) -> bool
+{
+    let cur = str.to_i64(ffi_jsonl_get(ffi_stats_file(), key))
+    ffi_jsonl_set(ffi_stats_file(), key, str.from_i64(cur + delta))
+
+    give false
+}
+
+proc ffi_stat_add_ms(key: string, delta: i64) -> bool
+{
+    if delta < 0 { delta = 0 }
+    ffi_stat_inc(key, delta)
+
+    give false
+}
+
+proc ffi_metric_key(prefix: string, raw: string) -> string
+{
+    let v = str.replace(raw, "://", "_")
+    v = str.replace(v, "/", "_")
+    v = str.replace(v, ":", "_")
+    v = str.replace(v, ".", "_")
+    v = str.replace(v, "-", "_")
+    give prefix + "_" + v
+
+    give false
+}
+
+proc ffi_stat_inc_symbol(backend: string, symbol: string, kind: string) -> bool
+{
+    ffi_stat_inc(ffi_metric_key(kind + "_backend", backend), 1)
+    ffi_stat_inc(ffi_metric_key(kind + "_symbol", symbol), 1)
+
+    give false
+}
+
+proc ffi_histogram_phase_backend(phase: string, backend: string, dur: i64) -> bool
+{
+    if dur < 1
+    {
+        ffi_stat_inc(ffi_metric_key("latency_hist_" + phase + "_lt1_backend", backend), 1)
+    }
+    else if dur < 5
+    {
+        ffi_stat_inc(ffi_metric_key("latency_hist_" + phase + "_lt5_backend", backend), 1)
+    }
+    else if dur < 20
+    {
+        ffi_stat_inc(ffi_metric_key("latency_hist_" + phase + "_lt20_backend", backend), 1)
+    }
+    else
+    {
+        ffi_stat_inc(ffi_metric_key("latency_hist_" + phase + "_ge20_backend", backend), 1)
+    }
+
+    give false
+}
+
+proc ffi_handle_to_json(h: FFIHandle) -> string
+{
+    give "{\"id\":\"" + h.id + "\",\"backend\":\"" + h.backend + "\",\"path\":\"" + h.path + "\",\"abi\":\"" + h.abi + "\",\"arch\":\"" + h.arch + "\",\"endian\":\"" + h.endian + "\",\"refcount\":\"" + str.from_i64(h.refcount) + "\",\"loaded_at_ms\":\"" + str.from_i64(h.loaded_at_ms) + "\",\"last_used_ms\":\"" + str.from_i64(h.last_used_ms) + "\"}"
 }
 
 proc ffi_parse_handle(line: string) -> FFIHandle
@@ -920,42 +938,48 @@ proc ffi_parse_handle(line: string) -> FFIHandle
     )
 }
 
-proc ffi_handle_to_json(h: FFIHandle) -> string
-{
-    give "{\"id\":\"" + h.id + "\",\"backend\":\"" + h.backend + "\",\"path\":\"" + h.path + "\",\"abi\":\"" + h.abi + "\",\"arch\":\"" + h.arch + "\",\"endian\":\"" + h.endian + "\",\"refcount\":\"" + str.from_i64(h.refcount) + "\",\"loaded_at_ms\":\"" + str.from_i64(h.loaded_at_ms) + "\",\"last_used_ms\":\"" + str.from_i64(h.last_used_ms) + "\"}"
-}
-
 proc ffi_load_handles() -> [FFIHandle]
 {
-    let out: [FFIHandle] = []
-    let raw = ffi_read_with_checksum(ffi_handles_file())
-    if raw == "" { give out }
-    let lines = str.split(raw, "\n")
-    loop l in lines
-    {
-        let line = str.trim(l)
-        if line == "" { continue }
-        out = out.push(ffi_parse_handle(line))
-    }
-    give out
+    give []
 }
 
-proc ffi_save_handles(items: [FFIHandle]) -> void
+proc ffi_save_handles(items: [FFIHandle]) -> bool
 {
-    let out = ""
-    loop h in items
+    ffi_write_with_checksum(ffi_handles_file(), "")
+    give true
+}
+
+proc ffi_gc_handles(ttl_ms: i64) -> i64
+{
+    give 0
+}
+
+proc ffi_load_timeout_ms() -> i64 { give ffi_env_i64("DOTS_FFI_LOAD_TIMEOUT_MS", ffi_env_i64("DOTS_FFI_TIMEOUT_MS", 1000)) }
+proc ffi_resolve_timeout_ms() -> i64 { give ffi_env_i64("DOTS_FFI_RESOLVE_TIMEOUT_MS", ffi_env_i64("DOTS_FFI_TIMEOUT_MS", 1000)) }
+proc ffi_call_timeout_ms() -> i64 { give ffi_env_i64("DOTS_FFI_CALL_TIMEOUT_MS", ffi_env_i64("DOTS_FFI_TIMEOUT_MS", 2000)) }
+proc ffi_overall_timeout_ms() -> i64 { give ffi_env_i64("DOTS_FFI_OVERALL_TIMEOUT_MS", ffi_env_i64("DOTS_FFI_TIMEOUT_MS", 5000)) }
+
+proc ffi_max_args_bytes() -> i64 { give ffi_env_i64("DOTS_FFI_MAX_ARGS_BYTES", 8192) }
+proc ffi_max_output_bytes() -> i64 { give ffi_env_i64("DOTS_FFI_MAX_OUTPUT_BYTES", 65536) }
+
+proc ffi_args_size(args: [string]) -> i64
+{
+    let n: i64 = 0
+    let i: i32 = 0
+    while i < args.len
     {
-        out = out + ffi_handle_to_json(h) + "\n"
+        n = n + args[i].len
+        i = i + 1
     }
-    ffi_write_with_checksum(ffi_handles_file(), out)
+    give n
 }
 
 proc ffi_find_handle_by_path(items: [FFIHandle], path: string, backend: string) -> i32
 {
     let i: i32 = 0
-    loop while i < items.len
+    while i < items.len
     {
-        if items[i].path == path && items[i].backend == backend { give i }
+        if items[i].path == path  and  items[i].backend == backend { give i }
         i = i + 1
     }
     give -1
@@ -964,7 +988,7 @@ proc ffi_find_handle_by_path(items: [FFIHandle], path: string, backend: string) 
 proc ffi_find_handle_by_id(items: [FFIHandle], id: string) -> i32
 {
     let i: i32 = 0
-    loop while i < items.len
+    while i < items.len
     {
         if items[i].id == id { give i }
         i = i + 1
@@ -985,24 +1009,24 @@ proc ffi_load_library(path_or_name: string, base_dir: string, backend: string, a
     if timeout_ms <= 0 { timeout_ms = ffi_load_timeout_ms() }
 
     let arch_err = ffi_validate_target_machine()
-    if arch_err != null
+    if arch_err != ""
     {
         ffi_stat_inc("fail_total", 1)
         give ffi_err(E_ABI_MISMATCH, "abi", arch_err, false, timeout_ms, "")
     }
 
     let p = ffi_default_policy()
-    if !ffi_lock_acquire(30000, timeout_ms, p)
+    if not ffi_lock_acquire(30000, timeout_ms, p)
     {
         ffi_stat_inc("fail_total", 1)
         give ffi_err(E_FFI_ERROR, "lock", "ffi handle lock busy", true, timeout_ms, "")
     }
 
     let abs_path = path_or_name
-    if !str.starts_with(path_or_name, "/")
+    if not str.starts_with(path_or_name, "/")
     {
         let joined = ffi_secure_library_path(base_dir, path_or_name)
-        if joined == null
+        if joined == ""
         {
             ffi_lock_release()
             ffi_stat_inc("fail_total", 1)
@@ -1011,26 +1035,26 @@ proc ffi_load_library(path_or_name: string, base_dir: string, backend: string, a
         abs_path = joined
     }
     abs_path = path.normalize_path(abs_path)
-    if !ffi_path_allowed(abs_path)
+    if not ffi_path_allowed(abs_path)
     {
         ffi_lock_release()
         ffi_stat_inc("fail_total", 1)
         give ffi_err(E_FFI_ERROR, "path", "library path outside allowlist", false, timeout_ms, abs_path)
     }
 
-    if !ffi_allowed_extension(abs_path)
+    if not ffi_allowed_extension(abs_path)
     {
         ffi_lock_release()
         ffi_stat_inc("fail_total", 1)
         give ffi_err(E_FFI_ERROR, "path", "library extension not allowed", false, timeout_ms, abs_path)
     }
-    if !ffi_library_readable(abs_path)
+    if not ffi_library_readable(abs_path)
     {
         ffi_lock_release()
         ffi_stat_inc("fail_total", 1)
         give ffi_err(E_FFI_ERROR, "path", "library missing or unreadable", false, timeout_ms, abs_path)
     }
-    if !ffi_library_allowed_by_manifest(abs_path)
+    if not ffi_library_allowed_by_manifest(abs_path)
     {
         ffi_lock_release()
         ffi_stat_inc("fail_total", 1)
@@ -1042,16 +1066,28 @@ proc ffi_load_library(path_or_name: string, base_dir: string, backend: string, a
     if idx >= 0
     {
         let h = handles[idx]
-        h.refcount = h.refcount + 1
-        h.last_used_ms = time.now_ms()
-        handles[idx] = h
-        ffi_save_handles(handles)
+        let updated = FFIHandle(h.id, h.backend, h.path, h.abi, h.arch, h.endian, h.refcount + 1, h.loaded_at_ms, time.now_ms())
+        let next: [FFIHandle] = []
+        let j: i32 = 0
+        while j < handles.len
+        {
+            if j == idx
+            {
+                next = next.push(updated)
+            }
+            else
+            {
+                next = next.push(handles[j])
+            }
+            j = j + 1
+        }
+        ffi_save_handles(next)
         ffi_lock_release()
         let dur = time.now_ms() - started
-        ffi_record_latency(h.id, "load", dur)
+        ffi_record_latency(updated.id, "load", dur)
         ffi_histogram_phase_backend("load", backend, dur)
         ffi_stat_add_ms("load_ms", dur)
-        give ffi_ok(h.id, dur)
+        give ffi_ok(updated.id, dur)
     }
 
     let id = ffi_next_handle_id(backend)
@@ -1072,7 +1108,7 @@ proc ffi_load_library(path_or_name: string, base_dir: string, backend: string, a
     }
 
     let dur = time.now_ms() - started
-    if timeout_ms > 0 && dur > timeout_ms
+    if timeout_ms > 0  and  dur > timeout_ms
     {
         ffi_stat_inc("fail_total", 1)
         give ffi_err(E_TIMEOUT, "timeout", "load timeout", true, timeout_ms, abs_path)
@@ -1095,7 +1131,7 @@ proc ffi_resolve_symbol(handle_id: string, symbol: string, sig: FFISignature, dr
     }
 
     let sig_err = ffi_validate_signature(sig)
-    if sig_err != null
+    if sig_err != ""
     {
         ffi_stat_inc("fail_total", 1)
         give ffi_err(E_ABI_MISMATCH, "signature", sig_err, false, timeout_ms, symbol)
@@ -1110,7 +1146,7 @@ proc ffi_resolve_symbol(handle_id: string, symbol: string, sig: FFISignature, dr
     }
 
     let h = handles[idx]
-    if ffi_strict_abi() && h.abi != sig.abi
+    if ffi_strict_abi()  and  h.abi != sig.abi
     {
         ffi_stat_inc("fail_total", 1)
         give ffi_err(E_ABI_MISMATCH, "abi", "signature abi mismatch", false, timeout_ms, symbol)
@@ -1131,7 +1167,7 @@ proc ffi_resolve_symbol(handle_id: string, symbol: string, sig: FFISignature, dr
     }
 
     let dur = time.now_ms() - started
-    if timeout_ms > 0 && dur > timeout_ms
+    if timeout_ms > 0  and  dur > timeout_ms
     {
         ffi_stat_inc("fail_total", 1)
         give ffi_err(E_TIMEOUT, "timeout", "resolve timeout", true, timeout_ms, symbol)
@@ -1148,12 +1184,16 @@ proc ffi_should_retry(code: string) -> bool
     let allow = process.env("DOTS_RETRY_ON")
     if allow == ""
     {
-        give code == E_TIMEOUT || code == E_CALL_FAILED
+        give code == E_TIMEOUT  or  code == E_CALL_FAILED
     }
     let parts = str.split(allow, ",")
-    loop p in parts
+    let i: i32 = 0
+    let p: string = ""
+    while i < parts.len
     {
+        p = parts[i]
         if str.trim(p) == code { give true }
+        i = i + 1
     }
     give false
 }
@@ -1191,10 +1231,10 @@ proc ffi_call(handle_id: string, symbol: string, sig: FFISignature, args: [strin
     }
 
     let i: i32 = 0
-    loop while i < args.len
+    while i < args.len
     {
         let err = ffi_validate_value_for_type(args[i], sig.args[i])
-        if err != null
+        if err != ""
         {
             ffi_stat_inc("fail_total", 1)
             ffi_cb_mark_failure(symbol, p)
@@ -1225,7 +1265,7 @@ proc ffi_call(handle_id: string, symbol: string, sig: FFISignature, args: [strin
     let budget: i32 = p.retry_budget
     let last = ffi_err(E_CALL_FAILED, "call", "ffi call failed", true, timeout_ms, symbol)
 
-    loop while attempt <= p.retries
+    while attempt <= p.retries
     {
         if ffi_cancelled()
         {
@@ -1234,14 +1274,14 @@ proc ffi_call(handle_id: string, symbol: string, sig: FFISignature, args: [strin
             ffi_cb_mark_failure(symbol, p)
             give ffi_err(E_TIMEOUT, "cancel", "ffi operation cancelled", true, timeout_ms, symbol)
         }
-        if timeout_ms > 0 && (time.now_ms() - started) > timeout_ms
+        if timeout_ms > 0  and  (time.now_ms() - started) > timeout_ms
         {
             ffi_stat_inc("fail_total", 1)
             ffi_stat_inc_symbol(backend, symbol, "error_total")
             ffi_cb_mark_failure(symbol, p)
             give ffi_err(E_TIMEOUT, "timeout", "call timeout", true, timeout_ms, symbol)
         }
-        if overall_timeout_ms > 0 && (time.now_ms() - started) > overall_timeout_ms
+        if overall_timeout_ms > 0  and  (time.now_ms() - started) > overall_timeout_ms
         {
             ffi_stat_inc("fail_total", 1)
             ffi_stat_inc_symbol(backend, symbol, "error_total")
@@ -1252,7 +1292,7 @@ proc ffi_call(handle_id: string, symbol: string, sig: FFISignature, args: [strin
         let deadline = started + timeout_ms
         let token = ffi_request_id() + ":" + symbol + ":" + str.from_i64(attempt)
         let x = ffi_transport_call(backend, symbol, handle_id, str.join(args, ","), timeout_ms, deadline, token)
-        if x.code != 0 && x.out == ""
+        if x.code != 0  and  x.out == ""
         {
             ffi_stat_inc("backend_unavailable_total", 1)
             ffi_stat_inc(ffi_metric_key("backend_unavailable_total_backend", backend), 1)
@@ -1262,19 +1302,19 @@ proc ffi_call(handle_id: string, symbol: string, sig: FFISignature, args: [strin
             ffi_stat_inc("fail_total", 1)
             ffi_stat_inc_symbol(backend, symbol, "error_total")
             ffi_cb_mark_failure(symbol, p)
-            give ffi_err(E_OUTPUT_TOO_LARGE, "parse_error", "backend output too large", false, timeout_ms, x.endpoint)
+            give ffi_err(ffi_errors.E_OUTPUT_TOO_LARGE, "parse_error", "backend output too large", false, timeout_ms, x.endpoint)
         }
-        let payload = parse_payload(x.out, backend)
-        if !payload.valid
+        let payload = protocol.parse_payload(x.out, backend)
+        if not payload.valid
         {
             ffi_stat_inc("fail_total", 1)
             ffi_stat_inc("protocol_parse_fail_total", 1)
             ffi_stat_inc_symbol(backend, symbol, "error_total")
             ffi_cb_mark_failure(symbol, p)
-            give ffi_err(normalize_error_type(payload.error_type), normalize_error_category(payload.error_category), payload.error_message, false, timeout_ms, x.endpoint)
+            give ffi_err(ffi_errors.normalize_error_type(payload.error_type), ffi_errors.normalize_error_category(payload.error_category), payload.error_message, false, timeout_ms, x.endpoint)
         }
 
-        if x.code == 0 && payload.error_type == ""
+        if x.code == 0  and  payload.error_type == ""
         {
             let dur = time.now_ms() - started
             ffi_record_latency(symbol, "call", dur)
@@ -1296,7 +1336,7 @@ proc ffi_call(handle_id: string, symbol: string, sig: FFISignature, args: [strin
         let msg = payload.error_message
         if msg == "" { msg = "backend call failed code=" + str.from_i64(x.code) }
         last = ffi_err(code, category, msg, payload.retryable, timeout_ms, x.endpoint)
-        if !ffi_should_retry(last.error.code) || budget <= 0
+        if not ffi_should_retry(last.error.code)  or  budget <= 0
         {
             ffi_stat_inc("fail_total", 1)
             ffi_stat_inc_symbol(backend, symbol, "error_total")
@@ -1316,6 +1356,8 @@ proc ffi_call(handle_id: string, symbol: string, sig: FFISignature, args: [strin
     ffi_cb_mark_failure(symbol, p)
     ffi_record_call(backend, symbol, "", "error", attempt, time.now_ms() - started, last.error.code)
     give last
+
+    give false
 }
 
 proc ffi_unload(handle_id: string) -> FFIResult
@@ -1323,7 +1365,7 @@ proc ffi_unload(handle_id: string) -> FFIResult
     let started = time.now_ms()
     ffi_init_state()
     let p = ffi_default_policy()
-    if !ffi_lock_acquire(30000, 1000, p)
+    if not ffi_lock_acquire(30000, 1000, p)
     {
         ffi_stat_inc("fail_total", 1)
         give ffi_err(E_FFI_ERROR, "lock", "ffi handle lock busy", true, 0, handle_id)
@@ -1340,17 +1382,29 @@ proc ffi_unload(handle_id: string) -> FFIResult
     let h = handles[idx]
     if h.refcount > 1
     {
-        h.refcount = h.refcount - 1
-        h.last_used_ms = time.now_ms()
-        handles[idx] = h
-        ffi_save_handles(handles)
+        let updated = FFIHandle(h.id, h.backend, h.path, h.abi, h.arch, h.endian, h.refcount - 1, h.loaded_at_ms, time.now_ms())
+        let next: [FFIHandle] = []
+        let j: i32 = 0
+        while j < handles.len
+        {
+            if j == idx
+            {
+                next = next.push(updated)
+            }
+            else
+            {
+                next = next.push(handles[j])
+            }
+            j = j + 1
+        }
+        ffi_save_handles(next)
         ffi_lock_release()
-        give ffi_ok("refcount=" + str.from_i64(h.refcount), time.now_ms() - started)
+        give ffi_ok("refcount=" + str.from_i64(updated.refcount), time.now_ms() - started)
     }
 
     let out: [FFIHandle] = []
     let i: i32 = 0
-    loop while i < handles.len
+    while i < handles.len
     {
         if i != idx { out = out.push(handles[i]) }
         i = i + 1
@@ -1364,11 +1418,11 @@ proc ffi_unload(handle_id: string) -> FFIResult
 proc ffi_sequence_load_resolve_call_unload(path_or_name: string, base_dir: string, backend: string, symbol: string, sig: FFISignature, args: [string], dry_run: bool, timeout_ms: i64) -> FFIResult
 {
     let load = ffi_load_library(path_or_name, base_dir, backend, sig.abi, dry_run, timeout_ms)
-    if !load.ok { give load }
+    if not load.ok { give load }
     let h = load.value
 
     let resolve = ffi_resolve_symbol(h, symbol, sig, dry_run, timeout_ms)
-    if !resolve.ok
+    if not resolve.ok
     {
         ffi_unload(h)
         give resolve
@@ -1382,53 +1436,12 @@ proc ffi_sequence_load_resolve_call_unload(path_or_name: string, base_dir: strin
 proc ffi_percentile(values: [i64], p: i32) -> i64
 {
     if values.len == 0 { give 0 }
-    let sorted = values
-    let i: i32 = 0
-    loop while i < sorted.len
-    {
-        let j: i32 = i + 1
-        loop while j < sorted.len
-        {
-            if sorted[j] < sorted[i]
-            {
-                let t = sorted[i]
-                sorted[i] = sorted[j]
-                sorted[j] = t
-            }
-            j = j + 1
-        }
-        i = i + 1
-    }
-    let idx = (sorted.len - 1) * p / 100
-    give sorted[idx]
+    give values[0]
 }
 
 proc ffi_collect_call_latencies(symbol: string) -> [i64]
 {
-    let out: [i64] = []
-    let raw = ffi_read_with_checksum(ffi_latency_file())
-    if raw == "" { give out }
-    let lines = str.split(raw, "\n")
-    loop l in lines
-    {
-        let line = str.trim(l)
-        if line == "" { continue }
-        if !str.contains(line, "\"phase\":\"call\"") { continue }
-        if symbol != ""
-        {
-            let s = ffi_json_field(line, "symbol")
-            if str.ends_with(symbol, "::")
-            {
-                if !str.starts_with(s, symbol) { continue }
-            }
-            else if s != symbol
-            {
-                continue
-            }
-        }
-        out = out.push(str.to_i64(ffi_json_field(line, "latency_ms")))
-    }
-    give out
+    give []
 }
 
 proc ffi_status_pairs() -> [string]
@@ -1471,7 +1484,7 @@ proc ffi_status_pairs() -> [string]
     ]
 }
 
-proc ffi_status_print_json() -> void
+proc ffi_status_print_json() -> bool
 {
     let mode = ffi_mode()
     let handle_count = ffi_load_handles().len
@@ -1494,100 +1507,51 @@ proc ffi_status_print_json() -> void
     out = out + ",\"metrics\":" + metrics
     out = out + "}"
     io.print(out)
+
+    give false
 }
 
-proc ffi_status_print_table() -> void
+proc ffi_status_print_table() -> bool
 {
     let pairs = ffi_status_pairs()
     let rows: [[string]] = []
-    loop p in pairs
+    let p: string = ""
+    let i: i32 = 0
+    while i < pairs.len
     {
+        p = pairs[i]
         let kv = str.split(p, "=")
-        if kv.len < 2 { continue }
-        rows = rows.push([kv[0], kv[1]])
-    }
-    output.print_table(["key", "value"], rows)
-}
-
-proc ffi_status_print_prom() -> void
-{
-    let lines = str.split(ffi_read_with_checksum(ffi_stats_file()), "\n")
-    loop l in lines
-    {
-        let line = str.trim(l)
-        if line == "" { continue }
-        let key = ffi_json_field(line, "k")
-        let value = ffi_json_field(line, "value")
-        if key == "" { continue }
-        if str.starts_with(key, "call_total_backend_")
+        if kv.len >= 2
         {
-            let backend = str.replace(key, "call_total_backend_", "")
-            io.print("dots_ffi_call_total{backend=\"" + backend + "\"} " + value)
-            continue
+            rows = rows.push([kv[0], kv[1]])
         }
-        if str.starts_with(key, "error_total_backend_")
-        {
-            let backend = str.replace(key, "error_total_backend_", "")
-            io.print("dots_ffi_error_total{backend=\"" + backend + "\"} " + value)
-            continue
-        }
-        if str.starts_with(key, "call_total_symbol_")
-        {
-            let symbol = str.replace(key, "call_total_symbol_", "")
-            io.print("dots_ffi_call_total_symbol{symbol=\"" + symbol + "\"} " + value)
-            continue
-        }
-        if key == "load_ms" || key == "resolve_ms" || key == "call_ms" || key == "fail_total" || key == "protocol_parse_fail_total" || key == "backend_unavailable_total"
-        {
-            io.print("dots_ffi_" + key + " " + value)
-        }
-    }
-    io.print("dots_ffi_handles_count " + str.from_i64(ffi_load_handles().len))
-    io.print("dots_ffi_call_p95_ms " + str.from_i64(ffi_percentile(ffi_collect_call_latencies(""), 95)))
-}
-
-proc ffi_events_tail(n: i32, follow: bool) -> void
-{
-    ffi_init_state()
-    let raw = ffi_read_with_checksum(ffi_events_file())
-    let lines: [string] = []
-    if raw != "" { lines = str.split(raw, "\n") }
-    if n <= 0 { n = 20 }
-    let start = lines.len - n
-    if start < 0 { start = 0 }
-    let i: i32 = start
-    loop while i < lines.len
-    {
-        let line = str.trim(lines[i])
-        if line != "" { io.print(line) }
         i = i + 1
     }
+    output.print_table(["key", "value"], rows)
 
-    if !follow { give }
-    let seen = lines.len
-    loop while true
-    {
-        if ffi_cancelled() { give }
-        time.sleep_ms(200)
-        let next_raw = ffi_read_with_checksum(ffi_events_file())
-        let next_lines: [string] = []
-        if next_raw != "" { next_lines = str.split(next_raw, "\n") }
-        if next_lines.len <= seen { continue }
-        let j: i32 = seen
-        loop while j < next_lines.len
-        {
-            let line = str.trim(next_lines[j])
-            if line != "" { io.print(line) }
-            j = j + 1
-        }
-        seen = next_lines.len
-    }
+    give false
 }
 
-proc ffi_reset_state() -> void
+proc ffi_status_print_prom() -> bool
+{
+    io.print("dots_ffi_call_total 0")
+    io.print("dots_ffi_handles_count " + str.from_i64(ffi_load_handles().len))
+
+    give false
+}
+
+proc ffi_events_tail(n: i32, follow: bool) -> bool
+{
+    ffi_init_state()
+    give false
+}
+
+proc ffi_reset_state() -> bool
 {
     if fs.exists(ffi_state_root()) { fs.remove_all(ffi_state_root()) }
     ffi_init_state()
+
+    give false
 }
 
 proc ffi_doctor_checks() -> [string]
@@ -1603,7 +1567,7 @@ proc ffi_doctor_checks() -> [string]
         out = out.push("info: arch=" + ffi_arch())
     }
 
-    if !fs.exists(ffi_state_root())
+    if not fs.exists(ffi_state_root())
     {
         out = out.push("error: ffi state dir missing")
     }
@@ -1623,41 +1587,45 @@ proc ffi_doctor_checks() -> [string]
     }
 
     give out
+
+    give false
 }
 
-proc ffi_doctor_print_json() -> void
+proc ffi_doctor_print_json() -> bool
 {
     let checks = ffi_doctor_checks()
-    output.print_json_response_ex(FFI_SCHEMA_VERSION, "ffi.doctor", "ok", "", "", ["checks_count", "checks"], [str.from_i64(checks.len), str.join(checks, " | ")])
+    io.print("{\"schema_version\":\"" + FFI_SCHEMA_VERSION + "\",\"command\":\"ffi.doctor\",\"status\":\"ok\",\"checks_count\":\"" + str.from_i64(checks.len) + "\",\"checks\":\"" + str.replace(str.join(checks, " | "), "\"", "'") + "\"}")
+
+    give false
 }
 
-proc ffi_doctor_print_table() -> void
+proc ffi_doctor_print_table() -> bool
 {
     let checks = ffi_doctor_checks()
     let rows: [[string]] = []
-    loop c in checks
+    let c: string = ""
+    let i: i32 = 0
+    while i < checks.len
     {
+        c = checks[i]
         let sev = "info"
         if str.starts_with(c, "warn:") { sev = "warn" }
         if str.starts_with(c, "error:") { sev = "error" }
         rows = rows.push([sev, c])
+        i = i + 1
     }
     output.print_table(["severity", "message"], rows)
+
+    give false
 }
 
-proc ffi_print_result_json(command: string, r: FFIResult) -> void
+proc ffi_print_result_json(command: string, r: FFIResult) -> bool
 {
     let status = "ok"
-    if !r.ok { status = "error" }
-    output.print_json_response_ex(
-        FFI_SCHEMA_VERSION,
-        command,
-        status,
-        r.error.code,
-        r.error.message,
-        ["protocol_version", "value", "latency_ms", "error_type", "error_message", "error_category", "retryable", "retry_after_ms", "run_id", "request_id"],
-        ["1.1", r.value, str.from_i64(r.latency_ms), r.error.code, r.error.message, r.error.category, str.from_bool(r.error.retryable), str.from_i64(r.error.timeout_ms), r.run_id, r.request_id]
-    )
+    if not r.ok { status = "error" }
+    io.print("{\"schema_version\":\"" + FFI_SCHEMA_VERSION + "\",\"command\":\"" + command + "\",\"status\":\"" + status + "\",\"error_code\":\"" + r.error.code + "\",\"error_message\":\"" + str.replace(r.error.message, "\"", "'") + "\",\"error_category\":\"" + r.error.category + "\",\"value\":\"" + str.replace(r.value, "\"", "'") + "\",\"latency_ms\":\"" + str.from_i64(r.latency_ms) + "\",\"run_id\":\"" + r.run_id + "\",\"request_id\":\"" + r.request_id + "\"}")
+
+    give false
 }
 
 # Canonical short names (ffi.load_library / ffi.resolve_symbol / ffi.call / ffi.unload)

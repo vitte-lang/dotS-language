@@ -1,6 +1,6 @@
 space runtime/vm/optimizer
 
-pull runtime/vm/opcode
+use runtime/vm/opcode
 
 proc optimize(code: [string]) -> [string]
 {
@@ -10,7 +10,7 @@ proc optimize(code: [string]) -> [string]
     while i < code.len
     {
         let n = opcode.normalize(code[i])
-        if n == opcode.OP_NOP && prev == opcode.OP_NOP
+        if n == opcode.OP_NOP  and  prev == opcode.OP_NOP
         {
             i = i + 1
             continue

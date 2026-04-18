@@ -1,21 +1,21 @@
 space ffi/wasm/wasm_loader
 
-pull core/fs
-pull core/str
-pull ffi/c/ffi
+use core/fs
+use core/str
+use ffi/c/ffi
 
-proc wasm_validate_file(path: string) -> string?
+proc wasm_validate_file(path: string) -> string
 {
-    if !str.ends_with(path, ".wasm") { give "wasm file must end with .wasm" }
-    if !fs.exists(path) { give "wasm file not found: " + path }
-    if !fs.is_file(path) { give "wasm path is not a file: " + path }
-    give null
+    if not str.ends_with(path, ".wasm") { give "wasm file must end with .wasm" }
+    if not fs.exists(path) { give "wasm file not found: " + path }
+    if not fs.is_file(path) { give "wasm path is not a file: " + path }
+    give ""
 }
 
-proc wasm_validate_exports(exports_csv: string) -> string?
+proc wasm_validate_exports(exports_csv: string) -> string
 {
     let parts = str.split(exports_csv, ",")
-    loop p in parts
+    for p in parts
     {
         let name = str.trim(p)
         if name == "" { continue }
@@ -24,16 +24,16 @@ proc wasm_validate_exports(exports_csv: string) -> string?
             give "invalid export name: " + name
         }
     }
-    give null
+    give ""
 }
 
 proc wasm_load(path_or_name: string, base_dir: string, exports_csv: string, dry_run: bool, timeout_ms: i64) -> FFIResult
 {
     let file = path_or_name
-    if !str.starts_with(path_or_name, "/")
+    if not str.starts_with(path_or_name, "/")
     {
         let joined = ffi_secure_library_path(base_dir, path_or_name)
-        if joined == null
+        if joined == ""
         {
             give ffi_err(E_FFI_ERROR, "path", "path traversal rejected", false, timeout_ms, path_or_name)
         }
@@ -41,13 +41,13 @@ proc wasm_load(path_or_name: string, base_dir: string, exports_csv: string, dry_
     }
 
     let err = wasm_validate_file(file)
-    if err != null
+    if err != ""
     {
         give ffi_err(E_FFI_ERROR, "wasm_loader", err, false, timeout_ms, file)
     }
 
     let exp_err = wasm_validate_exports(exports_csv)
-    if exp_err != null
+    if exp_err != ""
     {
         give ffi_err(E_SYMBOL_NOT_FOUND, "wasm_loader", exp_err, false, timeout_ms, file)
     }

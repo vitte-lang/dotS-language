@@ -1,9 +1,9 @@
 space ffi/cpp/binding
 
-pull core/str
-pull core/process
-pull ffi/c/ffi
-pull ffi/c/symbol
+use core/str
+use core/process
+use ffi/c/ffi
+use ffi/c/symbol
 
 proc cpp_default_abi() -> string
 {

@@ -1,6 +1,6 @@
 space runtime/memory/object
 
-pull core/str
+use core/str
 
 form Object
 {
@@ -16,7 +16,7 @@ proc new(id: i64, type_name: string) -> Object
 
 proc is_valid(o: Object) -> bool
 {
-    give o.id >= 0 && o.type_name != ""
+    give o.id >= 0  and  o.type_name != ""
 }
 
 proc label(o: Object) -> string

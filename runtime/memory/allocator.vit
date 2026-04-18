@@ -1,8 +1,8 @@
 space runtime/memory/allocator
 
-pull runtime/common/config
-pull runtime/common/metrics
-pull runtime/common/result
+use runtime/common/config
+use runtime/common/metrics
+use runtime/common/result
 
 form Quota
 {
@@ -34,7 +34,7 @@ proc alloc(a: Allocator, bytes: i64) -> (Allocator, result.RuntimeResult)
     a.used_heap = a.used_heap + bytes
     a.used_objects = a.used_objects + 1
 
-    if a.used_heap > a.quota.heap_hard || a.used_objects > a.quota.object_hard
+    if a.used_heap > a.quota.heap_hard  or  a.used_objects > a.quota.object_hard
     {
         a.alloc_fail_total = a.alloc_fail_total + 1
         metrics.inc_errors("memory.alloc", result.E_OOM)

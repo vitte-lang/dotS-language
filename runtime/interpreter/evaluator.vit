@@ -1,8 +1,8 @@
 space runtime/interpreter/evaluator
 
-pull runtime/common/result
-pull runtime/interpreter/frame
-pull runtime/interpreter/dispatch
+use runtime/common/result
+use runtime/interpreter/frame
+use runtime/interpreter/dispatch
 
 proc evaluate(route: dispatch.Dispatch, fr: frame.Frame) -> result.RuntimeResult
 {

@@ -1,11 +1,11 @@
 space runtime/memory/gc
 
-pull core/time
-pull core/str
-pull runtime/common/config
-pull runtime/common/metrics
-pull runtime/memory/gc_mark
-pull runtime/memory/gc_sweep
+use core/time
+use core/str
+use runtime/common/config
+use runtime/common/metrics
+use runtime/memory/gc_mark
+use runtime/memory/gc_sweep
 
 form GcState
 {
@@ -27,32 +27,33 @@ proc collect(g: GcState, live_bytes: i64) -> GcState
     let start = time.now_ms()
     let mark_start = time.now_ms()
     let mark = gc_mark.plan(live_bytes)
-    g.mark_ms_last = time.now_ms() - mark_start
+    let mark_ms_last = time.now_ms() - mark_start
     let sweep_start = time.now_ms()
     let sweep = gc_sweep.plan(live_bytes)
-    g.sweep_ms_last = time.now_ms() - sweep_start
-    g.collections_total = g.collections_total + 1
-    g.live_bytes = sweep.survivors
-    g.pause_ms_last = time.now_ms() - start
+    let sweep_ms_last = time.now_ms() - sweep_start
+    let collections_total = g.collections_total + 1
+    let live_bytes_next = sweep.survivors
+    let pause_ms_last = time.now_ms() - start
+    let next = GcState(collections_total, pause_ms_last, live_bytes_next, mark_ms_last, sweep_ms_last)
 
-    if g.pause_ms_last > cfg.gc_stw_timeout_ms
+    if next.pause_ms_last > cfg.gc_stw_timeout_ms
     {
         metrics.inc_errors("gc.collect", "STW_TIMEOUT")
     }
 
-    metrics.append_metric("gc_pause_ms", g.pause_ms_last, "phase=collect")
-    metrics.append_metric("gc_mark_ms", g.mark_ms_last, "phase=mark")
-    metrics.append_metric("gc_sweep_ms", g.sweep_ms_last, "phase=sweep")
-    metrics.append_metric("gc_collections_total", g.collections_total, "")
-    metrics.append_metric("gc_live_bytes", g.live_bytes, "")
-    metrics.append_metric("gc_pause_ms_bucket", g.pause_ms_last, "le=10")
-    metrics.append_metric("gc_pause_ms_bucket", g.pause_ms_last, "le=50")
-    metrics.append_metric("gc_pause_ms_bucket", g.pause_ms_last, "le=200")
+    metrics.append_metric("gc_pause_ms", next.pause_ms_last, "phase=collect")
+    metrics.append_metric("gc_mark_ms", next.mark_ms_last, "phase=mark")
+    metrics.append_metric("gc_sweep_ms", next.sweep_ms_last, "phase=sweep")
+    metrics.append_metric("gc_collections_total", next.collections_total, "")
+    metrics.append_metric("gc_live_bytes", next.live_bytes, "")
+    metrics.append_metric("gc_pause_ms_bucket", next.pause_ms_last, "le=10")
+    metrics.append_metric("gc_pause_ms_bucket", next.pause_ms_last, "le=50")
+    metrics.append_metric("gc_pause_ms_bucket", next.pause_ms_last, "le=200")
     metrics.append_metric("gc_roots_scanned", mark.roots_scanned, "")
     metrics.append_metric("gc_objects_marked", mark.objects_marked, "")
     metrics.append_metric("gc_released_bytes", sweep.released_bytes, "")
     metrics.append_metric("gc_sweep_candidates", sweep.candidates, "")
-    give g
+    give next
 }
 
 proc write_barrier(obj_id: i64, name: string) -> bool

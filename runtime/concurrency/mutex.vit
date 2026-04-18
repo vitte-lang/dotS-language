@@ -1,14 +1,14 @@
 space runtime/concurrency/mutex
 
-pull core/str
-pull core/time
-pull runtime/common/result
-pull runtime/common/cancel
-pull runtime/common/metrics
-pull runtime/common/config
-pull runtime/common/prng
-pull runtime/common/retry
-pull runtime/common/watchdog
+use core/str
+use core/time
+use runtime/common/result
+use runtime/common/cancel
+use runtime/common/metrics
+use runtime/common/config
+use runtime/common/prng
+use runtime/common/retry
+use runtime/common/watchdog
 
 form Mutex
 {
@@ -19,7 +19,7 @@ form Mutex
     wait_queue_len: i64
 }
 
-proc make(id: i64) -> Mutex
+proc new(id: i64) -> Mutex
 {
     give Mutex(id, -1, false, 0, 0)
 }
@@ -36,7 +36,7 @@ proc lock(m: Mutex, thread_id: i64, timeout_ms: i64, tok: cancel.CancelToken, se
     let start = time.now_ms()
     let wait_round: i64 = 0
 
-    loop while true
+    while true
     {
         if cancel.is_cancelled(tok)
         {
@@ -44,7 +44,7 @@ proc lock(m: Mutex, thread_id: i64, timeout_ms: i64, tok: cancel.CancelToken, se
             give (m, result.err(result.E_CANCELLED, "lock cancelled", false))
         }
 
-        if !m.locked
+        if not m.locked
         {
             m.locked = true
             m.owner_thread_id = thread_id
@@ -60,14 +60,14 @@ proc lock(m: Mutex, thread_id: i64, timeout_ms: i64, tok: cancel.CancelToken, se
         m.wait_queue_len = m.wait_queue_len + 1
         metrics.inc_ops("mutex.contention")
         metrics.append_metric("wait_queue_len", m.wait_queue_len, "mutex=" + str.from_i64(m.id))
-        if !retry.can_retry_connect(budget)
+        if not retry.can_retry_connect(budget)
         {
             metrics.inc_errors("mutex.lock", result.E_LOCK_BUSY)
             give (m, result.err(result.E_LOCK_BUSY, "retry budget exhausted", true))
         }
         budget = retry.consume_connect(budget)
 
-        if timeout_ms > 0 && time.now_ms() - start >= timeout_ms
+        if timeout_ms > 0  and  time.now_ms() - start >= timeout_ms
         {
             let wd = watchdog.trigger("mutex.lock.timeout id=" + str.from_i64(m.id))
             metrics.inc_errors("mutex.watchdog", wd.error.code)
@@ -87,7 +87,7 @@ proc lock(m: Mutex, thread_id: i64, timeout_ms: i64, tok: cancel.CancelToken, se
 
 proc unlock(m: Mutex, thread_id: i64) -> (Mutex, result.RuntimeResult)
 {
-    if !m.locked
+    if not m.locked
     {
         metrics.inc_errors("mutex.unlock", result.E_INVALID_STATE)
         give (m, result.err(result.E_INVALID_STATE, "mutex not locked", false))

@@ -1,6 +1,6 @@
 space runtime/memory/reference
 
-pull core/str
+use core/str
 
 form Ref
 {

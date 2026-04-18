@@ -1,7 +1,7 @@
 space lsp/formatting
 
-pull core/str
-pull dots/cmd/fmt
+use core/str
+use dots/cmd/fmt
 
 proc formatting_edits_json(text: string) -> string
 {
@@ -16,10 +16,10 @@ proc range_formatting_edits_json(text: string, start_line: i32, end_line: i32) -
     let lines = str.split(text, "\n")
     let out = ""
     let i: i32 = 0
-    loop while i < lines.len
+    while i < lines.len
     {
         let line = lines[i]
-        if i >= start_line && i <= end_line
+        if i >= start_line  and  i <= end_line
         {
             out = out + format_source(line) + "\n"
         }

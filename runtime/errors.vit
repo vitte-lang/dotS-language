@@ -15,7 +15,7 @@ const E_NOT_IMPLEMENTED: string = "NOT_IMPLEMENTED"
 
 proc retryable(code: string) -> bool
 {
-    give code == E_RUNTIME_TIMEOUT || code == E_LOCK_BUSY
+    give code == E_RUNTIME_TIMEOUT  or  code == E_LOCK_BUSY
 }
 
 proc exit_code(code: string) -> i32

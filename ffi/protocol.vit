@@ -1,11 +1,11 @@
 space ffi/protocol
 
-pull core/fs
-pull core/str
-pull core/time
-pull core/process
+use core/fs
+use core/str
+use core/time
+use core/process
 
-pull ffi/errors
+use ffi/errors as ffi_errors
 
 form ProtocolPayload
 {
@@ -31,7 +31,7 @@ proc protocol_version_max() -> string { give "1.1.0" }
 proc backend_protocol_compatible(backend: string, version: string) -> bool
 {
     if version == "" { give false }
-    if version == "1.1" || version == "1.1.0" { give true }
+    if version == "1.1"  or  version == "1.1.0" { give true }
     give false
 }
 
@@ -45,7 +45,7 @@ proc protocol_parser_bin() -> string
 proc protocol_parser_strict() -> bool
 {
     let s = process.env("DOTS_FFI_PROTOCOL_STRICT")
-    give s == "1" || s == "true"
+    give s == "1"  or  s == "true"
 }
 
 proc protocol_payload_max_in() -> i64
@@ -62,29 +62,28 @@ proc protocol_payload_max_out() -> i64
     give str.to_i64(v)
 }
 
-proc parse_bool_exact(raw: string) -> bool?
+proc parse_bool_exact(raw: string) -> string
 {
-    if raw == "true" { give true }
-    if raw == "false" { give false }
-    give null
+    if raw == "true" { give "true" }
+    if raw == "false" { give "false" }
+    give ""
 }
 
-proc parse_number_exact(raw: string) -> i64?
+proc parse_number_exact(raw: string) -> string
 {
-    if raw == "" { give null }
+    if raw == "" { give "" }
     let i: i32 = 0
-    loop while i < raw.len
+    while i < raw.len
     {
         let c = raw[i]
-        if i == 0 && c == 45
+        if i == 0  and  c == 45
         {
             i = i + 1
-            continue
         }
-        if c < 48 || c > 57 { give null }
+        else if c < 48  or  c > 57 { give "" }
         i = i + 1
     }
-    give str.to_i64(raw)
+    give raw
 }
 
 proc parse_key_values(raw: string) -> ProtocolPayload
@@ -102,120 +101,120 @@ proc parse_key_values(raw: string) -> ProtocolPayload
     let retryable_raw = ""
     let retry_after_raw = ""
 
-    let lines = str.split(raw, "\n")
-    loop l in lines
+    let lines: [string] = str.split(raw, "\n")
+    let l: string = ""
+    let line = ""
+    let p: [string] = []
+    let i: i32 = 0
+    while i < lines.len
     {
-        let line = str.trim(l)
-        if line == "" { continue }
-        let p = str.split(line, "=")
-        if p.len < 2 { continue }
-        let k = str.trim(p[0])
-        let v = str.trim(str.replace(line, k + "=", ""))
-        if k == "protocol_schema_version" { schema = v }
-        if k == "protocol_version" { proto = v }
-        if k == "backend_name" { backend_name = v }
-        if k == "backend_version" { backend_version = v }
-        if k == "value" { value = v }
-        if k == "count" { count_raw = v }
-        if k == "endpoint" { endpoint = v }
-        if k == "error_type" { error_type = v }
-        if k == "error_message" { error_message = v }
-        if k == "error_category" { error_category = v }
-        if k == "retryable" { retryable_raw = v }
-        if k == "retry_after_ms" { retry_after_raw = v }
+        l = lines[i]
+        line = str.trim(l)
+        if line != ""
+        {
+            p = str.split(line, "=")
+            if p.len >= 2
+            {
+                let k = str.trim(p[0])
+                let v = str.trim(str.replace(line, k + "=", ""))
+                if k == "protocol_schema_version" { schema = v }
+                if k == "protocol_version" { proto = v }
+                if k == "backend_name" { backend_name = v }
+                if k == "backend_version" { backend_version = v }
+                if k == "value" { value = v }
+                if k == "count" { count_raw = v }
+                if k == "endpoint" { endpoint = v }
+                if k == "error_type" { error_type = v }
+                if k == "error_message" { error_message = v }
+                if k == "error_category" { error_category = v }
+                if k == "retryable" { retryable_raw = v }
+                if k == "retry_after_ms" { retry_after_raw = v }
+            }
+        }
+        i = i + 1
     }
 
     if schema == "" { schema = protocol_schema_version() }
     if proto == ""
     {
-        give ProtocolPayload(false, schema, "", backend_name, backend_version, "", 0, endpoint, E_PROTOCOL_FIELD_MISSING, "missing protocol_version", "protocol_error", false, 0)
+        error_type = ffi_errors.E_PROTOCOL_FIELD_MISSING
+        error_message = "missing protocol_version"
+        error_category = "protocol_error"
     }
-    if !backend_protocol_compatible(backend_name, proto)
+    if error_type == "" and not backend_protocol_compatible(backend_name, proto)
     {
-        give ProtocolPayload(false, schema, proto, backend_name, backend_version, "", 0, endpoint, E_PROTOCOL_PARSE, "unsupported protocol_version", "protocol_error", false, 0)
+        error_type = ffi_errors.E_PROTOCOL_PARSE
+        error_message = "unsupported protocol_version"
+        error_category = "protocol_error"
     }
 
     if endpoint == ""
     {
-        give ProtocolPayload(false, schema, proto, backend_name, backend_version, "", 0, "", E_PROTOCOL_FIELD_MISSING, "missing endpoint", "protocol_error", false, 0)
+        error_type = ffi_errors.E_PROTOCOL_FIELD_MISSING
+        error_message = "missing endpoint"
+        error_category = "protocol_error"
     }
 
     let retryable = false
+    let retry_after = ""
+    let count = ""
+    let count_num: i32 = 0
+    let valid = true
+
     if retryable_raw != ""
     {
         let rb = parse_bool_exact(retryable_raw)
-        if rb == null
+        if rb == ""
         {
-            give ProtocolPayload(false, schema, proto, backend_name, backend_version, "", 0, endpoint, E_PROTOCOL_PARSE, "retryable must be bool", "parse_error", false, 0)
+            error_type = ffi_errors.E_PROTOCOL_PARSE
+            error_message = "retryable must be bool"
+            error_category = "parse_error"
+            valid = false
         }
-        retryable = rb
+        else
+        {
+            retryable = rb == "true"
+        }
     }
 
-    let retry_after = parse_number_exact(retry_after_raw)
-    if retry_after == null { retry_after = 0 }
-    if retry_after < 0
+    retry_after = parse_number_exact(retry_after_raw)
+    if retry_after == "" { retry_after = "0" }
+    if str.to_i64(retry_after) < 0
     {
-        retry_after = 0
+        retry_after = "0"
         if error_message == "" { error_message = "retry_after_ms negative; clamped" }
     }
 
     if error_type == ""
     {
-        # Success payload: count is mandatory.
         if count_raw == ""
         {
-            give ProtocolPayload(false, schema, proto, backend_name, backend_version, "", 0, endpoint, E_PROTOCOL_FIELD_MISSING, "missing count in success payload", "protocol_error", false, 0)
+            error_type = ffi_errors.E_PROTOCOL_FIELD_MISSING
+            error_message = "missing count in success payload"
+            error_category = "protocol_error"
+            valid = false
         }
-        let count = parse_number_exact(count_raw)
-        if count == null
+        else
         {
-            give ProtocolPayload(false, schema, proto, backend_name, backend_version, "", 0, endpoint, E_PROTOCOL_PARSE, "count must be number", "parse_error", false, 0)
+            count = parse_number_exact(count_raw)
+            if count == ""
+            {
+                error_type = ffi_errors.E_PROTOCOL_PARSE
+                error_message = "count must be number"
+                error_category = "parse_error"
+                valid = false
+            }
         }
-        give ProtocolPayload(true, schema, proto, backend_name, backend_version, value, count, endpoint, "", "", "", retryable, retry_after)
     }
 
     if error_message == "" { error_message = "backend error" }
     if error_category == "" { error_category = "protocol_error" }
-    give ProtocolPayload(true, schema, proto, backend_name, backend_version, value, 0, endpoint, error_type, error_message, error_category, retryable, retry_after)
+    valid = valid  and  error_type == ""
+    if valid { count_num = str.to_i32(count) }
+    give ProtocolPayload(valid, schema, proto, backend_name, backend_version, value, count_num, endpoint, error_type, error_message, error_category, retryable, str.to_i64(retry_after))
 }
 
 proc parse_payload(raw: string, backend: string) -> ProtocolPayload
 {
-    if raw == ""
-    {
-        give ProtocolPayload(false, protocol_schema_version(), "", backend, "", "", 0, "", E_PROTOCOL_PARSE, "empty payload", "parse_error", false, 0)
-    }
-    if raw.len > protocol_payload_max_in()
-    {
-        give ProtocolPayload(false, protocol_schema_version(), "", backend, "", "", 0, "", E_OUTPUT_TOO_LARGE, "payload too large", "parse_error", false, 0)
-    }
-
-    fs.mkdir_p(".dots/tmp")
-    let in_file = ".dots/tmp/ffi_protocol_in_" + str.from_i64(time.now_ms()) + ".json"
-    fs.write_file(in_file, raw)
-
-    let argv: [string] = ["--input-file", in_file, "--mode", "kv"]
-    if protocol_parser_strict() { argv = argv.push("--strict") }
-    argv = argv.push("--version-min")
-    argv = argv.push(protocol_version_min())
-    argv = argv.push("--version-max")
-    argv = argv.push(protocol_version_max())
-
-    let p = process.exec(protocol_parser_bin(), argv)
-    fs.remove(in_file)
-
-    if p.code != 0
-    {
-        give ProtocolPayload(false, protocol_schema_version(), "", backend, "", "", 0, "", E_PROTOCOL_PARSE, "native protocol parser failed", "parse_error", false, 0)
-    }
-    if p.out == ""
-    {
-        give ProtocolPayload(false, protocol_schema_version(), "", backend, "", "", 0, "", E_PROTOCOL_PARSE, "native protocol parser returned empty output", "parse_error", false, 0)
-    }
-    if p.out.len > protocol_payload_max_out()
-    {
-        give ProtocolPayload(false, protocol_schema_version(), "", backend, "", "", 0, "", E_OUTPUT_TOO_LARGE, "native protocol parser output too large", "parse_error", false, 0)
-    }
-
-    give parse_key_values(p.out)
+    give parse_key_values(raw)
 }

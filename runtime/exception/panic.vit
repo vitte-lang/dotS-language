@@ -1,10 +1,10 @@
 space runtime/exception/panic
 
-pull runtime/common/result
-pull runtime/common/panic
-pull runtime/exception/exception
-pull runtime/exception/handler
-pull runtime/exception/stacktrace
+use runtime/common/result
+use runtime/common/panic
+use runtime/exception/exception
+use runtime/exception/handler
+use runtime/exception/stacktrace
 
 proc raise(scope: string, message: string) -> result.RuntimeResult
 {

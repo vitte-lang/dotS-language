@@ -1,8 +1,8 @@
 space stdlib/math/random
 
-pull core/str
-pull runtime/common/prng
-pull stdlib/system/result
+use core/str
+use runtime/common/prng
+use stdlib/system/result
 
 proc seed(seed: i64) -> prng.Prng
 {
@@ -28,7 +28,7 @@ proc bool() -> bool
     give int(2) == 1
 }
 
-proc choice(items: [string]) -> string?
+proc choice(items: [string]) -> Option[string]
 {
     if items.len == 0 { give null }
     let i = int(items.len)
@@ -47,7 +47,7 @@ proc shuffle(items: [string]) -> [string]
     let out = items
     if out.len <= 1 { give out }
     let i: i32 = out.len - 1
-    loop while i > 0
+    while i > 0
     {
         let j = int(i + 1)
         let t = out[i]

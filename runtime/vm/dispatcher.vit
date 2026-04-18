@@ -1,7 +1,7 @@
 space runtime/vm/dispatcher
 
-pull runtime/common/result
-pull runtime/vm/opcode
+use runtime/common/result
+use runtime/vm/opcode
 
 proc dispatch(op: string) -> string
 {

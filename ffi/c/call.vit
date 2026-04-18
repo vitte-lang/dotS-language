@@ -1,14 +1,14 @@
 space ffi/c/call
 
-pull core/str
-pull ffi/c/ffi
-pull ffi/c/symbol
+use core/str
+use ffi/c/ffi
+use ffi/c/symbol
 
 proc parse_call_args(raw: string) -> [string]
 {
     let out: [string] = []
     let parts = str.split(raw, ",")
-    loop p in parts
+    for p in parts
     {
         let v = str.trim(p)
         if v != "" { out = out.push(v) }

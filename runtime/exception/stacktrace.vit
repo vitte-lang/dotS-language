@@ -1,6 +1,6 @@
 space runtime/exception/stacktrace
 
-pull core/str
+use core/str
 
 form StackFrame
 {
@@ -35,7 +35,7 @@ proc render(st: StackTrace) -> string
 {
     let out = ""
     let i: i32 = 0
-    loop while i < st.frames.len
+    while i < st.frames.len
     {
         let f = st.frames[i]
         if i > 0 { out = out + "\n" }

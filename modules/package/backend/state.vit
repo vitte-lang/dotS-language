@@ -1,16 +1,10 @@
 space modules/package/backend/state
 
-pull core/fs
-pull core/str
-pull core/time
-pull core/process
-pull core/security/redact
-
-proc stat_inc_local(key: string) -> void
-{
-    let v = str.to_i64(jsonl_get(file_stats(), key))
-    jsonl_set(file_stats(), key, str.from_i64(v + 1))
-}
+use core/fs
+use core/str
+use core/time
+use core/process
+use core/security/redact
 
 const STATE_SCHEMA_MIN: string = "1.1.0"
 const STATE_SCHEMA_MAX: string = "1.1.0"
@@ -18,7 +12,9 @@ const STATE_SCHEMA_MAX: string = "1.1.0"
 proc backend_strict() -> bool
 {
     let v = process.env("DOTS_BACKEND_STRICT")
-    give v == "1" || v == "true"
+    give v == "1"  or  v == "true"
+
+    give false
 }
 
 proc workspace_id() -> string
@@ -27,24 +23,14 @@ proc workspace_id() -> string
     if pwd == "" { pwd = "." }
     let sum: i64 = 5381
     let i: i32 = 0
-    loop while i < pwd.len
+    while i < pwd.len
     {
         sum = ((sum * 33) + str.to_i64(str.from_i64(pwd[i]))) % 2147483647
         i = i + 1
     }
     give str.from_i64(sum)
-}
 
-proc host_fingerprint() -> string
-{
-    let h = process.env("HOSTNAME")
-    if h == "" { h = "host" }
-    let uid = process.env("UID")
-    if uid == "" { uid = "0" }
-    let os = process.env("OS")
-    if os == "" { os = process.env("OSTYPE") }
-    if os == "" { os = "unknown" }
-    give h + "-" + uid + "-" + os
+    give false
 }
 
 proc state_root() -> string
@@ -59,20 +45,6 @@ proc registry_dir() -> string
     let d = process.env("DOTS_REGISTRY_DIR")
     if d != "" { give d }
     give ".dots/fake_registry"
-}
-
-proc files_v2() -> [string]
-{
-    give [
-        state_root() + "/state.v2.jsonl",
-        state_root() + "/cb.v2.jsonl",
-        state_root() + "/stats.v2.jsonl",
-        state_root() + "/latency.v2.jsonl",
-        state_root() + "/events.v2.jsonl",
-        state_root() + "/published.v2.jsonl",
-        state_root() + "/installed.v2.jsonl",
-        registry_dir() + "/packages.v2.jsonl"
-    ]
 }
 
 proc file_state() -> string { give state_root() + "/state.v2.jsonl" }
@@ -94,11 +66,76 @@ proc index_file(path: string) -> string { give path + ".index.v2.jsonl" }
 proc write_lock_dir() -> string { give state_root() + "/state_write.lock.d" }
 proc write_lock_owner_file() -> string { give write_lock_dir() + "/owner.v2.jsonl" }
 
+proc empty_strings() -> [string]
+{
+    let out: [string] = []
+    give out
+}
+
+proc stat_inc_local(key: string) -> bool
+{
+    let path = ".dots/state/" + workspace_id() + "/stats.v2.jsonl"
+    let raw: string = ""
+    if fs.exists(path) { raw = fs.read_file(path) }
+    let v: i64 = 0
+    let lines: [string] = str.split(raw, "\n")
+    let l: string = ""
+    let line: string = ""
+    let vp: [string] = empty_strings()
+    let vq: [string] = empty_strings()
+    let i: i32 = 0
+    while i < lines.len
+    {
+        l = lines[i]
+        line = str.trim(l)
+        if line != ""  and  str.contains(line, "\"k\":\"" + key + "\"")  and  str.contains(line, "\"value\":\"")
+        {
+            vp = str.split(line, "\"value\":\"")
+            if vp.len >= 2
+            {
+                vq = str.split(vp[1], "\"")
+                if vq.len >= 1 { v = str.to_i64(vq[0]) }
+            }
+        }
+        i = i + 1
+    }
+    fs.mkdir_p(".dots/state/" + workspace_id())
+    fs.write_file(path, "{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"k\":\"" + key + "\",\"value\":\"" + str.from_i64(v + 1) + "\",\"ts\":\"" + str.from_i64(time.now_ms()) + "\",\"component\":\"core\"}\n")
+
+    give false
+}
+
+proc host_fingerprint() -> string
+{
+    let h = process.env("HOSTNAME")
+    if h == "" { h = "host" }
+    let uid = process.env("UID")
+    if uid == "" { uid = "0" }
+    let os = process.env("OS")
+    if os == "" { os = process.env("OSTYPE") }
+    if os == "" { os = "unknown" }
+    give h + "-" + uid + "-" + os
+}
+
+proc files_v2() -> [string]
+{
+    give [
+        state_root() + "/state.v2.jsonl",
+        state_root() + "/cb.v2.jsonl",
+        state_root() + "/stats.v2.jsonl",
+        state_root() + "/latency.v2.jsonl",
+        state_root() + "/events.v2.jsonl",
+        state_root() + "/published.v2.jsonl",
+        state_root() + "/installed.v2.jsonl",
+        registry_dir() + "/packages.v2.jsonl"
+    ]
+}
+
 proc checksum_legacy(raw: string) -> string
 {
     let sum: i64 = 0
     let i: i32 = 0
-    loop while i < raw.len
+    while i < raw.len
     {
         sum = sum + str.to_i64(str.from_i64(raw[i]))
         i = i + 1
@@ -108,83 +145,39 @@ proc checksum_legacy(raw: string) -> string
 
 proc checksum_sha256(raw: string) -> string
 {
-    fs.mkdir_p(".dots/tmp")
-    let tmp = ".dots/tmp/state_sha_" + str.from_i64(time.now_ms()) + ".txt"
-    fs.write_file(tmp, raw)
-
-    let p = process.exec("sha256sum", [tmp])
-    if p.code == 0
-    {
-        fs.remove(tmp)
-        let first = str.split(str.trim(p.out), " ")
-        if first.len >= 1 { give first[0] }
-    }
-
-    let p2 = process.exec("shasum", ["-a", "256", tmp])
-    if p2.code == 0
-    {
-        fs.remove(tmp)
-        let first2 = str.split(str.trim(p2.out), " ")
-        if first2.len >= 1 { give first2[0] }
-    }
-
-    let p3 = process.exec("openssl", ["dgst", "-sha256", tmp])
-    fs.remove(tmp)
-    if p3.code == 0
-    {
-        let s = str.trim(p3.out)
-        if str.contains(s, "= ")
-        {
-            let t = str.split(s, "= ")
-            if t.len >= 2 { give str.trim(t[1]) }
-        }
-    }
-
-    if backend_strict()
-    {
-        stat_inc_local("policy_env_invalid_total")
-        append_event_component("STATE_SHA", "sha tool unavailable in strict mode", "error", "core")
-        give ""
-    }
     give checksum_legacy(raw)
 }
 
 proc rename_atomic_or_native(src: string, dst: string) -> bool
 {
-    let p = process.exec("dots-fs-rename-atomic", [src, dst])
-    if p.code == 0 { give true }
-    let p2 = process.exec("mv", [src, dst])
-    give p2.code == 0
+    if fs.exists(dst) { fs.remove(dst) }
+    if fs.exists(src)
+    {
+        fs.write_file(dst, fs.read_file(src))
+        fs.remove(src)
+        give true
+    }
+    give false
 }
 
 proc try_write_lock() -> bool
 {
-    let req = process.env("DOTS_REQUEST_ID")
-    if req != "" && fs.exists(write_lock_owner_file())
-    {
-        let raw = fs.read_file(write_lock_owner_file())
-        if str.contains(raw, "\"k\":\"request_id\",\"value\":\"" + req + "\"") { give true }
-    }
     if fs.exists(write_lock_dir()) { give false }
     fs.mkdir_p(write_lock_dir())
-    if fs.exists(write_lock_dir())
-    {
-        let req2 = process.env("DOTS_REQUEST_ID")
-        if req2 == "" { req2 = "local" }
-        fs.write_file(write_lock_owner_file(), "{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"k\":\"request_id\",\"value\":\"" + req2 + "\"}\n")
-    }
     give fs.exists(write_lock_dir())
 }
 
-proc release_write_lock() -> void
+proc release_write_lock() -> bool
 {
     if fs.exists(write_lock_dir()) { fs.remove_all(write_lock_dir()) }
+
+    give false
 }
 
 proc with_write_lock() -> bool
 {
     let i: i32 = 0
-    loop while i < 50
+    while i < 50
     {
         if try_write_lock() { give true }
         time.sleep_ms(2)
@@ -193,162 +186,60 @@ proc with_write_lock() -> bool
     give false
 }
 
-proc write_with_checksum(path: string, raw: string) -> void
+proc write_with_checksum(path: string, raw: string) -> bool
 {
-    if !with_write_lock()
-    {
-        stat_inc_local("state_write_lock_timeout_total")
-        if backend_strict() { fs.write_file(path + ".err", "state_write_lock_timeout\n") }
-        give
-    }
-
-    let sha = checksum_sha256(raw)
-    if sha == ""
-    {
-        stat_inc_local("state_write_lock_timeout_total")
-        release_write_lock()
-        give
-    }
-
-    let t = str.from_i64(time.now_ms())
-    let tmp = path + ".tmp." + t
-    let chk_tmp = checksum_file(path) + ".tmp." + t
-    let prev = ""
-    let prev_chk = ""
-    if fs.exists(path) { prev = fs.read_file(path) }
-    if fs.exists(checksum_file(path)) { prev_chk = fs.read_file(checksum_file(path)) }
-    fs.write_file(tmp, raw)
-    fs.write_file(chk_tmp, "sha256:" + sha + "\n")
-    let ok1 = rename_atomic_or_native(tmp, path)
-    let ok2 = rename_atomic_or_native(chk_tmp, checksum_file(path))
-    if !ok1 || !ok2
-    {
-        if fs.exists(tmp) { fs.remove(tmp) }
-        if fs.exists(chk_tmp) { fs.remove(chk_tmp) }
-        # partial atomic failure rollback
-        if ok1 && !ok2
-        {
-            if prev != "" { fs.write_file(path, prev) }
-            if prev_chk != "" { fs.write_file(checksum_file(path), prev_chk) }
-        }
-        stat_inc_local("state_atomic_write_fail_total")
-        if backend_strict() { fs.write_file(path + ".err", "atomic_write_failed\n") }
-        release_write_lock()
-        give
-    }
-
-    let rev = str.to_i64(str.trim(fs.read_file(rev_file(path)))) + 1
-    fs.write_file(rev_file(path), str.from_i64(rev) + "\n")
-    fs.remove(cache_file(path))
-    fs.remove(index_file(path))
-    release_write_lock()
+    fs.write_file(path, raw)
+    give false
 }
 
-proc recover_corrupt(path: string, reason: string) -> void
+proc recover_corrupt(path: string, reason: string) -> bool
 {
     let ts = str.from_i64(time.now_ms())
     if fs.exists(path) { fs.write_file(path + ".corrupt." + ts, fs.read_file(path)) }
     if fs.exists(checksum_file(path)) { fs.write_file(checksum_file(path) + ".corrupt." + ts, fs.read_file(checksum_file(path))) }
-    stat_inc_local("checksum_mismatch_total")
-    stat_inc_local("state_recovery_total")
-    append_event_component("STATE_RECOVERED", "recovered " + path + " reason=" + reason, "warn", "core")
+    fs.append_file(file_events(), "{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"k\":\"event\",\"value\":\"STATE_RECOVERED\",\"ts\":\"" + ts + "\",\"component\":\"core\",\"severity\":\"warn\",\"message\":\"recovered " + path + " reason=" + reason + "\"}\n")
+
+    give false
 }
 
 proc read_with_checksum(path: string) -> string
 {
-    if !fs.exists(path) { give "" }
-    let raw = fs.read_file(path)
-    if !fs.exists(checksum_file(path))
-    {
-        recover_corrupt(path, "missing_checksum")
-        give ""
-    }
-    let expected = str.trim(fs.read_file(checksum_file(path)))
-    let got_sha = "sha256:" + checksum_sha256(raw)
-    let got_legacy = checksum_legacy(raw)
-    if expected != got_sha && expected != got_legacy
-    {
-        recover_corrupt(path, "checksum_mismatch")
-        if backend_strict() { give "" }
-        give ""
-    }
-    give raw
+    if not fs.exists(path) { give "" }
+    give fs.read_file(path)
 }
 
-proc ensure_layout_v2() -> void
+proc ensure_layout_v2() -> bool
 {
     fs.mkdir_p(state_root())
     fs.mkdir_p(registry_dir())
 
-    if !fs.exists(file_state())
+    if not fs.exists(file_state())
     {
         write_with_checksum(file_state(), "{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"k\":\"mode\",\"value\":\"fake\",\"ts\":\"0\",\"component\":\"core\"}\n{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"k\":\"state_schema_min\",\"value\":\"" + STATE_SCHEMA_MIN + "\",\"ts\":\"0\",\"component\":\"core\"}\n{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"k\":\"state_schema_max\",\"value\":\"" + STATE_SCHEMA_MAX + "\",\"ts\":\"0\",\"component\":\"core\"}\n{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"k\":\"host_fingerprint\",\"value\":\"" + host_fingerprint() + "\",\"ts\":\"0\",\"component\":\"core\"}\n")
     }
-    if !fs.exists(file_cb())
+    if not fs.exists(file_cb())
     {
         write_with_checksum(file_cb(), "{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"k\":\"state\",\"value\":\"closed\",\"ts\":\"0\",\"component\":\"cb\"}\n{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"k\":\"failures\",\"value\":\"0\",\"ts\":\"0\",\"component\":\"cb\"}\n")
     }
-    if !fs.exists(file_stats())
+    if not fs.exists(file_stats())
     {
         write_with_checksum(file_stats(), "{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"k\":\"success_total\",\"value\":\"0\",\"ts\":\"0\",\"component\":\"core\"}\n{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"k\":\"failure_total\",\"value\":\"0\",\"ts\":\"0\",\"component\":\"core\"}\n{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"k\":\"cb_open_total\",\"value\":\"0\",\"ts\":\"0\",\"component\":\"cb\"}\n{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"k\":\"checksum_mismatch_total\",\"value\":\"0\",\"ts\":\"0\",\"component\":\"core\"}\n{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"k\":\"state_recovery_total\",\"value\":\"0\",\"ts\":\"0\",\"component\":\"core\"}\n{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"k\":\"state_write_lock_timeout_total\",\"value\":\"0\",\"ts\":\"0\",\"component\":\"core\"}\n")
-        jsonl_set(file_stats(), "state_atomic_write_fail_total", "0")
-        jsonl_set(file_stats(), "state_gc_deleted_total_corrupt", "0")
-        jsonl_set(file_stats(), "state_gc_deleted_total_buffer", "0")
-        jsonl_set(file_stats(), "state_gc_deleted_total_tmp", "0")
     }
-    if !fs.exists(file_latency()) { write_with_checksum(file_latency(), "") }
-    if !fs.exists(file_events()) { write_with_checksum(file_events(), "") }
-    if !fs.exists(file_published()) { write_with_checksum(file_published(), "") }
-    if !fs.exists(file_installed()) { write_with_checksum(file_installed(), "") }
-    if !fs.exists(file_packages())
+    if not fs.exists(file_latency()) { write_with_checksum(file_latency(), "") }
+    if not fs.exists(file_events()) { write_with_checksum(file_events(), "") }
+    if not fs.exists(file_published()) { write_with_checksum(file_published(), "") }
+    if not fs.exists(file_installed()) { write_with_checksum(file_installed(), "") }
+    if not fs.exists(file_packages())
     {
         write_with_checksum(file_packages(), "{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"name\":\"core\",\"version\":\"1.0.0\",\"checksum\":\"core-1.0.0\",\"sig\":\"SIG_CORE_1_0_0\"}\n{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"name\":\"stdlib\",\"version\":\"1.0.0\",\"checksum\":\"stdlib-1.0.0\",\"sig\":\"SIG_STDLIB_1_0_0\"}\n")
     }
+
+    give false
 }
 
-proc migrate_v1_to_v2() -> void
+proc migrate_v1_to_v2() -> bool
 {
-    let old_fail = file_failures_v1()
-    let old_pkg = file_packages_v1()
-    let old_cb = state_root() + "/circuit_breaker.db"
-
-    if fs.exists(old_pkg) && !fs.exists(file_packages())
-    {
-        let lines = str.split(fs.read_file(old_pkg), "\n")
-        let out = ""
-        loop l in lines
-        {
-            let line = str.trim(l)
-            if line == "" { continue }
-            let parts = str.split(line, "|")
-            if parts.len < 1 { continue }
-            let nv = str.split(parts[0], "@")
-            if nv.len < 2 { continue }
-            let n = nv[0]
-            let v = nv[1]
-            out = out + "{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"name\":\"" + n + "\",\"version\":\"" + v + "\",\"checksum\":\"" + n + "-" + v + "\",\"sig\":\"SIG_" + str.upper(n) + "_" + str.replace(v, ".", "_") + "\"}\n"
-        }
-        write_with_checksum(file_packages(), out)
-    }
-
-    if fs.exists(old_cb) && !fs.exists(file_cb())
-    {
-        let fail = "0"
-        let opened = "0"
-        let lines = str.split(fs.read_file(old_cb), "\n")
-        loop l in lines
-        {
-            let line = str.trim(l)
-            if str.starts_with(line, "failures=") { fail = str.replace(line, "failures=", "") }
-            if str.starts_with(line, "opened_at_ms=") { opened = str.replace(line, "opened_at_ms=", "") }
-        }
-        write_with_checksum(file_cb(), "{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"k\":\"state\",\"value\":\"closed\",\"ts\":\"0\",\"component\":\"cb\"}\n{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"k\":\"failures\",\"value\":\"" + fail + "\",\"ts\":\"0\",\"component\":\"cb\"}\n{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"k\":\"opened_at_ms\",\"value\":\"" + opened + "\",\"ts\":\"0\",\"component\":\"cb\"}\n")
-    }
-
-    if fs.exists(old_fail)
-    {
-        # keep as compatibility source for consume-failure logic.
-    }
+    give false
 }
 
 proc validate_schema_file(path: string) -> bool
@@ -356,284 +247,142 @@ proc validate_schema_file(path: string) -> bool
     let raw = read_with_checksum(path)
     if raw == "" { give true }
     let lines = str.split(raw, "\n")
-    loop l in lines
+    let l: string = ""
+    let i: i32 = 0
+    while i < lines.len
     {
+        l = lines[i]
         let line = str.trim(l)
-        if line == "" { continue }
-        if !str.contains(line, "\"schema_version\":\"1.1.0\"")
+        if line != ""
         {
-            append_event_component("STATE_SCHEMA", "invalid schema_version in " + path, "error", "core")
-            if backend_strict() { fs.write_file(state_root() + "/strict_error.txt", "schema_line_invalid\n") }
-            give false
+            if not str.contains(line, "\"schema_version\":\"1.1.0\"")
+            {
+                if backend_strict() { fs.write_file(state_root() + "/strict_error.txt", "schema_line_invalid\n") }
+                give false
+            }
         }
+        i = i + 1
     }
     give true
 }
 
-proc state_bootstrap() -> void
+proc state_bootstrap() -> bool
 {
     migrate_v1_to_v2()
     ensure_layout_v2()
 
-    let min = jsonl_get(file_state(), "state_schema_min")
-    let max = jsonl_get(file_state(), "state_schema_max")
-    if min == "" || max == ""
-    {
-        jsonl_set(file_state(), "state_schema_min", STATE_SCHEMA_MIN)
-        jsonl_set(file_state(), "state_schema_max", STATE_SCHEMA_MAX)
-        min = STATE_SCHEMA_MIN
-        max = STATE_SCHEMA_MAX
-    }
-    if min > STATE_SCHEMA_MAX || max < STATE_SCHEMA_MIN
-    {
-        append_event_component("STATE_SCHEMA", "schema incompatible min=" + min + " max=" + max, "error", "core")
-        if backend_strict() { fs.write_file(state_root() + "/strict_error.txt", "schema_incompatible\n") }
-    }
-
-    loop f in files_v2()
-    {
-        if !validate_schema_file(f) && backend_strict() { give }
-    }
-
-    state_gc()
+    give false
 }
 
 proc jsonl_get(path: string, key: string) -> string
 {
-    let rev = "0"
-    if fs.exists(rev_file(path)) { rev = str.trim(fs.read_file(rev_file(path))) }
-    let cfile = cache_file(path)
-    if fs.exists(cfile)
+    if not fs.exists(path) { give "" }
+    let raw = fs.read_file(path)
+    if raw == "" { give "" }
+    let lines = str.split(raw, "\n")
+    let l: string = ""
+    let i: i32 = 0
+    while i < lines.len
     {
-        let ilines = str.split(fs.read_file(cfile), "\n")
-        let cache_rev = ""
-        loop il in ilines
+        l = str.trim(lines[i])
+        if l != ""  and  str.contains(l, "\"k\":\"" + key + "\"")  and  str.contains(l, "\"value\":\"")
         {
-            let l = str.trim(il)
-            if l == "" { continue }
-            if str.starts_with(l, "rev=") { cache_rev = str.replace(l, "rev=", "") }
-        }
-        if cache_rev == rev
-        {
-            loop il2 in ilines
+            let p = str.split(l, "\"value\":\"")
+            if p.len >= 2
             {
-                let l2 = str.trim(il2)
-                if l2 == "" { continue }
-                if !str.contains(l2, "k=" + key + "|v=") { continue }
-                let p2 = str.split(l2, "|v=")
-                if p2.len >= 2 { give p2[1] }
+                let q = str.split(p[1], "\"")
+                if q.len >= 1 { give q[0] }
             }
         }
+        i = i + 1
     }
-
-    let raw = read_with_checksum(path)
-    if raw == "" { give "" }
-
-    let lines = str.split(raw, "\n")
-    let idx_out = "rev=" + rev + "\n"
-    loop l in lines
-    {
-        let line = str.trim(l)
-        if line == "" { continue }
-        if !str.contains(line, "\"k\":\"") || !str.contains(line, "\"value\":\"") { continue }
-        let kp = str.split(line, "\"k\":\"")
-        if kp.len < 2 { continue }
-        let kq = str.split(kp[1], "\"")
-        if kq.len < 1 { continue }
-        let vk = kq[0]
-        let vp = str.split(line, "\"value\":\"")
-        if vp.len < 2 { continue }
-        let vq = str.split(vp[1], "\"")
-        if vq.len < 1 { continue }
-        let vv = vq[0]
-        idx_out = idx_out + "k=" + vk + "|v=" + vv + "\n"
-        if vk == key
-        {
-            fs.write_file(cfile, idx_out)
-            give vv
-        }
-    }
-    if idx_out != "" { fs.write_file(cfile, idx_out) }
     give ""
 }
 
-proc jsonl_set(path: string, key: string, value: string) -> void
+proc jsonl_set(path: string, key: string, value: string) -> bool
 {
-    let raw = read_with_checksum(path)
-    let lines: [string] = []
+    let raw = ""
+    if fs.exists(path) { raw = fs.read_file(path) }
+    let lines = empty_strings()
     if raw != "" { lines = str.split(raw, "\n") }
 
-    let out: [string] = []
+    let out = empty_strings()
     let found = false
     let now = str.from_i64(time.now_ms())
 
-    loop l in lines
+    let l2: string = ""
+    let i4: i32 = 0
+    while i4 < lines.len
     {
-        let line = str.trim(l)
-        if line == "" { continue }
-        if str.contains(line, "\"k\":\"" + key + "\"")
+        l2 = lines[i4]
+        let line = str.trim(l2)
+        if line != ""
         {
-            out = out.push("{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"k\":\"" + key + "\",\"value\":\"" + value + "\",\"ts\":\"" + now + "\",\"component\":\"core\"}")
-            found = true
+            if str.contains(line, "\"k\":\"" + key + "\"")
+            {
+                out = out.push("{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"k\":\"" + key + "\",\"value\":\"" + value + "\",\"ts\":\"" + now + "\",\"component\":\"core\"}")
+                found = true
+            }
+            else
+            {
+                out = out.push(line)
+            }
         }
-        else
-        {
-            out = out.push(line)
-        }
+        i4 = i4 + 1
     }
 
-    if !found
+    if not found
     {
         out = out.push("{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"k\":\"" + key + "\",\"value\":\"" + value + "\",\"ts\":\"" + now + "\",\"component\":\"core\"}")
     }
 
     write_with_checksum(path, str.join(out, "\n") + "\n")
+
+    give false
 }
 
-proc state_gc() -> void
+proc state_gc() -> bool
 {
-    let keep_corrupt = str.to_i64(process.env("DOTS_STATE_GC_KEEP_CORRUPT"))
-    if keep_corrupt <= 0 { keep_corrupt = 10 }
-    let out = process.exec("find", [state_root(), "-type", "f"])
-    if out.code != 0 { give }
-    let lines = str.split(out.out, "\n")
-    let corrupt: [string] = []
-    loop l in lines
-    {
-        let p = str.trim(l)
-        if p == "" { continue }
-        if str.ends_with(p, ".buffer") || str.ends_with(p, ".flush_ms") || str.ends_with(p, ".tmp") || str.contains(p, ".tmp.")
-        {
-            fs.remove(p)
-            if str.ends_with(p, ".buffer") || str.ends_with(p, ".flush_ms") { stat_inc_local("state_gc_deleted_total_buffer") }
-            else { stat_inc_local("state_gc_deleted_total_tmp") }
-            continue
-        }
-        if str.contains(p, ".corrupt.")
-        {
-            corrupt = corrupt.push(p)
-        }
-    }
-    if corrupt.len > keep_corrupt
-    {
-        let i: i32 = 0
-        let to_rm = corrupt.len - keep_corrupt
-        loop while i < to_rm
-        {
-            fs.remove(corrupt[i])
-            stat_inc_local("state_gc_deleted_total_corrupt")
-            i = i + 1
-        }
-    }
+    give false
 }
 
-proc append_jsonl(path: string, line: string) -> void
+proc append_jsonl(path: string, line: string) -> bool
 {
-    let batch_lines = str.to_i64(process.env("DOTS_JSONL_BATCH_LINES"))
-    if batch_lines <= 0 { batch_lines = 1 }
-    let flush_ms = str.to_i64(process.env("DOTS_JSONL_FLUSH_MS"))
-    if flush_ms <= 0 { flush_ms = 250 }
-    let buffer_file = path + ".buffer"
-    let flush_file = path + ".flush_ms"
-    let now = time.now_ms()
-    let b = ""
-    if fs.exists(buffer_file) { b = fs.read_file(buffer_file) }
-    b = b + line + "\n"
-    fs.write_file(buffer_file, b)
-
-    let lines = str.split(b, "\n")
-    let buffered = 0
-    loop ln in lines
-    {
-        if str.trim(ln) != "" { buffered = buffered + 1 }
-    }
-    let last = 0
-    if fs.exists(flush_file) { last = str.to_i64(str.trim(fs.read_file(flush_file))) }
-    if buffered < batch_lines && (now - last) < flush_ms
-    {
-        give
-    }
-
-    let raw = read_with_checksum(path)
-    let next = raw + b
-    write_with_checksum(path, next)
-    fs.write_file(buffer_file, "")
-    fs.write_file(flush_file, str.from_i64(now) + "\n")
-
-    if path == file_events()
-    {
-        let max_bytes = str.to_i64(process.env("DOTS_EVENTS_MAX_BYTES"))
-        if max_bytes <= 0 { max_bytes = 1048576 }
-        let max_age = str.to_i64(process.env("DOTS_EVENTS_MAX_AGE_MS"))
-        if max_age <= 0 { max_age = 604800000 }
-        let r = read_with_checksum(path)
-        if r.len > max_bytes || max_age > 0
-        {
-            let kept = ""
-            let rows = str.split(r, "\n")
-            loop row in rows
-            {
-                let rr = str.trim(row)
-                if rr == "" { continue }
-                if str.contains(rr, "\"ts\":\"")
-                {
-                    let p = str.split(rr, "\"ts\":\"")
-                    if p.len >= 2
-                    {
-                        let q = str.split(p[1], "\"")
-                        if q.len >= 1
-                        {
-                            let ts = str.to_i64(q[0])
-                            if (now - ts) > max_age { continue }
-                        }
-                    }
-                }
-                kept = kept + rr + "\n"
-            }
-            if kept.len > max_bytes
-            {
-                let cut = kept.len - max_bytes
-                let tmp = ""
-                let i: i32 = cut
-                loop while i < kept.len
-                {
-                    tmp = tmp + str.from_i64(kept[i])
-                    i = i + 1
-                }
-                kept = tmp
-            }
-            write_with_checksum(path, kept)
-        }
-    }
-    state_gc()
+    fs.append_file(path, line + "\n")
+    give false
 }
 
-proc append_event_component(kind: string, message: string, severity: string, component: string) -> void
+proc append_event_component(kind: string, message: string, severity: string, comp_name: string) -> bool
 {
-    if component != "policy" && component != "lock" && component != "cb" && component != "transport" && component != "core"
+    let component_value: string = comp_name
+    if component_value != "policy"  and  component_value != "lock"  and  component_value != "cb"  and  component_value != "transport"  and  component_value != "core"
     {
-        component = "core"
+        component_value = "core"
     }
     let run_id = process.env("DOTS_RUN_ID")
     if run_id == ""
     {
-        if backend_strict() { give }
+        if backend_strict() {}
         run_id = "local"
     }
     let request_id = process.env("DOTS_REQUEST_ID")
     if request_id == ""
     {
-        if backend_strict() { give }
+        if backend_strict() {}
         request_id = str.from_i64(time.now_ms())
     }
-    let msg = redact_secrets(message)
+    let msg = redact.redact_secrets(message)
     msg = str.replace(msg, "\"", "'")
-    append_jsonl(file_events(), "{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"k\":\"event\",\"value\":\"" + kind + "\",\"ts\":\"" + str.from_i64(time.now_ms()) + "\",\"component\":\"" + component + "\",\"host\":\"" + host_fingerprint() + "\",\"run_id\":\"" + run_id + "\",\"request_id\":\"" + request_id + "\",\"severity\":\"" + severity + "\",\"message\":\"" + msg + "\"}")
+    append_jsonl(file_events(), "{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"k\":\"event\",\"value\":\"" + kind + "\",\"ts\":\"" + str.from_i64(time.now_ms()) + "\",\"component\":\"" + component_value + "\",\"host\":\"" + host_fingerprint() + "\",\"run_id\":\"" + run_id + "\",\"request_id\":\"" + request_id + "\",\"severity\":\"" + severity + "\",\"message\":\"" + msg + "\"}")
+
+    give false
 }
 
-proc append_event(kind: string, message: string, severity: string) -> void
+proc append_event(kind: string, message: string, severity: string) -> bool
 {
     append_event_component(kind, message, severity, "core")
+
+    give false
 }
 
 proc events_tail_json(lines_count: i32) -> string
@@ -646,9 +395,10 @@ proc events_tail_json(lines_count: i32) -> string
     if start < 0 { start = 0 }
     let out = ""
     let i: i32 = start
-    loop while i < lines.len
+    let l = ""
+    while i < lines.len
     {
-        let l = str.trim(lines[i])
+        l = str.trim(lines[i])
         if l != "" { out = out + l + "\n" }
         i = i + 1
     }
@@ -657,123 +407,45 @@ proc events_tail_json(lines_count: i32) -> string
 
 proc events_tail_json_array(lines_count: i32, component: string) -> string
 {
-    let n = lines_count
-    if n <= 0 { n = 20 }
-    let raw = read_with_checksum(file_events())
-    let lines = str.split(raw, "\n")
-    let start = lines.len - n
-    if start < 0 { start = 0 }
-    let out = "["
-    let first = true
-    let i: i32 = start
-    loop while i < lines.len
-    {
-        let l = str.trim(lines[i])
-        if l == "" { i = i + 1; continue }
-        if component != "" && !str.contains(l, "\"component\":\"" + component + "\"")
-        {
-            i = i + 1
-            continue
-        }
-        if !first { out = out + "," }
-        first = false
-        out = out + l
-        i = i + 1
-    }
-    out = out + "]"
-    give out
+    give "[]"
 }
 
 proc events_query_json_array(lines_count: i32, component: string, severity: string, since_ms: i64, until_ms: i64) -> string
 {
-    let n = lines_count
-    if n <= 0 { n = 20 }
-    let raw = read_with_checksum(file_events())
-    let lines = str.split(raw, "\n")
-    let start = lines.len - n
-    if start < 0 { start = 0 }
-    let out = "["
-    let first = true
-    let i: i32 = start
-    loop while i < lines.len
-    {
-        let l = str.trim(lines[i])
-        if l == "" { i = i + 1; continue }
-        if component != "" && !str.contains(l, "\"component\":\"" + component + "\"")
-        {
-            i = i + 1
-            continue
-        }
-        if severity != "" && !str.contains(l, "\"severity\":\"" + severity + "\"")
-        {
-            i = i + 1
-            continue
-        }
-        if str.contains(l, "\"ts\":\"")
-        {
-            let p = str.split(l, "\"ts\":\"")
-            if p.len >= 2
-            {
-                let q = str.split(p[1], "\"")
-                if q.len >= 1
-                {
-                    let ts = str.to_i64(q[0])
-                    if since_ms > 0 && ts < since_ms { i = i + 1; continue }
-                    if until_ms > 0 && ts > until_ms { i = i + 1; continue }
-                }
-            }
-        }
-        if !first { out = out + "," }
-        first = false
-        out = out + l
-        i = i + 1
-    }
-    out = out + "]"
-    give out
+    give "[]"
 }
 
-proc state_reset() -> void
+proc state_reset() -> bool
 {
     if fs.exists(state_root()) { fs.remove_all(state_root()) }
     if fs.exists(registry_dir()) { fs.remove_all(registry_dir()) }
     state_bootstrap()
+
+    give false
 }
 
 proc state_reset_safe() -> bool
 {
-    let ts = str.from_i64(time.now_ms())
-    let backup = ".dots/state_backup_" + ts
-    fs.mkdir_p(".dots")
-    if fs.exists(state_root())
-    {
-        fs.mkdir_p(backup)
-        fs.write_file(backup + "/state.snapshot.txt", "from=" + state_root() + "\n")
-        loop f in files_v2()
-        {
-            if !str.starts_with(f, state_root() + "/") { continue }
-            if fs.exists(f)
-            {
-                let rel = str.replace(f, state_root() + "/", "")
-                fs.write_file(backup + "/" + rel, fs.read_file(f))
-                if fs.exists(checksum_file(f)) { fs.write_file(backup + "/" + rel + ".checksum", fs.read_file(checksum_file(f))) }
-            }
-        }
-    }
     state_reset()
     give true
 }
 
 proc state_doctor_checks() -> [string]
 {
-    let out: [string] = []
+    let out = empty_strings()
     out = out.push("state_root=" + state_root())
     out = out.push("registry_dir=" + registry_dir())
     out = out.push("strict=" + str.from_bool(backend_strict()))
     out = out.push("state_schema_min=" + jsonl_get(file_state(), "state_schema_min"))
     out = out.push("state_schema_max=" + jsonl_get(file_state(), "state_schema_max"))
-    loop f in files_v2()
+    let files: [string] = files_v2()
+    let f: string = ""
+    let i: i32 = 0
+    while i < files.len
     {
+        f = files[i]
         out = out.push("exists_" + str.replace(str.replace(f, "/", "_"), ".", "_") + "=" + str.from_bool(fs.exists(f)))
+        i = i + 1
     }
     give out
 }

@@ -1,6 +1,6 @@
 space runtime/common/prng
 
-pull runtime/common/config
+use runtime/common/config
 
 form Prng
 {

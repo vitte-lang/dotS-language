@@ -1,8 +1,8 @@
 space ffi/python/py_bridge
 
-pull core/process
-pull ffi/c/ffi
-pull ffi/c/call
+use core/process
+use ffi/c/ffi
+use ffi/c/call
 
 proc py_runtime_bin() -> string
 {
@@ -15,7 +15,7 @@ proc py_gil_policy() -> string
 {
     let p = process.env("DOTS_FFI_PY_GIL")
     if p == "" { p = "required" }
-    if p != "required" && p != "single-thread" && p != "none"
+    if p != "required"  and  p != "single-thread"  and  p != "none"
     {
         p = "required"
     }
@@ -36,7 +36,7 @@ proc py_init_runtime() -> FFIResult
 proc py_load_module(path_or_name: string, base_dir: string, dry_run: bool, timeout_ms: i64) -> FFIResult
 {
     let init = py_init_runtime()
-    if !init.ok { give init }
+    if not init.ok { give init }
     give ffi_load_library(path_or_name, base_dir, "python", "c", dry_run, timeout_ms)
 }
 

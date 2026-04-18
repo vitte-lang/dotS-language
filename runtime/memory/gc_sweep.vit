@@ -1,6 +1,6 @@
 space runtime/memory/gc_sweep
 
-pull core/str
+use core/str
 
 form SweepPlan
 {
@@ -20,7 +20,7 @@ proc plan(live_bytes: i64) -> SweepPlan
 proc run() -> bool
 {
     let p = plan(0)
-    give p.candidates >= 1 && p.survivors >= 0
+    give p.candidates >= 1  and  p.survivors >= 0
 }
 
 proc summary(p: SweepPlan) -> string

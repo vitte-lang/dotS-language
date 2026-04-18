@@ -1,16 +1,18 @@
 space modules/package/backend/stats
 
-pull core/str
-pull core/time
+use core/str
+use core/time
 
-pull modules/package/backend/state
-pull modules/package/backend/math_stats
+use modules/package/backend/state as state
+use modules/package/backend/math_stats as math_stats
 
-proc stat_inc(key: string) -> void
+proc stat_inc(key: string) -> bool
 {
-    state_bootstrap()
-    let v = str.to_i64(jsonl_get(file_stats(), key))
-    jsonl_set(file_stats(), key, str.from_i64(v + 1))
+    state.state_bootstrap()
+    let v = str.to_i64(state.jsonl_get(state.file_stats(), key))
+    state.jsonl_set(state.file_stats(), key, str.from_i64(v + 1))
+
+    give false
 }
 
 proc endpoint_key(prefix: string, endpoint: string) -> string
@@ -21,55 +23,71 @@ proc endpoint_key(prefix: string, endpoint: string) -> string
     ep = str.replace(ep, ":", "_")
     ep = str.replace(ep, ",", "_")
     give prefix + "_" + ep
+
+    give false
 }
 
-proc endpoint_success_inc(endpoint: string) -> void
+proc endpoint_success_inc(endpoint: string) -> bool
 {
-    if endpoint == "" { give }
+    if endpoint == "" {}
     stat_inc(endpoint_key("endpoint_success", endpoint))
+
+    give false
 }
 
-proc endpoint_failure_inc(endpoint: string) -> void
+proc endpoint_failure_inc(endpoint: string) -> bool
 {
-    if endpoint == "" { give }
+    if endpoint == "" {}
     stat_inc(endpoint_key("endpoint_failure", endpoint))
+
+    give false
 }
 
-proc record_latency(endpoint: string, latency_ms: i64) -> void
+proc record_latency(endpoint: string, latency: i64) -> bool
 {
-    if latency_ms < 0 { latency_ms = 0 }
+    let ms: i64 = latency
+    if ms < 0 { ms = 0 }
     let now = time.now_ms()
-    append_jsonl(file_latency(), "{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"ts\":\"" + str.from_i64(now) + "\",\"endpoint\":\"" + str.replace(endpoint, "\"", "'") + "\",\"latency_ms\":\"" + str.from_i64(latency_ms) + "\"}")
+    state.append_jsonl(state.file_latency(), "{\"schema_version\":\"1.1.0\",\"v\":\"2\",\"ts\":\"" + str.from_i64(now) + "\",\"endpoint\":\"" + str.replace(endpoint, "\"", "'") + "\",\"latency_ms\":\"" + str.from_i64(ms) + "\"}")
     let win = str.to_i64(process.env("DOTS_LATENCY_WINDOW_MS"))
     if win <= 0 { win = 86400000 }
-    let raw = read_with_checksum(file_latency())
-    let lines = str.split(raw, "\n")
-    let kept = ""
-    loop l in lines
+    let raw: string = state.read_with_checksum(state.file_latency())
+    let lines: [string] = str.split(raw, "\n")
+    let kept: string = ""
+    let l: string = ""
+    let line: string = ""
+    let p: [string] = []
+    let q: [string] = []
+    let i: i32 = 0
+    while i < lines.len
     {
-        let line = str.trim(l)
+        l = lines[i]
+        line = str.trim(l)
         if line == "" { continue }
         if str.contains(line, "\"ts\":\"")
         {
-            let p = str.split(line, "\"ts\":\"")
+            p = str.split(line, "\"ts\":\"")
             if p.len >= 2
             {
-                let q = str.split(p[1], "\"")
+                q = str.split(p[1], "\"")
                 if q.len >= 1
                 {
-                    let ts = str.to_i64(q[0])
+                    let ts: i64 = str.to_i64(q[0])
                     if (now - ts) > win { continue }
                 }
             }
         }
         kept = kept + line + "\n"
+        i = i + 1
     }
-    write_with_checksum(file_latency(), kept)
+    state.write_with_checksum(state.file_latency(), kept)
+
+    give false
 }
 
 proc parse_latency(line: string) -> i64
 {
-    if !str.contains(line, "\"latency_ms\":\"") { give 0 }
+    if not str.contains(line, "\"latency_ms\":\"") { give 0 }
     let p = str.split(line, "\"latency_ms\":\"")
     if p.len < 2 { give 0 }
     let q = str.split(p[1], "\"")
@@ -80,20 +98,25 @@ proc parse_latency(line: string) -> i64
 proc latency_values() -> [i64]
 {
     let out: [i64] = []
-    let raw = read_with_checksum(file_latency())
+    let raw: string = state.read_with_checksum(state.file_latency())
     if raw == "" { give out }
 
-    let lines = str.split(raw, "\n")
-    loop l in lines
+    let lines: [string] = str.split(raw, "\n")
+    let l: string = ""
+    let line: string = ""
+    let i: i32 = 0
+    while i < lines.len
     {
-        let line = str.trim(l)
+        l = lines[i]
+        line = str.trim(l)
         if line == "" { continue }
         out = out.push(parse_latency(line))
+        i = i + 1
     }
 
     give out
 }
 
-proc latency_p50() -> i64 { give percentile_i64(latency_values(), 50) }
-proc latency_p95() -> i64 { give percentile_i64(latency_values(), 95) }
-proc latency_p99() -> i64 { give percentile_i64(latency_values(), 99) }
+proc latency_p50() -> i64 { give math_stats.percentile_i64(latency_values(), 50) }
+proc latency_p95() -> i64 { give math_stats.percentile_i64(latency_values(), 95) }
+proc latency_p99() -> i64 { give math_stats.percentile_i64(latency_values(), 99) }

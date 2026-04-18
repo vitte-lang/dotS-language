@@ -1,20 +1,20 @@
 space runtime/status
 
-pull core/str
-pull runtime/common/metrics
-pull runtime/common/config
-pull runtime/common/events
-pull runtime/vm/vm
-pull runtime/memory/gc
+use core/str
+use runtime/common/metrics
+use runtime/common/config
+use runtime/common/events
+use runtime/vm/vm
+use runtime/memory/gc
 
 proc runtime_status_json() -> string
 {
-    let c = config.load()
+    let cfg = config.load()
     let v = vm.new()
     let g = gc.new()
     give "{" +
         "\"schema_version\":\"1.1.0\"," +
-        "\"config\":{\"schema_version\":\"" + c.schema_version + "\",\"strict\":\"" + str.from_bool(c.strict) + "\"}," +
+        "\"config\":{\"schema_version\":\"" + cfg.schema_version + "\",\"strict\":\"" + str.from_bool(cfg.strict) + "\"}," +
         "\"vm\":" + vm.status_json(v) + "," +
         "\"gc\":" + gc.status_json(g) + "," +
         "\"metrics\":" + metrics.status_json() +
@@ -38,12 +38,12 @@ proc runtime_doctor() -> string
 
 proc runtime_status_table() -> string
 {
-    let c = config.load()
+    let cfg = config.load()
     let v = vm.new()
     let out = ""
     out = out + "runtime status\n"
     out = out + "schema_version: 1.1.0\n"
-    out = out + "strict: " + str.from_bool(c.strict) + "\n"
+    out = out + "strict: " + str.from_bool(cfg.strict) + "\n"
     out = out + "safe_points_total: " + str.from_i64(v.safe_points_total) + "\n"
     out = out + "interrupted_total: " + str.from_i64(v.interrupted_total) + "\n"
     out = out + "latency_p95_ms: " + str.from_i64(metrics.p95_latency("runtime", "all")) + "\n"

@@ -1,18 +1,18 @@
 space runtime/jit/builder
 
-pull core/str
-pull core/fs
-pull runtime/common/result
-pull runtime/common/cancel
-pull runtime/common/metrics
-pull runtime/common/log
-pull runtime/common/config
-pull runtime/common/events
-pull runtime/common/trace
-pull runtime/common/panic
-pull runtime/interpreter
-pull core/ir
-pull core/ir/node
+use core/str
+use core/fs
+use runtime/common/result
+use runtime/common/cancel
+use runtime/common/metrics
+use runtime/common/log
+use runtime/common/config
+use runtime/common/events
+use runtime/common/trace
+use runtime/common/panic
+use runtime/interpreter
+use core/ir
+use core/ir/node
 
 form JitCacheEntry
 {
@@ -29,6 +29,12 @@ form JitBuilder
     cache_schema_version: string
 }
 
+form JitCompileResult
+{
+    builder: JitBuilder
+    result: result.RuntimeResult
+}
+
 proc new(target: string, opt_level: i32, strict_abi: bool) -> JitBuilder
 {
     if opt_level < 0 { opt_level = 0 }
@@ -41,21 +47,21 @@ proc key(ir_hash: string, target: string, opt_level: i32) -> string
     give ir_hash + "|" + target + "|O" + str.from_i64(opt_level)
 }
 
-proc cache_get(b: JitBuilder, k: string) -> string?
+proc cache_get(b: JitBuilder, k: string) -> string
 {
     b = cache_load_disk(b)
-    loop e in b.cache
+    for e in b.cache
     {
         if e.key == k { give e.machine_code }
     }
-    give null
+    give ""
 }
 
 proc cache_put(b: JitBuilder, k: string, mc: string) -> JitBuilder
 {
     let replaced = false
     let out: [JitCacheEntry] = []
-    loop e in b.cache
+    for e in b.cache
     {
         if e.key == k
         {
@@ -67,7 +73,7 @@ proc cache_put(b: JitBuilder, k: string, mc: string) -> JitBuilder
             out = out.push(e)
         }
     }
-    if !replaced { out = out.push(JitCacheEntry(k, mc)) }
+    if not replaced { out = out.push(JitCacheEntry(k, mc)) }
     b.cache = out
     cache_save_disk(b)
     give b
@@ -82,14 +88,14 @@ proc cache_load_disk(b: JitBuilder) -> JitBuilder
 {
     fs.mkdir_p(".dots")
     let f = cache_file(b.target, b.opt_level)
-    if !fs.exists(f) { give b }
+    if not fs.exists(f) { give b }
     let lines = str.split(fs.read_file(f), "\n")
     let out: [JitCacheEntry] = []
-    loop l in lines
+    for l in lines
     {
         let line = str.trim(l)
         if line == "" { continue }
-        if !str.contains(line, "|") { continue }
+        if not str.contains(line, "|") { continue }
         let p = str.split(line, "|")
         if p.len < 3 { continue }
         if p[0] != b.cache_schema_version { continue }
@@ -104,7 +110,7 @@ proc cache_save_disk(b: JitBuilder) -> void
     fs.mkdir_p(".dots")
     let f = cache_file(b.target, b.opt_level)
     let out = ""
-    loop e in b.cache
+    for e in b.cache
     {
         out = out + b.cache_schema_version + "|" + e.key + "|" + e.machine_code + "\n"
     }
@@ -113,14 +119,14 @@ proc cache_save_disk(b: JitBuilder) -> void
 
 proc abi_target_supported(target: string) -> bool
 {
-    give target == "host" || target == "wasm" || target == "arduino" || target == "kernel"
+    give target == "host"  or  target == "wasm"  or  target == "arduino"  or  target == "kernel"
 }
 
 proc verify_snapshot_json(vr: ir.VerifyResult) -> string
 {
     let out = ""
     let i: i32 = 0
-    loop while i < vr.errors.len
+    while i < vr.errors.len
     {
         if i > 0 { out = out + "," }
         out = out + "\"" + str.replace(vr.errors[i], "\"", "'") + "\""
@@ -139,14 +145,14 @@ proc safe_point(tok: cancel.CancelToken) -> result.RuntimeResult
     give result.ok("continue")
 }
 
-proc compile(b: JitBuilder, m: node.IRModule, ir_hash: string, tok: cancel.CancelToken) -> (JitBuilder, result.RuntimeResult)
+proc compile(builder: JitBuilder, m: node.IRModule, ir_hash: string, tok: cancel.CancelToken) -> JitCompileResult
 {
     let cfg = config.load()
     let sp = safe_point(tok)
-    if !sp.ok { give (b, sp) }
+    if not sp.ok { give JitCompileResult(builder, sp) }
 
     let vr = ir.verify(m)
-    if !vr.ok
+    if not vr.ok
     {
         fs.mkdir_p("tests/snapshots/runtime")
         fs.write_file("tests/snapshots/runtime/jit_verify.snapshot.json", verify_snapshot_json(vr))
@@ -154,44 +160,44 @@ proc compile(b: JitBuilder, m: node.IRModule, ir_hash: string, tok: cancel.Cance
         metrics.inc_ops("jit.compile_fail")
         events.append("jit", "error", "IR verify failed before JIT")
         log.record("error", "runtime.jit", "IR verify failed before JIT")
-        give (b, result.err(result.E_PANIC, "ir verify failed", false))
+        give JitCompileResult(builder, result.err(result.E_PANIC, "ir verify failed", false))
     }
 
-    let k = key(ir_hash, b.target, b.opt_level)
-    let hit = cache_get(b, k)
-    if hit != null
+    let k = key(ir_hash, builder.target, builder.opt_level)
+    let hit = cache_get(builder, k)
+    if hit != ""
     {
         metrics.inc_ops("jit.cache_hit")
         trace.append("jit.cache_hit", k)
-        give (b, result.ok(hit))
+        give JitCompileResult(builder, result.ok(hit))
     }
     metrics.inc_ops("jit.cache_miss")
 
-    if b.strict_abi && !abi_target_supported(b.target)
+    if builder.strict_abi  and  not abi_target_supported(builder.target)
     {
         metrics.inc_errors("jit.compile", result.E_INVALID_STATE)
-        events.append("jit", "error", "strict ABI: unsupported target=" + b.target)
-        give (b, result.err(result.E_INVALID_STATE, "strict ABI: unsupported target", false))
+        events.append("jit", "error", "strict ABI: unsupported target=" + builder.target)
+        give JitCompileResult(builder, result.err(result.E_INVALID_STATE, "strict ABI: unsupported target", false))
     }
 
     let code = "MC{" + k + "}"
-    b = cache_put(b, k, code)
+    builder = cache_put(builder, k, code)
     metrics.inc_ops("jit.compile")
     trace.append("jit.compile", k + ",seed=" + str.from_i64(cfg.seed))
-    give (b, result.ok(code))
+    give JitCompileResult(builder, result.ok(code))
 }
 
-proc compile_with_fallback(b: JitBuilder, m: node.IRModule, ir_hash: string, tok: cancel.CancelToken) -> (JitBuilder, result.RuntimeResult)
+proc compile_with_fallback(builder: JitBuilder, m: node.IRModule, ir_hash: string, tok: cancel.CancelToken) -> JitCompileResult
 {
-    let b2, r = compile(b, m, ir_hash, tok)
-    if r.ok { give (b2, r) }
+    let out = compile(builder, m, ir_hash, tok)
+    if out.result.ok { give out }
 
     metrics.inc_ops("jit.fallback_interpreter")
-    metrics.inc_errors("jit.fallback", r.error.code)
+    metrics.inc_errors("jit.fallback", out.result.error.code)
     events.append("jit", "warn", "fallback interpreter used")
     log.record("warn", "runtime.jit", "fallback to interpreter")
     let ir = interpreter.execute_fallback(ir_hash)
-    if ir.ok { give (b2, ir) }
+    if ir.ok { give JitCompileResult(out.builder, ir) }
     let e = result.err(result.E_PANIC, "fallback interpreter failed", false)
-    give (b2, panic.with_panic_boundary("jit.compile_with_fallback", e))
+    give JitCompileResult(out.builder, panic.with_panic_boundary("jit.compile_with_fallback", e))
 }

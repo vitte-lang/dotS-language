@@ -19,7 +19,7 @@ proc empty() -> [string]
 
 proc push(items: [string], value: string) -> [string]
 {
-    give items + [value]
+    give items.push(value)
 }
 
 proc contains(items: [string], value: string) -> bool
@@ -113,7 +113,7 @@ proc slice(items: [string], start: i64, end: i64) -> [string]
     let i: i32 = s
     while i < e
     {
-        set out = out + [items[i]]
+        set out = out.push(items[i])
         set i = i + 1
     }
     give out
@@ -124,7 +124,7 @@ proc unique(items: [string]) -> [string]
     let out: [string] = []
     for it in items
     {
-        if not contains(out, it) { set out = out + [it] }
+        if not contains(out, it) { set out = out.push(it) }
     }
     give out
 }
@@ -137,12 +137,12 @@ proc insert_sorted(items: [string], value: string) -> [string]
     {
         if not inserted and value < it
         {
-            set out = out + [value]
+            set out = out.push(value)
             set inserted = true
         }
-        set out = out + [it]
+        set out = out.push(it)
     }
-    if not inserted { set out = out + [value] }
+    if not inserted { set out = out.push(value) }
     give out
 }
 
@@ -158,7 +158,16 @@ proc sort_asc(items: [string]) -> [string]
 
 proc concat(a: [string], b: [string]) -> [string]
 {
-    give a + b
+    let out: [string] = []
+    for it in a
+    {
+        set out = out.push(it)
+    }
+    for it in b
+    {
+        set out = out.push(it)
+    }
+    give out
 }
 
 proc reverse(items: [string]) -> [string]
@@ -166,9 +175,16 @@ proc reverse(items: [string]) -> [string]
     let out: [string] = []
     for it in items
     {
-        set out = [it] + out
+        set out = out.push(it)
     }
-    give out
+    let i: i32 = 0
+    let rev: [string] = []
+    while i < out.len
+    {
+        set rev = rev.push(out[out.len - i - 1])
+        set i = i + 1
+    }
+    give rev
 }
 
 proc count(items: [string], value: string) -> i64
@@ -192,7 +208,7 @@ proc remove_first(items: [string], value: string) -> [string]
             set removed = true
             continue
         }
-        set out = out + [it]
+        set out = out.push(it)
     }
     give out
 }
@@ -203,7 +219,7 @@ proc remove_all(items: [string], value: string) -> [string]
     for it in items
     {
         if it == value { continue }
-        set out = out + [it]
+        set out = out.push(it)
     }
     give out
 }
@@ -219,7 +235,21 @@ proc insert(items: [string], index: i64, value: string) -> [string]
     if idx < 0 { set idx = items.len + idx }
     if idx < 0 { set idx = 0 }
     if idx > items.len { set idx = items.len }
-    give concat(slice(items, 0, idx), concat([value], slice(items, idx, items.len)))
+    let out: [string] = []
+    let i: i64 = 0
+    while i < idx
+    {
+        set out = out.push(items[i])
+        set i = i + 1
+    }
+    set out = out.push(value)
+    let j: i64 = idx
+    while j < items.len
+    {
+        set out = out.push(items[j])
+        set j = j + 1
+    }
+    give out
 }
 
 proc insert_result(items: [string], index: i64, value: string) -> ListResult

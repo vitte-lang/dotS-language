@@ -1,20 +1,20 @@
 space modules/package/backend/protocol_real
 
-pull core/str
+use core/str
 
 proc protocol_real_is_json_object(raw: string) -> bool
 {
     let v = str.trim(raw)
     if v == "" { give false }
-    if !str.starts_with(v, "{") { give false }
-    if !str.contains(v, "}") { give false }
+    if not str.starts_with(v, "{") { give false }
+    if not str.contains(v, "}") { give false }
     give true
 }
 
 proc protocol_real_field_string(raw: string, key: string) -> string
 {
     let pat = "\"" + key + "\":\""
-    if !str.contains(raw, pat) { give "" }
+    if not str.contains(raw, pat) { give "" }
     let p = str.split(raw, pat)
     if p.len < 2 { give "" }
     let q = str.split(p[1], "\"")
@@ -25,7 +25,7 @@ proc protocol_real_field_string(raw: string, key: string) -> string
 proc protocol_real_field_number(raw: string, key: string) -> string
 {
     let pat = "\"" + key + "\":"
-    if !str.contains(raw, pat) { give "" }
+    if not str.contains(raw, pat) { give "" }
     let p = str.split(raw, pat)
     if p.len < 2 { give "" }
     let q = str.split(p[1], ",")

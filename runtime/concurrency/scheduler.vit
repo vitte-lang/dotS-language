@@ -1,10 +1,10 @@
 space runtime/concurrency/scheduler
 
-pull core/str
-pull core/time
-pull runtime/common/metrics
-pull runtime/common/config
-pull runtime/concurrency/task
+use core/str
+use core/time
+use runtime/common/metrics
+use runtime/common/config
+use runtime/concurrency/task
 
 form SchedTask
 {
@@ -59,10 +59,10 @@ proc pick_next(s: Scheduler) -> i64
     let best_score: i64 = -1
 
     let i: i32 = 0
-    loop while i < s.tasks.len
+    while i < s.tasks.len
     {
         let t = s.tasks[i]
-        if !t.runnable { i = i + 1; continue }
+        if not t.runnable { i = i + 1; continue }
 
         let starved = now - t.last_run_ms
         if starved > s.starvation_ms
@@ -95,7 +95,7 @@ proc fairness_score(s: Scheduler) -> i64
     if s.tasks.len == 0 { give 100 }
     let min_c = s.tasks[0].consumed_ms
     let max_c = s.tasks[0].consumed_ms
-    loop t in s.tasks
+    for t in s.tasks
     {
         if t.consumed_ms < min_c { min_c = t.consumed_ms }
         if t.consumed_ms > max_c { max_c = t.consumed_ms }
@@ -122,7 +122,7 @@ proc status_json(s: Scheduler) -> string
 proc runnable_total(s: Scheduler) -> i64
 {
     let out: i64 = 0
-    loop t in s.tasks
+    for t in s.tasks
     {
         if t.runnable { out = out + 1 }
     }

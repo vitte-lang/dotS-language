@@ -221,10 +221,21 @@ proc repeat(raw: string, n: i64) -> string
     give out
 }
 
+proc empty_string_list() -> [string]
+{
+    let out: [string] = []
+    give out
+}
+
 proc split(raw: string, sep: string) -> [string]
 {
-    if sep == "" { give [raw] }
-    let out: [string] = []
+    if sep == ""
+    {
+        let out = empty_string_list()
+        set out = out.push(raw)
+        give out
+    }
+    let out = empty_string_list()
     let start: i64 = 0
     let i: i32 = 0
     while i <= raw.len - sep.len
@@ -243,13 +254,13 @@ proc split(raw: string, sep: string) -> [string]
         }
         if matched
         {
-            set out = out + [slice(raw, start, i)]
+            set out = out.push(slice(raw, start, i))
             set start = i + sep.len
             set i = start
             continue
         }
         set i = i + 1
     }
-    set out = out + [slice(raw, start, raw.len)]
+    set out = out.push(slice(raw, start, raw.len))
     give out
 }

@@ -1,24 +1,26 @@
 space runtime/common/metrics
 
-pull core/str
-pull core/fs
-pull core/time
+use core/str
+use core/fs
+use core/time
 
 proc metrics_file() -> string
 {
     give ".dots/runtime_metrics.v1.jsonl"
 }
 
-proc ensure() -> void
+proc ensure() -> bool
 {
     fs.mkdir_p(".dots")
-    if !fs.exists(metrics_file())
+    if not fs.exists(metrics_file())
     {
         fs.write_file(metrics_file(), "")
     }
+
+    give false
 }
 
-proc append_metric(key: string, value: i64, labels: string) -> void
+proc append_metric(key: string, value: i64, labels: string) -> bool
 {
     ensure()
     let line = "{" +
@@ -29,37 +31,45 @@ proc append_metric(key: string, value: i64, labels: string) -> void
         "\"labels\":\"" + str.replace(labels, "\"", "'") + "\"" +
     "}"
     fs.append_file(metrics_file(), line + "\n")
+
+    give false
 }
 
-proc inc_ops(module: string) -> void
+proc inc_ops(module: string) -> bool
 {
     append_metric("ops_total", 1, "module=" + module)
+
+    give false
 }
 
-proc inc_errors(module: string, code: string) -> void
+proc inc_errors(module: string, code: string) -> bool
 {
     append_metric("errors_total", 1, "module=" + module + ",code=" + code)
+
+    give false
 }
 
-proc observe_latency(module: string, op: string, ms: i64) -> void
+proc observe_latency(module: string, op: string, ms: i64) -> bool
 {
     append_metric("latency_ms", ms, "module=" + module + ",op=" + op)
+
+    give false
 }
 
 proc p95_latency(module: string, op: string) -> i64
 {
-    if !fs.exists(metrics_file()) { give 0 }
+    if not fs.exists(metrics_file()) { give 0 }
 
     let vals: [i64] = []
     let lines = str.split(fs.read_file(metrics_file()), "\n")
-    loop l in lines
+    for l in lines
     {
-        if !str.contains(l, "\"k\":\"latency_ms\"") { continue }
-        if !str.contains(l, "module=" + module) { continue }
-        if !str.contains(l, "op=" + op) { continue }
+        if not str.contains(l, "\"k\":\"latency_ms\"") { continue }
+        if not str.contains(l, "module=" + module) { continue }
+        if not str.contains(l, "op=" + op) { continue }
 
         let pat = "\"v\":\""
-        if !str.contains(l, pat) { continue }
+        if not str.contains(l, pat) { continue }
         let p = str.split(l, pat)
         if p.len < 2 { continue }
         let q = str.split(p[1], "\"")
@@ -69,26 +79,35 @@ proc p95_latency(module: string, op: string) -> i64
 
     if vals.len == 0 { give 0 }
 
+    let sorted: [i64] = []
     let i: i32 = 0
-    loop while i < vals.len
+    while i < vals.len
     {
-        let j: i32 = i + 1
-        loop while j < vals.len
+        let v = vals[i]
+        let inserted = false
+        let next: [i64] = []
+        let j: i32 = 0
+        while j < sorted.len
         {
-            if vals[i] > vals[j]
+            if not inserted  and  v < sorted[j]
             {
-                let t = vals[i]
-                vals[i] = vals[j]
-                vals[j] = t
+                next = next.push(v)
+                inserted = true
             }
+            next = next.push(sorted[j])
             j = j + 1
         }
+        if not inserted
+        {
+            next = next.push(v)
+        }
+        sorted = next
         i = i + 1
     }
 
-    let idx = (vals.len * 95) / 100
-    if idx >= vals.len { idx = vals.len - 1 }
-    give vals[idx]
+    let idx = (sorted.len * 95) / 100
+    if idx >= sorted.len { idx = sorted.len - 1 }
+    give sorted[idx]
 }
 
 proc status_json() -> string

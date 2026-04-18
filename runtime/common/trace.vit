@@ -1,21 +1,23 @@
 space runtime/common/trace
 
-pull core/str
-pull core/fs
-pull core/time
+use core/str
+use core/fs
+use core/time
 
 proc file() -> string
 {
     give ".dots/runtime_trace.jsonl"
 }
 
-proc ensure() -> void
+proc ensure() -> bool
 {
     fs.mkdir_p(".dots")
-    if !fs.exists(file()) { fs.write_file(file(), "") }
+    if not fs.exists(file()) { fs.write_file(file(), "") }
+
+    give false
 }
 
-proc append(event: string, detail: string) -> void
+proc append(event: string, detail: string) -> bool
 {
     ensure()
     let line = "{" +
@@ -25,12 +27,14 @@ proc append(event: string, detail: string) -> void
         "\"detail\":\"" + str.replace(detail, "\"", "'") + "\"" +
     "}"
     fs.append_file(file(), line + "\n")
+
+    give false
 }
 
 proc replay_lines(max_n: i32) -> [string]
 {
     let out: [string] = []
-    if !fs.exists(file()) { give out }
+    if not fs.exists(file()) { give out }
     let lines = str.split(fs.read_file(file()), "\n")
     let start = lines.len - max_n
     if start < 0 { start = 0 }

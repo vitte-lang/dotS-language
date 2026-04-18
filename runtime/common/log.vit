@@ -1,22 +1,24 @@
 space runtime/common/log
 
-pull core/str
-pull core/fs
-pull core/time
-pull core/process
-pull core/security/redact
+use core/str
+use core/fs
+use core/time
+use core/process
+use core/security/redact
 
 proc log_file() -> string
 {
     give ".dots/logs/runtime.log"
 }
 
-proc ensure_log_dir() -> void
+proc ensure_log_dir() -> bool
 {
     fs.mkdir_p(".dots/logs")
+
+    give false
 }
 
-proc record(level: string, module: string, message: string) -> void
+proc record(level: string, module: string, message: string) -> bool
 {
     ensure_log_dir()
 
@@ -34,4 +36,6 @@ proc record(level: string, module: string, message: string) -> void
     "}"
 
     fs.append_file(log_file(), line + "\n")
+
+    give false
 }

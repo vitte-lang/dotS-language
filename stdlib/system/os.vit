@@ -1,6 +1,6 @@
 space stdlib/system/os
 
-pull core/process
+use core/process
 
 proc cwd() -> string
 {

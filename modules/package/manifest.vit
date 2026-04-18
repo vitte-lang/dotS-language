@@ -1,11 +1,11 @@
 space modules/package/manifest
 
-pull core/fs
-pull core/str
+use core/fs
+use core/str
 
 proc manifest_raw() -> string
 {
-    if !fs.exists("dots.json") { give "" }
+    if not fs.exists("dots.json") { give "" }
     give fs.read_file("dots.json")
 }
 
@@ -15,7 +15,7 @@ proc manifest_field(key: string) -> string
     if raw == "" { give "" }
 
     let pat = "\"" + key + "\":\""
-    if !str.contains(raw, pat) { give "" }
+    if not str.contains(raw, pat) { give "" }
 
     let p = str.split(raw, pat)
     if p.len < 2 { give "" }
@@ -52,10 +52,10 @@ proc manifest_has_vitte_packages_root() -> bool
     give manifest_vitte_packages_root() != ""
 }
 
-proc manifest_validate_schema() -> string?
+proc manifest_validate_schema() -> string
 {
     if manifest_name() == "" { give "manifest.name missing" }
     if manifest_version() == "" { give "manifest.version missing" }
     if manifest_license() == "" { give "manifest.license missing" }
-    give null
+    give ""
 }

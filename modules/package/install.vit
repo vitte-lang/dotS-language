@@ -1,7 +1,7 @@
 space modules/package/install
 
-pull modules/package/backend
-pull modules/package/backend/types
+use modules/package/backend
+use modules/package/backend/types
 
 proc install_package(name: string, mirror: string, offline: bool, retries: i32, jitter_ms: i64, cb_threshold: i32, timeout_ms: i64) -> BackendResult
 {

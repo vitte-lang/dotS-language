@@ -20,7 +20,7 @@ proc set(env: Environment, key: string, value: string) -> Environment
 {
     let out: [Binding] = []
     let replaced = false
-    loop b in env.bindings
+    for b in env.bindings
     {
         if b.key == key
         {
@@ -32,7 +32,7 @@ proc set(env: Environment, key: string, value: string) -> Environment
             out = out.push(b)
         }
     }
-    if !replaced
+    if not replaced
     {
         out = out.push(Binding(key, value))
     }
@@ -42,7 +42,7 @@ proc set(env: Environment, key: string, value: string) -> Environment
 
 proc get(env: Environment, key: string) -> string
 {
-    loop b in env.bindings
+    for b in env.bindings
     {
         if b.key == key
         {

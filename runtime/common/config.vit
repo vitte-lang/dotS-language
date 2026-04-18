@@ -1,7 +1,7 @@
 space runtime/common/config
 
-pull core/str
-pull core/process
+use core/str
+use core/process
 
 const CFG_SCHEMA_VERSION: string = "1.1.0"
 
@@ -24,8 +24,8 @@ proc env_bool(name: string, fallback: bool) -> bool
 {
     let v = process.env(name)
     if v == "" { give fallback }
-    if v == "1" || v == "true" || v == "on" { give true }
-    if v == "0" || v == "false" || v == "off" { give false }
+    if v == "1"  or  v == "true"  or  v == "on" { give true }
+    if v == "0"  or  v == "false"  or  v == "off" { give false }
     give fallback
 }
 
@@ -34,7 +34,7 @@ proc env_i64(name: string, fallback: i64, min_v: i64, max_v: i64) -> i64
     let v = process.env(name)
     if v == "" { give fallback }
     let n = str.to_i64(v)
-    if n < min_v || n > max_v { give fallback }
+    if n < min_v  or  n > max_v { give fallback }
     give n
 }
 

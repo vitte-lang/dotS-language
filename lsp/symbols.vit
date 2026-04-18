@@ -1,7 +1,7 @@
 space lsp/symbols
 
-pull core/str
-pull lsp/model
+use core/str
+use lsp/model
 
 proc kind_for_symbol(sym: string) -> i32
 {
@@ -23,9 +23,9 @@ proc doc_symbols_json(doc: Document) -> string
 {
     let out = "["
     let first = true
-    loop s in doc.symbols
+    for s in doc.symbols
     {
-        if !first { out = out + "," }
+        if not first { out = out + "," }
         first = false
         let k = kind_for_symbol(s)
         let name = symbol_name(s)
@@ -39,13 +39,13 @@ proc workspace_symbols_json(docs: [Document], query: string) -> string
 {
     let out = "["
     let first = true
-    loop d in docs
+    for d in docs
     {
-        loop s in d.symbols
+        for s in d.symbols
         {
             let name = symbol_name(s)
-            if query != "" && !str.contains(name, query) { continue }
-            if !first { out = out + "," }
+            if query != ""  and  not str.contains(name, query) { continue }
+            if not first { out = out + "," }
             first = false
             let k = kind_for_symbol(s)
             out = out + "{\"name\":\"" + name + "\",\"kind\":" + str.from_i64(k) + ",\"location\":{\"uri\":\"" + d.uri + "\",\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":0,\"character\":1}}}}"

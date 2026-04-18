@@ -1,26 +1,28 @@
 space runtime/common/events
 
-pull core/str
-pull core/fs
-pull core/time
-pull core/process
-pull core/security/redact
+use core/str
+use core/fs
+use core/time
+use core/process
+use core/security/redact
 
 proc file() -> string
 {
     give ".dots/runtime_events.v1.jsonl"
 }
 
-proc ensure() -> void
+proc ensure() -> bool
 {
     fs.mkdir_p(".dots")
-    if !fs.exists(file())
+    if not fs.exists(file())
     {
         fs.write_file(file(), "")
     }
+
+    give false
 }
 
-proc append(component: string, severity: string, message: string) -> void
+proc append(component: string, severity: string, message: string) -> bool
 {
     ensure()
     let safe = redact.clamp_error_message(redact.redact_secrets(message), 2048)
@@ -34,29 +36,29 @@ proc append(component: string, severity: string, message: string) -> void
         "\"message\":\"" + str.replace(safe, "\"", "'") + "\"" +
     "}"
     fs.append_file(file(), line + "\n")
+
+    give false
 }
 
-proc rotate_if_needed(max_bytes: i64, max_age_ms: i64) -> void
+proc rotate_if_needed(max_bytes: i64, max_age_ms: i64) -> bool
 {
-    if !fs.exists(file())
-    {
-        give
-    }
+    if not fs.exists(file())
+    {}
     let age = time.now_ms() - fs.mtime_ms(file())
     let raw = fs.read_file(file())
-    if raw.len < max_bytes && age < max_age_ms
-    {
-        give
-    }
+    if raw.len < max_bytes  and  age < max_age_ms
+    {}
 
     let archived = ".dots/runtime_events." + str.from_i64(time.now_ms()) + ".jsonl"
     fs.write_file(archived, raw)
     fs.write_file(file(), "")
+
+    give false
 }
 
 proc tail(n: i32) -> string
 {
-    if !fs.exists(file())
+    if not fs.exists(file())
     {
         give ""
     }

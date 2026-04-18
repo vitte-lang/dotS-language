@@ -3,4 +3,4 @@ space stdlib/text
 use stdlib/text/format as format
 use stdlib/text/string as string_
 
-share format, string_
+

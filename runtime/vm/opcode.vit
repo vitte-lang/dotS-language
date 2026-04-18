@@ -1,6 +1,6 @@
 space runtime/vm/opcode
 
-pull core/str
+use core/str
 
 const OP_NOP: string = "NOP"
 const OP_CONST: string = "CONST"
@@ -11,14 +11,14 @@ const OP_TRAP: string = "TRAP"
 
 proc is_known(op: string) -> bool
 {
-    give op == OP_NOP || op == OP_CONST || op == OP_CALL || op == OP_RET || op == OP_JUMP || op == OP_TRAP
+    give op == OP_NOP  or  op == OP_CONST  or  op == OP_CALL  or  op == OP_RET  or  op == OP_JUMP  or  op == OP_TRAP
 }
 
 proc normalize(op: string) -> string
 {
     let clean = str.trim(op)
     if str.contains(clean, " ") { clean = str.split(clean, " ")[0] }
-    if !is_known(clean) { give OP_TRAP }
+    if not is_known(clean) { give OP_TRAP }
     give clean
 }
 

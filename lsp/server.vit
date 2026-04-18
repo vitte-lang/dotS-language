@@ -1,26 +1,26 @@
 space lsp/server
 
-pull core/io
-pull core/fs
-pull core/str
-pull core/time
-pull core/process
-pull core/json
+use core/io
+use core/fs
+use core/str
+use core/time
+use core/process
+use core/json
 
-pull lsp/model
-pull lsp/completion
-pull lsp/goto_definition
-pull lsp/hover
-pull lsp/references
-pull lsp/rename
-pull lsp/formatting
-pull lsp/diagnostics
-pull lsp/semantic_tokens
-pull lsp/symbols
-pull lsp/code_actions
-pull lsp/code_lens
-pull lsp/signature_help
-pull lsp/workspace_edit
+use lsp/model
+use lsp/completion
+use lsp/goto_definition
+use lsp/hover
+use lsp/references
+use lsp/rename
+use lsp/formatting
+use lsp/diagnostics
+use lsp/semantic_tokens
+use lsp/symbols
+use lsp/code_actions
+use lsp/code_lens
+use lsp/signature_help
+use lsp/workspace_edit
 
 form HandlerDef
 {
@@ -64,7 +64,7 @@ proc handlers() -> [HandlerDef]
 
 proc supports_method(method: string) -> bool
 {
-    loop h in handlers()
+    for h in handlers()
     {
         if h.method == method { give true }
     }
@@ -74,7 +74,7 @@ proc supports_method(method: string) -> bool
 proc lsp_log(line: string) -> void
 {
     let quiet = process.env("DOTS_LSP_LOG_SILENT")
-    if quiet == "1" { give }
+    if quiet == "1" {}
     fs.mkdir_p(".dots/logs")
     fs.append_file(".dots/logs/lsp.log", line + "\n")
 }
@@ -83,7 +83,7 @@ proc lsp_lang() -> string
 {
     let l = process.env("DOTS_LSP_LANG")
     if l == "" { l = "en" }
-    if l != "en" && l != "fr" { l = "en" }
+    if l != "en"  and  l != "fr" { l = "en" }
     give l
 }
 
@@ -190,14 +190,14 @@ proc parse_frames(raw: string) -> [string]
 
 proc payload_is_jsonrpc(payload: string) -> bool
 {
-    if !str.starts_with(str.trim(payload), "{") { give false }
+    if not str.starts_with(str.trim(payload), "{") { give false }
     give jsonrpc_is_v2(payload)
 }
 
 proc in_cancelled(cancelled: [string], id: string) -> bool
 {
     if id == "" { give false }
-    loop c in cancelled
+    for c in cancelled
     {
         if c == id { give true }
     }
@@ -247,7 +247,7 @@ proc main() -> i32
     let ttfo_budget_ms = str.to_i64(process.env("DOTS_LSP_TTFO_BUDGET_MS"))
     if ttfo_budget_ms <= 0 { ttfo_budget_ms = 100 }
 
-    loop payload in frames
+    for payload in frames
     {
         requests_total = requests_total + 1
         let t0 = time.now_ms()
@@ -263,7 +263,7 @@ proc main() -> i32
         let req_timeout_ms = str.to_i64(process.env("DOTS_LSP_REQUEST_TIMEOUT_MS"))
         if req_timeout_ms <= 0 { req_timeout_ms = 2500 }
 
-        if !payload_is_jsonrpc(payload)
+        if not payload_is_jsonrpc(payload)
         {
             errors_total = errors_total + 1
             write_jsonrpc(error_response(id_json, -32600, msg("invalid_request")))
@@ -296,7 +296,7 @@ proc main() -> i32
             continue
         }
 
-        if !supports_method(method)
+        if not supports_method(method)
         {
             errors_total = errors_total + 1
             write_jsonrpc(error_response(id_json, -32601, msg("method_not_found")))
@@ -325,10 +325,10 @@ proc main() -> i32
             {
                 let s = latencies
                 let i0: i32 = 0
-                loop while i0 < s.len
+                while i0 < s.len
                 {
                     let j0: i32 = i0 + 1
-                    loop while j0 < s.len
+                    while j0 < s.len
                     {
                         if s[j0] < s[i0]
                         {
@@ -417,11 +417,11 @@ proc main() -> i32
                 continue
             }
             let prev = find_doc(docs, uri)
-            if prev != null && new_text == ""
+            if prev != null  and  new_text == ""
             {
                 new_text = prev.text
             }
-            if prev != null && str.contains(payload, "\"range\"")
+            if prev != null  and  str.contains(payload, "\"range\"")
             {
                 # incremental placeholder: append patch text (cooperative until full delta parser).
                 new_text = prev.text + "\n" + new_text
@@ -523,7 +523,7 @@ proc main() -> i32
         let uri = parse_uri(payload)
         let line = parse_line(payload)
         let ch = parse_character(payload)
-        if uri_to_path(uri) != "" && !safe_workspace_path(uri_to_path(uri))
+        if uri_to_path(uri) != ""  and  not safe_workspace_path(uri_to_path(uri))
         {
             errors_total = errors_total + 1
             write_jsonrpc(error_response(id_json, -32602, msg("path_traversal")))
@@ -613,7 +613,7 @@ proc main() -> i32
         if method == "textDocument/prepareRename"
         {
             let sym = symbol_at(doc, line, ch)
-            if !is_valid_identifier(sym)
+            if not is_valid_identifier(sym)
             {
                 errors_total = errors_total + 1
                 write_jsonrpc(error_response(id_json, -32602, msg("rename_rejected")))
@@ -732,10 +732,10 @@ proc main() -> i32
     {
         let sorted = latencies
         let i: i32 = 0
-        loop while i < sorted.len
+        while i < sorted.len
         {
             let j: i32 = i + 1
-            loop while j < sorted.len
+            while j < sorted.len
             {
                 if sorted[j] < sorted[i]
                 {

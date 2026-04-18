@@ -1,56 +1,58 @@
 space modules/package/backend
 
-pull core/str
-pull modules/package/backend/types
-pull modules/package/backend/core
-pull modules/package/backend/state
+use core/str
+use modules/package/backend/types as backend_types
+use modules/package/backend/core as backend_core
+use modules/package/backend/state as backend_state
 
-proc backend_request(op: string, arg: string, mirror: string, offline: bool, retries: i32, base_delay_ms: i64, jitter_ms: i64, cb_threshold: i32, cb_cooldown_ms: i64, timeout_ms: i64) -> BackendResult
+proc backend_request(op: string, arg: string, mirror: string, offline: bool, retries: i32, base_delay_ms: i64, jitter_ms: i64, cb_threshold: i32, cb_cooldown_ms: i64, timeout_ms: i64) -> backend_types.BackendResult
 {
-    give backend_request_core(op, arg, mirror, offline, retries, base_delay_ms, jitter_ms, cb_threshold, cb_cooldown_ms, timeout_ms)
+    give backend_core.backend_request_core(op, arg, mirror, offline, retries, base_delay_ms, jitter_ms, cb_threshold, cb_cooldown_ms, timeout_ms)
 }
 
 proc backend_status_pairs() -> [string]
 {
-    give backend_status_pairs_core()
+    give backend_core.backend_status_pairs_core()
 }
 
-proc backend_reset() -> void
+proc backend_reset() -> bool
 {
-    backend_reset_core()
+    backend_core.backend_reset_core()
+
+    give false
 }
 
 proc backend_state_reset_safe() -> bool
 {
-    give state_reset_safe()
+    give backend_state.state_reset_safe()
 }
 
 proc backend_state_doctor_checks() -> [string]
 {
-    give state_doctor_checks()
+    give backend_state.state_doctor_checks()
 }
 
 proc backend_events_tail_json(lines_count: i32) -> string
 {
-    give events_tail_json(lines_count)
+    give backend_state.events_tail_json(lines_count)
 }
 
 proc backend_events_tail_json_array(lines_count: i32, component: string) -> string
 {
-    give events_tail_json_array(lines_count, component)
+    give backend_state.events_tail_json_array(lines_count, component)
 }
 
 proc backend_events_query_json_array(lines_count: i32, component: string, severity: string, since_ms: i64, until_ms: i64) -> string
 {
-    give events_query_json_array(lines_count, component, severity, since_ms, until_ms)
+    give backend_state.events_query_json_array(lines_count, component, severity, since_ms, until_ms)
 }
 
 proc backend_status_json() -> string
 {
-    let pairs = backend_status_pairs_core()
+    let pairs = backend_core.backend_status_pairs_core()
     let out = ""
     let i: i32 = 0
-    loop while i < pairs.len
+    while i < pairs.len
     {
         let kv = str.split(pairs[i], "=")
         if kv.len >= 2
@@ -65,9 +67,9 @@ proc backend_status_json() -> string
 
 proc backend_status_prom() -> string
 {
-    let pairs = backend_status_pairs_core()
+    let pairs = backend_core.backend_status_pairs_core()
     let out = ""
-    loop p in pairs
+    for p in pairs
     {
         let kv = str.split(p, "=")
         if kv.len < 2 { continue }
@@ -78,10 +80,10 @@ proc backend_status_prom() -> string
 
 proc backend_doctor_json() -> string
 {
-    let checks = state_doctor_checks()
+    let checks = backend_state.state_doctor_checks()
     let out = ""
     let i: i32 = 0
-    loop while i < checks.len
+    while i < checks.len
     {
         if i > 0 { out = out + "," }
         out = out + "\"" + str.replace(checks[i], "\"", "'") + "\""

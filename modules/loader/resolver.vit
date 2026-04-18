@@ -1,8 +1,8 @@
 space modules/loader/resolver
 
-pull core/fs
-pull core/str
-pull modules/package/manifest
+use core/fs
+use core/str
+use modules/package/manifest
 
 proc default_vitte_packages_root() -> string
 {
@@ -24,23 +24,23 @@ proc package_name_is_safe(name: string) -> bool
     give true
 }
 
-proc package_dir(name: string, root_override: string) -> string?
+proc package_dir(name: string, root_override: string) -> string
 {
-    if !package_name_is_safe(name) { give null }
+    if not package_name_is_safe(name) { give "" }
     give packages_root(root_override) + "/" + name
 }
 
-proc package_mod_file(name: string, root_override: string) -> string?
+proc package_mod_file(name: string, root_override: string) -> string
 {
     let dir = package_dir(name, root_override)
-    if dir == null { give null }
+    if dir == "" { give "" }
     give dir + "/mod.vit"
 }
 
-proc package_info_file(name: string, root_override: string) -> string?
+proc package_info_file(name: string, root_override: string) -> string
 {
     let dir = package_dir(name, root_override)
-    if dir == null { give null }
+    if dir == "" { give "" }
     give dir + "/info.vit"
 }
 
@@ -48,29 +48,29 @@ proc has_package(name: string, root_override: string) -> bool
 {
     let mod = package_mod_file(name, root_override)
     let info = package_info_file(name, root_override)
-    if mod != null && fs.exists(mod) { give true }
-    if info != null && fs.exists(info) { give true }
+    if mod != ""  and  fs.exists(mod) { give true }
+    if info != ""  and  fs.exists(info) { give true }
     give false
 }
 
-proc resolve_package(name: string, root_override: string) -> string?
+proc resolve_package(name: string, root_override: string) -> string
 {
     let mod = package_mod_file(name, root_override)
-    if mod != null && fs.exists(mod) { give mod }
+    if mod != ""  and  fs.exists(mod) { give mod }
 
     let info = package_info_file(name, root_override)
-    if info != null && fs.exists(info) { give info }
+    if info != ""  and  fs.exists(info) { give info }
 
-    give null
+    give ""
 }
 
 proc discover_packages(root_override: string) -> [string]
 {
     let root = packages_root(root_override)
-    if !fs.exists(root) { give [] }
+    if not fs.exists(root) { give [] }
 
     let out: [string] = []
-    loop entry in fs.read_dir(root)
+    for entry in fs.read_dir(root)
     {
         if has_package(entry, root)
         {

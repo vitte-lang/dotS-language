@@ -1,16 +1,16 @@
 space lsp/code_lens
 
-pull core/str
-pull lsp/model
+use core/str
+use lsp/model
 
 proc code_lens_json(doc: Document) -> string
 {
     let out = "["
     let first = true
-    loop s in doc.symbols
+    for s in doc.symbols
     {
-        if !str.contains(s, "bench") && !str.contains(s, "test") { continue }
-        if !first { out = out + "," }
+        if not str.contains(s, "bench")  and  not str.contains(s, "test") { continue }
+        if not first { out = out + "," }
         first = false
         out = out + "{\"range\":{\"start\":{\"line\":0,\"character\":0},\"end\":{\"line\":0,\"character\":1}},\"command\":{\"title\":\"Run " + s + "\",\"command\":\"dots.runTarget\",\"arguments\":[\"" + doc.uri + "\",\"" + s + "\"]}}"
     }

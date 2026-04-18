@@ -1,7 +1,7 @@
 space stdlib/io/console
 
-pull stdlib/io/print
-pull stdlib/io/input
+use stdlib/io/print
+use stdlib/io/input
 
 proc echo(message: string) -> void
 {

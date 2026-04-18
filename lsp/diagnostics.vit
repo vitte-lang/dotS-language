@@ -1,10 +1,10 @@
 space lsp/diagnostics
 
-pull core/str
-pull core/process
-pull lsp/model
-pull modules/loader/resolver
-pull modules/loader/stdlib_catalog
+use core/str
+use core/process
+use lsp/model
+use modules/loader/resolver
+use modules/loader/stdlib_catalog
 
 const SEV_ERROR: i32 = 1
 const SEV_WARNING: i32 = 2
@@ -13,7 +13,7 @@ const SEV_HINT: i32 = 4
 
 proc list_has(items: [string], v: string) -> bool
 {
-    loop it in items
+    for it in items
     {
         if it == v { give true }
     }
@@ -57,18 +57,18 @@ proc levenshtein(a: string, b: string) -> i32
 
     let prev: [i32] = []
     let j: i32 = 0
-    loop while j <= b.len
+    while j <= b.len
     {
         prev = prev.push(j)
         j = j + 1
     }
 
     let i: i32 = 1
-    loop while i <= a.len
+    while i <= a.len
     {
         let cur: [i32] = [i]
         let k: i32 = 1
-        loop while k <= b.len
+        while k <= b.len
         {
             let cost: i32 = 1
             if a[i - 1] == b[k - 1] { cost = 0 }
@@ -87,7 +87,7 @@ proc levenshtein(a: string, b: string) -> i32
 proc quote_items(items: [string]) -> string
 {
     let q: [string] = []
-    loop x in items
+    for x in items
     {
         q = q.push("'" + x + "'")
     }
@@ -97,24 +97,24 @@ proc quote_items(items: [string]) -> string
 proc suggest_packages(pkg: string, max_items: i32) -> [string]
 {
     let pool: [string] = []
-    loop s in stdlib_catalog.candidates()
+    for s in stdlib_catalog.candidates()
     {
         pool = push_unique(pool, s)
     }
-    loop p in resolver.discover_packages("")
+    for p in resolver.discover_packages("")
     {
         pool = push_unique(pool, p)
     }
 
     let out: [string] = []
     let max_score: i32 = 3
-    loop while out.len < max_items
+    while out.len < max_items
     {
         let best = ""
         let best_score: i32 = 9999
         let best_pref = false
         let best_cont = false
-        loop c in pool
+        for c in pool
         {
             if list_has(out, c) { continue }
             let pref = str.starts_with(c, pkg)
@@ -124,8 +124,8 @@ proc suggest_packages(pkg: string, max_items: i32) -> [string]
             if d < best_score { pick = true }
             else if d == best_score
             {
-                if pref && !best_pref { pick = true }
-                else if pref == best_pref && cont && !best_cont { pick = true }
+                if pref  and  not best_pref { pick = true }
+                else if pref == best_pref  and  cont  and  not best_cont { pick = true }
             }
             if pick
             {
@@ -136,7 +136,7 @@ proc suggest_packages(pkg: string, max_items: i32) -> [string]
             }
         }
         if best == "" { break }
-        if !best_pref && !best_cont && best_score > max_score { break }
+        if not best_pref  and  not best_cont  and  best_score > max_score { break }
         out = out.push(best)
     }
     give out
@@ -147,7 +147,7 @@ proc analyze_incremental(doc: Document, limit: i32) -> [Diagnostic]
     let out: [Diagnostic] = []
     let lines = str.split(doc.text, "\n")
     let i: i32 = 0
-    loop while i < lines.len
+    while i < lines.len
     {
         let l = lines[i]
         if str.contains(l, "TODO")
@@ -164,13 +164,13 @@ proc analyze_incremental(doc: Document, limit: i32) -> [Diagnostic]
         }
 
         let trimmed = str.trim(l)
-        if str.starts_with(trimmed, "import.") || str.starts_with(trimmed, "use.")
+        if str.starts_with(trimmed, "import.")  or  str.starts_with(trimmed, "use.")
         {
             let parts = str.split(trimmed, ".")
             if parts.len >= 2
             {
                 let pkg = parts[1]
-                if !resolver.has_package(pkg, "")
+                if not resolver.has_package(pkg, "")
                 {
                     let msg = "missing vitte package: " + pkg
                     let s = suggest_packages(pkg, suggest_limit())
@@ -186,11 +186,11 @@ proc analyze_incremental(doc: Document, limit: i32) -> [Diagnostic]
                 }
             }
         }
-        if str.starts_with(trimmed, "ret") && !str.contains(doc.text, "fn.")
+        if str.starts_with(trimmed, "ret")  and  not str.contains(doc.text, "fn.")
         {
             out = out.push(Diagnostic("DOTS005", SEV_ERROR, i, 0, "return outside function", doc.uri, i, 0))
         }
-        if str.starts_with(trimmed, "throw") && !str.contains(trimmed, ".")
+        if str.starts_with(trimmed, "throw")  and  not str.contains(trimmed, ".")
         {
             out = out.push(Diagnostic("DOTS006", SEV_WARNING, i, 0, "throw requires expression", doc.uri, i, 0))
         }
@@ -204,7 +204,7 @@ proc analyze_incremental(doc: Document, limit: i32) -> [Diagnostic]
 proc diagnostics_hash(diags: [Diagnostic]) -> string
 {
     let raw = ""
-    loop d in diags
+    for d in diags
     {
         raw = raw + d.code + "|" + str.from_i64(d.line) + "|" + str.from_i64(d.character) + "\n"
     }
@@ -222,12 +222,12 @@ proc diagnostics_json_array(diags: [Diagnostic]) -> string
 {
     let out = "["
     let i: i32 = 0
-    loop while i < diags.len
+    while i < diags.len
     {
         let d = diags[i]
         if i > 0 { out = out + "," }
         let docs = "docs/grammar.md#" + d.code
-        if d.code == "DOTS005" || d.code == "DOTS006" { docs = "docs/language_spec.md#" + d.code }
+        if d.code == "DOTS005"  or  d.code == "DOTS006" { docs = "docs/language_spec.md#" + d.code }
         out = out + "{\"code\":\"" + d.code + "\",\"severity\":" + str.from_i64(d.severity) + ",\"source\":\"dots-lsp\",\"range\":{\"start\":{\"line\":" + str.from_i64(d.line) + ",\"character\":" + str.from_i64(d.character) + "},\"end\":{\"line\":" + str.from_i64(d.line) + ",\"character\":" + str.from_i64(d.character + 1) + "}},\"message\":\"" + str.replace(d.message, "\"", "\\\"") + "\",\"data\":{\"quickFix\":\"see " + docs + "\"},\"relatedInformation\":[{\"location\":{\"uri\":\"" + d.related_uri + "\",\"range\":{\"start\":{\"line\":" + str.from_i64(d.related_line) + ",\"character\":" + str.from_i64(d.related_character) + "},\"end\":{\"line\":" + str.from_i64(d.related_line) + ",\"character\":" + str.from_i64(d.related_character + 1) + "}}},\"message\":\"related\"}]}"
         i = i + 1
     }

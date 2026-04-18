@@ -1,8 +1,8 @@
 space lsp/rename
 
-pull core/str
-pull lsp/model
-pull lsp/goto_definition
+use core/str
+use lsp/model
+use lsp/goto_definition
 
 proc is_valid_identifier(name: string) -> bool
 {
@@ -20,7 +20,7 @@ proc rename_line_safe(line: string, old_name: string, new_name: string) -> strin
 {
     if str.starts_with(str.trim(line), "#") { give line }
     # conservative: skip lines containing quotes to avoid string edits.
-    if str.contains(line, "\"") || str.contains(line, "'") { give line }
+    if str.contains(line, "\"")  or  str.contains(line, "'") { give line }
     give str.replace(line, old_name, new_name)
 }
 
@@ -28,7 +28,7 @@ proc rename_text_safe(text: string, old_name: string, new_name: string) -> strin
 {
     let lines = str.split(text, "\n")
     let out = ""
-    loop l in lines
+    for l in lines
     {
         out = out + rename_line_safe(l, old_name, new_name) + "\n"
     }
@@ -37,21 +37,21 @@ proc rename_text_safe(text: string, old_name: string, new_name: string) -> strin
 
 proc rename_workspace_edit_json(docs: [Document], target_uri: string, line: i32, character: i32, new_name: string) -> string
 {
-    if !is_valid_identifier(new_name)
+    if not is_valid_identifier(new_name)
     {
         give "null"
     }
     let doc = find_doc(docs, target_uri)
     if doc == null { give "null" }
     let old = symbol_at(doc, line, character)
-    if old == "" || old == new_name { give "null" }
+    if old == ""  or  old == new_name { give "null" }
 
     let out = "{\"documentChanges\":["
     let first = true
-    loop d in docs
+    for d in docs
     {
         let next = rename_text_safe(d.text, old, new_name)
-        if !first { out = out + "," }
+        if not first { out = out + "," }
         first = false
         let escaped = str.replace(str.replace(next, "\\", "\\\\"), "\"", "\\\"")
         escaped = str.replace(escaped, "\n", "\\n")
