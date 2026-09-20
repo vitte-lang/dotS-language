@@ -3,6 +3,7 @@
 The canonical grammar is in `grammar/DotS.ebnf`.
 
 ## Key points
+- Canonical statements are line-oriented and omit leading/trailing dots.
 - Dot-separated instruction form: `keyword.segment.segment`
 - Supports qualified identifiers such as `thread.pool.create`
 - Supports typed operation arguments, e.g. `call.chan.create.$chan.int.$size`

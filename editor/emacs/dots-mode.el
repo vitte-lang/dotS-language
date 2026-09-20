@@ -8,8 +8,16 @@
     st))
 
 (defconst dots-font-lock-keywords
-  '(("\\<\\(space\\|pull\\|form\\|proc\\|const\\|let\\|give\\|loop\\|if\\|else\\|entry\\|at\\)\\>" . font-lock-keyword-face)
-    ("\\<\\([0-9]+\\)\\>" . font-lock-constant-face)))
+  '(("\\_<\\(space\\|pull\\|form\\|proc\\|give\\|begin\\|end\\)\\_>" . font-lock-preprocessor-face)
+    ("\\_<\\(module\\|use\\|import\\)\\_>" . font-lock-keyword-face)
+    ("\\_<\\(fn\\|set\\|let\\|const\\|call\\|ret\\)\\_>" . font-lock-function-name-face)
+    ("\\_<\\(if\\|elif\\|else\\|loop\\|while\\|for\\|break\\|continue\\|try\\|catch\\|throw\\)\\_>" . font-lock-constant-face)
+    ("\\_<\\(as\\|and\\|or\\|not\\|in\\|case\\)\\_>" . font-lock-builtin-face)
+    ("\\_<\\(true\\|false\\|null\\)\\_>" . font-lock-constant-face)
+    ("\\_<\\(int\\|i32\\|i64\\|f64\\|bool\\|string\\|bytes\\|ptr\\|result\\|void\\|any\\)\\_>" . font-lock-type-face)
+    ("\\$[A-Za-z_][A-Za-z0-9_]*" . font-lock-variable-name-face)
+    ("\\_<[A-Za-z_][A-Za-z0-9_]*\\(?:\\.[A-Za-z0-9_]+\\)+\\_>" . font-lock-function-name-face)
+    ("\\_<\\([0-9]+\\)\\_>" . font-lock-constant-face)))
 
 (defun dots-indent-line ()
   (interactive)
@@ -50,4 +58,3 @@
 (add-to-list 'auto-mode-alist '("\\.vit\\'" . dots-mode))
 
 (provide 'dots-mode)
-

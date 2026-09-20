@@ -1,0 +1,48 @@
+.test.cli.editor.syntax.vim.coverage.
+.begin.
+.sys.exec.capture."python3 scripts/editor_syntax_probe.py vim".$out.
+.assert.contains.$out."[vim] dots_probe.dotS".
+.assert.contains.$out."[vim] vit_probe.vit".
+.assert.contains.$out."1:1 module => module".
+.assert.contains.$out."9:1 qualified => qualified".
+.assert.contains.$out."34:3 comment => comment".
+.assert.contains.$out."6:15 type_string => type".
+.assert.contains.$out."11:12 qualified_contains => qualified".
+.ret.
+.end.
+
+.test.cli.editor.syntax.emacs.coverage.
+.begin.
+.sys.exec.capture."python3 scripts/editor_syntax_probe.py emacs".$out.
+.assert.contains.$out."[emacs] dots_probe.dotS".
+.assert.contains.$out."[emacs] vit_probe.vit".
+.assert.contains.$out."5:5 x => variable".
+.assert.contains.$out."7:10 literal_true => literal".
+.assert.contains.$out."6:1 storage_proc => storage".
+.assert.contains.$out."11:12 qualified_contains => qualified".
+.ret.
+.end.
+
+.test.cli.editor.syntax.nano.coverage.
+.begin.
+.sys.exec.capture."python3 scripts/editor_syntax_probe.py nano".$out.
+.assert.contains.$out."[nano] dots_probe.dotS".
+.assert.contains.$out."[nano] vit_probe.vit".
+.assert.contains.$out."3:1 import => module".
+.assert.contains.$out."29:1 operator_as => operator".
+.assert.contains.$out."8:1 storage_form => storage".
+.assert.contains.$out."13:13 qualified_result_ok => qualified".
+.ret.
+.end.
+
+.test.cli.editor.syntax.geany.coverage.
+.begin.
+.sys.exec.capture."python3 scripts/editor_syntax_probe.py geany".$out.
+.assert.contains.$out."[geany] dots_probe.dotS".
+.assert.contains.$out."[geany] vit_probe.vit".
+.assert.contains.$out."2:1 use => module".
+.assert.contains.$out."7:1 const => statement".
+.assert.contains.$out."9:1 qualified => qualified".
+.assert.contains.$out."3:12 operator_as => operator".
+.ret.
+.end.

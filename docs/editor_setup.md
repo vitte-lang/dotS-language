@@ -1,5 +1,7 @@
 # Editor Setup
 
+For the canonical syntax summary, see [`docs/syntax.md`](syntax.md).
+
 ## Vim
 - `editor/vim/ftdetect/dots.vim`
 - `editor/vim/syntax/dots.vim`
@@ -23,4 +25,3 @@ Add to `~/.nanorc`:
 ```ini
 include /path/to/editor/nano/dots.nanorc
 ```
-

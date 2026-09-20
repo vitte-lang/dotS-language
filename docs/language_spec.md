@@ -1,13 +1,14 @@
 # DotS Language Spec
 
 DotS is a dotted, script-oriented language.
+Canonical statements are line-oriented and do not use leading or trailing dots.
 
 Core statement forms:
 
-- `module.<name>`
-- `use.<package>`
-- `import.<package>`
-- `fn.<name>.$arg1.$arg2`
+- `module.<name>` for the current module
+- `use.<package>` for package consumption
+- `import.<package>` for explicit package references
+- `fn.<name>.$arg1.$arg2` for function declarations
 - `set.$var.<expr>`
 - `let.$var.<expr>`
 - `const.$var.<expr>`

@@ -1,0 +1,15 @@
+space runtime/syntax_demo
+pull runtime/common/result
+use core/str as str
+form Demo
+
+proc run(path: string, count: i64) -> result.StdResult
+{
+    let total: i32 = 3
+    const ok: bool = true
+    # comment
+    if not str.contains(path, ".") and count > 0
+    {
+        give result.ok(path)
+    }
+}

@@ -54,42 +54,44 @@ bash scripts/ci_geany_assets_gate.sh
 
 ## `.dotS` source examples
 
+Canonical form is line-oriented and does not use leading or trailing dots.
+
 ```dotS
-.module.demo.quickstart.
-.use.thread.
-.set.$workers.4.
-.thread.pool.create.$pool.$workers.
-.call.thread.pool.start.
+module.demo.quickstart
+use.thread
+set.$workers.4
+thread.pool.create.$pool.$workers
+call.thread.pool.start
 ```
 
 ```dotS
-.module.demo.json.
-.set.$enabled.true.
-.set.$name."dotS sample".
-.json.set.$obj."enabled".$enabled.
-.json.set.$obj."name".$name.
-.chan.create.$chan.int.64.
+module.demo.json
+set.$enabled.true
+set.$name."dotS sample"
+json.set.$obj."enabled".$enabled
+json.set.$obj."name".$name
+chan.create.$chan.int.64
 ```
 
 ## Common invalid patterns
 
 ```dotS
-.module..http.
+module..http
 ```
 Invalid: empty module segment.
 
 ```dotS
-.set.iterations.1000.
+set.iterations.1000
 ```
 Invalid: variable must start with `$`.
 
 ```dotS
-.chan.create.$chan.integer.$n.
+chan.create.$chan.integer.$n
 ```
 Invalid: `integer` is not a valid `type_identifier` (`int` is valid).
 
 ```dotS
-.thread.pool.create..$workers.
+thread.pool.create..$workers
 ```
 Invalid: empty qualified callable segment.
 
@@ -130,6 +132,7 @@ In progress:
 
 ## Key documentation
 
+- Syntax reference: [`docs/syntax.md`](docs/syntax.md)
 - CLI architecture: [`docs/cli_architecture.md`](docs/cli_architecture.md)
 - LSP runbook: [`docs/lsp_runbook.md`](docs/lsp_runbook.md)
 - Registry runbook: [`docs/registry_runbook.md`](docs/registry_runbook.md)

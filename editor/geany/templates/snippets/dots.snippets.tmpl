@@ -6,12 +6,12 @@ runtime_status=dots runtime status --json\n
 runtime_doctor=dots runtime doctor --strict\n
 runtime_events=dots runtime events --lines 100\n
 runtime_trace=dots runtime trace\n
-runtime_thread_test=.test.runtime.thread.lifecycle.strict.\n.begin.\n.assert.thread.state."new->running->joined".\n.ret.\n.end.\n
-runtime_channel_test=.test.runtime.channel.invariants.\n.begin.\n.assert.channel.invariant.ok."sent==recv+buffered+dropped".\n.ret.\n.end.\n
-runtime_mutex_test=.test.runtime.deadlock.watchdog.\n.begin.\n.assert.mutex.contention.backoff.\n.ret.\n.end.\n
-runtime_jit_test=.test.runtime.jit.verify.cache.fallback.\n.begin.\n.assert.jit.verify.ir.before_compile.\n.ret.\n.end.\n
-runtime_vm_test=.test.runtime.vm.safe_points.cancel.\n.begin.\n.assert.vm.safe_point.count.\n.ret.\n.end.\n
-runtime_gc_test=.test.runtime.gc.metrics.quotas.\n.begin.\n.assert.gc.metrics.present.\n.ret.\n.end.\n
+runtime_thread_test=test.runtime.thread.lifecycle.strict\nbegin\nassert.thread.state."new->running->joined"\nret\nend\n
+runtime_channel_test=test.runtime.channel.invariants\nbegin\nassert.channel.invariant.ok."sent==recv+buffered+dropped"\nret\nend\n
+runtime_mutex_test=test.runtime.deadlock.watchdog\nbegin\nassert.mutex.contention.backoff\nret\nend\n
+runtime_jit_test=test.runtime.jit.verify.cache.fallback\nbegin\nassert.jit.verify.ir.before_compile\nret\nend\n
+runtime_vm_test=test.runtime.vm.safe_points.cancel\nbegin\nassert.vm.safe_point.count\nret\nend\n
+runtime_gc_test=test.runtime.gc.metrics.quotas\nbegin\nassert.gc.metrics.present\nret\nend\n
 msg_ok_en=print_json_response_ex("1.1.0", "${command}", "ok", "", "", ["message"], ["ok"])\n
 msg_err_en=print_json_response_ex("1.1.0", "${command}", "error", "${error_type}", "${error_message}", [], [])\n
 msg_ok_fr=print_json_response_ex("1.1.0", "${command}", "ok", "", "", ["message"], ["succes"])\n
