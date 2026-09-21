@@ -1,7 +1,378 @@
-module.async_demo
-fn.main.$task
-set.$delay_ms.50
-call.async.spawn.$task
-call.async.sleep.$delay_ms
-call.async.await.$task
-ret.true
+# ============================================================
+# DotS Script Language
+# examples/async_demo.dotS
+#
+# Async / await / spawn / task / yield / sleep demonstration
+# ============================================================
+
+module.examples.async_demo
+
+const.$USER_ID.1001
+const.$FETCH_DELAY.100
+const.$POST_DELAY.150
+const.$BACKGROUND_DELAY.50
+
+# ------------------------------------------------------------
+# Simple asynchronous operation
+# ------------------------------------------------------------
+
+async.fn.fetch_user.$id.{
+    print."[fetch_user] loading user "
+    println.$id
+
+    sleep.$FETCH_DELAY
+
+    print."[fetch_user] user loaded: "
+    println.$id
+
+    ret.$id
+}
+
+# ------------------------------------------------------------
+# Second asynchronous operation
+# ------------------------------------------------------------
+
+async.fn.fetch_posts.$user_id.{
+    print."[fetch_posts] loading posts for user "
+    println.$user_id
+
+    sleep.$POST_DELAY
+
+    println."[fetch_posts] posts loaded"
+
+    ret.42
+}
+
+# ------------------------------------------------------------
+# Background task
+# ------------------------------------------------------------
+
+async.fn.background_worker.$name.{
+    print."[worker] starting "
+    println.$name
+
+    sleep.$BACKGROUND_DELAY
+
+    println."[worker] first phase completed"
+
+    yield
+
+    sleep.$BACKGROUND_DELAY
+
+    println."[worker] second phase completed"
+
+    yield
+
+    print."[worker] finished "
+    println.$name
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Independent calculation
+# ------------------------------------------------------------
+
+async.fn.calculate.$value.{
+    print."[calculate] input: "
+    println.$value
+
+    yield
+
+    let.$square.$value.mul.$value
+
+    print."[calculate] square: "
+    println.$square
+
+    yield
+
+    let.$result.$square.add.10
+
+    print."[calculate] result: "
+    println.$result
+
+    ret.$result
+}
+
+# ------------------------------------------------------------
+# Error-producing asynchronous operation
+# ------------------------------------------------------------
+
+async.fn.fallible_operation.$should_fail.{
+    println."[fallible] starting"
+
+    sleep.25
+
+    if.$should_fail.{
+        println."[fallible] operation failed"
+
+        throw."simulated asynchronous failure"
+    }
+
+    println."[fallible] operation succeeded"
+
+    ret."success"
+}
+
+# ------------------------------------------------------------
+# Sequential await demonstration
+# ------------------------------------------------------------
+
+async.fn.sequential_demo.{
+    println.""
+    println."--- sequential await demo ---"
+
+    let.$user_task.spawn.call.fetch_user.$USER_ID
+    let.$user.await.$user_task
+
+    print."[sequential] user = "
+    println.$user
+
+    let.$posts_task.spawn.call.fetch_posts.$user
+    let.$posts.await.$posts_task
+
+    print."[sequential] posts = "
+    println.$posts
+
+    ret.$posts
+}
+
+# ------------------------------------------------------------
+# Concurrent execution demonstration
+# ------------------------------------------------------------
+
+async.fn.concurrent_demo.{
+    println.""
+    println."--- concurrent task demo ---"
+
+    let.$task_a.spawn.call.calculate.10
+    let.$task_b.spawn.call.calculate.20
+    let.$task_c.spawn.call.calculate.30
+
+    println."[concurrent] three tasks spawned"
+
+    let.$result_a.await.$task_a
+    let.$result_b.await.$task_b
+    let.$result_c.await.$task_c
+
+    print."[concurrent] result A = "
+    println.$result_a
+
+    print."[concurrent] result B = "
+    println.$result_b
+
+    print."[concurrent] result C = "
+    println.$result_c
+
+    let.$total.$result_a.add.$result_b.add.$result_c
+
+    print."[concurrent] total = "
+    println.$total
+
+    ret.$total
+}
+
+# ------------------------------------------------------------
+# Background execution demonstration
+# ------------------------------------------------------------
+
+async.fn.background_demo.{
+    println.""
+    println."--- background task demo ---"
+
+    let.$worker.spawn.call.background_worker."indexer"
+
+    println."[main] worker running in background"
+
+    let.$calculation.spawn.call.calculate.50
+
+    println."[main] calculation running"
+
+    let.$calculation_result.await.$calculation
+
+    print."[main] calculation result = "
+    println.$calculation_result
+
+    println."[main] waiting for background worker"
+
+    let.$worker_result.await.$worker
+
+    print."[main] worker result = "
+    println.$worker_result
+
+    ret.$worker_result
+}
+
+# ------------------------------------------------------------
+# Error handling with await
+# ------------------------------------------------------------
+
+async.fn.error_demo.{
+    println.""
+    println."--- async error handling demo ---"
+
+    let.$safe_task.spawn.call.fallible_operation.false
+
+    try.{
+        let.$safe_result.await.$safe_task
+
+        print."[error-demo] safe result = "
+        println.$safe_result
+    }
+    .catch.$error.{
+        print."[error-demo] unexpected error: "
+        println.$error
+    }
+
+    let.$failing_task.spawn.call.fallible_operation.true
+
+    try.{
+        let.$result.await.$failing_task
+
+        print."[error-demo] result = "
+        println.$result
+    }
+    .catch.$error.{
+        print."[error-demo] caught async error: "
+        println.$error
+    }
+    .finally.{
+        println."[error-demo] cleanup completed"
+    }
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Cancellation demonstration
+# ------------------------------------------------------------
+
+async.fn.long_running_task.{
+    println."[long-task] started"
+
+    sleep.500
+
+    println."[long-task] phase 1"
+
+    yield
+
+    sleep.500
+
+    println."[long-task] phase 2"
+
+    yield
+
+    sleep.500
+
+    println."[long-task] completed"
+
+    ret.true
+}
+
+async.fn.cancellation_demo.{
+    println.""
+    println."--- cancellation demo ---"
+
+    let.$long_task.spawn.call.long_running_task
+
+    println."[cancel-demo] task spawned"
+
+    sleep.100
+
+    println."[cancel-demo] requesting cancellation"
+
+    cancel.$long_task
+
+    println."[cancel-demo] cancellation requested"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Conditional asynchronous execution
+# ------------------------------------------------------------
+
+async.fn.conditional_demo.$enabled.{
+    println.""
+    println."--- conditional async demo ---"
+
+    if.$enabled.{
+        let.$task.spawn.call.calculate.64
+        let.$result.await.$task
+
+        print."[conditional] result = "
+        println.$result
+
+        ret.$result
+    }
+    else.{
+        println."[conditional] operation disabled"
+
+        ret.0
+    }
+}
+
+# ------------------------------------------------------------
+# Main asynchronous function
+# ------------------------------------------------------------
+
+async.fn.main.{
+    println."========================================"
+    println."           DotS Async Demo"
+    println."========================================"
+
+    let.$sequential_task.spawn.call.sequential_demo
+    let.$sequential_result.await.$sequential_task
+
+    print."[main] sequential result = "
+    println.$sequential_result
+
+    let.$concurrent_task.spawn.call.concurrent_demo
+    let.$concurrent_result.await.$concurrent_task
+
+    print."[main] concurrent result = "
+    println.$concurrent_result
+
+    let.$background_task.spawn.call.background_demo
+    let.$background_result.await.$background_task
+
+    print."[main] background result = "
+    println.$background_result
+
+    let.$error_task.spawn.call.error_demo
+    let.$error_result.await.$error_task
+
+    print."[main] error demo result = "
+    println.$error_result
+
+    let.$conditional_task.spawn.call.conditional_demo.true
+    let.$conditional_result.await.$conditional_task
+
+    print."[main] conditional result = "
+    println.$conditional_result
+
+    let.$cancel_task.spawn.call.cancellation_demo
+    let.$cancel_result.await.$cancel_task
+
+    print."[main] cancellation demo result = "
+    println.$cancel_result
+
+    println.""
+    println."========================================"
+    println."       DotS Async Demo Completed"
+    println."========================================"
+
+    ret.0
+}
+
+# ------------------------------------------------------------
+# Program entry point
+# ------------------------------------------------------------
+
+println."[runtime] starting DotS scheduler"
+
+let.$main_task.spawn.call.main
+let.$exit_code.await.$main_task
+
+print."[runtime] program exited with code "
+println.$exit_code

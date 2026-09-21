@@ -1,11 +1,621 @@
-module.bench_runner
-fn.main.$runs
-set.$warmup.1
-set.$runs.5
-call.bench.begin."runner"
-loop.$warmup
-call.bench.warmup
-loop.$runs
-call.bench.run
-call.bench.summary.json
-ret.true
+# ============================================================
+# DotS Script Language
+# examples/bench_runner.dotS
+#
+# Interpreter benchmark workload
+#
+# Timing is intentionally performed by the host/runner.
+# This file only generates deterministic workloads.
+# ============================================================
+
+module.examples.bench_runner
+
+const.$SMALL.100
+const.$MEDIUM.1000
+const.$LARGE.10000
+
+# ------------------------------------------------------------
+# Utility
+# ------------------------------------------------------------
+
+fn.section.$name.{
+    println.""
+    println."----------------------------------------"
+    print."benchmark: "
+    println.$name
+    println."----------------------------------------"
+}
+
+fn.check.$name.$value.{
+    print."[result] "
+    print.$name
+    print." = "
+    println.$value
+
+    ret.$value
+}
+
+# ------------------------------------------------------------
+# Integer arithmetic
+# ------------------------------------------------------------
+
+fn.bench_integer_arithmetic.$iterations.{
+    let.$i.0
+    let.$value.1
+
+    while.$i.lt.$iterations.{
+        set.$value.$value.add.7
+        set.$value.$value.mul.3
+        set.$value.$value.sub.5
+        set.$value.$value.div.2
+        set.$value.$value.add.$i
+
+        add.$i.1
+    }
+
+    ret.$value
+}
+
+# ------------------------------------------------------------
+# Floating-point arithmetic
+# ------------------------------------------------------------
+
+fn.bench_float_arithmetic.$iterations.{
+    let.$i.0
+    let.$value.1.0
+
+    while.$i.lt.$iterations.{
+        set.$value.$value.add.1.25
+        set.$value.$value.mul.1.01
+        set.$value.$value.sub.0.50
+        set.$value.$value.div.1.005
+
+        add.$i.1
+    }
+
+    ret.$value
+}
+
+# ------------------------------------------------------------
+# Simple loop
+# ------------------------------------------------------------
+
+fn.bench_loop.$iterations.{
+    let.$i.0
+    let.$sum.0
+
+    while.$i.lt.$iterations.{
+        add.$sum.$i
+        add.$i.1
+    }
+
+    ret.$sum
+}
+
+# ------------------------------------------------------------
+# Nested loops
+# ------------------------------------------------------------
+
+fn.bench_nested_loop.$size.{
+    let.$i.0
+    let.$total.0
+
+    while.$i.lt.$size.{
+        let.$j.0
+
+        while.$j.lt.$size.{
+            add.$total.$i.add.$j
+            add.$j.1
+        }
+
+        add.$i.1
+    }
+
+    ret.$total
+}
+
+# ------------------------------------------------------------
+# Branching
+# ------------------------------------------------------------
+
+fn.bench_branches.$iterations.{
+    let.$i.0
+    let.$result.0
+
+    while.$i.lt.$iterations.{
+        let.$kind.$i.mod.4
+
+        if.$kind.eq.0.{
+            add.$result.1
+        }
+        elif.$kind.eq.1.{
+            add.$result.2
+        }
+        elif.$kind.eq.2.{
+            add.$result.3
+        }
+        else.{
+            add.$result.4
+        }
+
+        add.$i.1
+    }
+
+    ret.$result
+}
+
+# ------------------------------------------------------------
+# Function calls
+# ------------------------------------------------------------
+
+fn.increment.$value.{
+    ret.$value.add.1
+}
+
+fn.double.$value.{
+    ret.$value.mul.2
+}
+
+fn.transform.$value.{
+    let.$a.call.increment.$value
+    let.$b.call.double.$a
+
+    ret.$b.sub.1
+}
+
+fn.bench_function_calls.$iterations.{
+    let.$i.0
+    let.$value.0
+
+    while.$i.lt.$iterations.{
+        set.$value.call.transform.$value
+
+        add.$i.1
+    }
+
+    ret.$value
+}
+
+# ------------------------------------------------------------
+# Recursive Fibonacci
+# ------------------------------------------------------------
+
+fn.fibonacci.$n.{
+    if.$n.lte.1.{
+        ret.$n
+    }
+
+    let.$a.call.fibonacci.$n.sub.1
+    let.$b.call.fibonacci.$n.sub.2
+
+    ret.$a.add.$b
+}
+
+fn.bench_recursion.{
+    ret.call.fibonacci.20
+}
+
+# ------------------------------------------------------------
+# Iterative Fibonacci
+# ------------------------------------------------------------
+
+fn.bench_fibonacci_iterative.$n.{
+    if.$n.eq.0.{
+        ret.0
+    }
+
+    let.$a.0
+    let.$b.1
+    let.$i.1
+
+    while.$i.lt.$n.{
+        let.$next.$a.add.$b
+
+        set.$a.$b
+        set.$b.$next
+
+        add.$i.1
+    }
+
+    ret.$b
+}
+
+# ------------------------------------------------------------
+# List creation
+# ------------------------------------------------------------
+
+fn.bench_list_create.$iterations.{
+    let.$i.0
+    let.$total.0
+
+    while.$i.lt.$iterations.{
+        let.$values.[
+            $i,
+            $i.add.1,
+            $i.add.2,
+            $i.add.3,
+            $i.add.4
+        ]
+
+        add.$total.$values.[0]
+        add.$total.$values.[4]
+
+        add.$i.1
+    }
+
+    ret.$total
+}
+
+# ------------------------------------------------------------
+# List indexing
+# ------------------------------------------------------------
+
+fn.bench_list_access.$iterations.{
+    let.$values.[
+        10,
+        20,
+        30,
+        40,
+        50,
+        60,
+        70,
+        80
+    ]
+
+    let.$i.0
+    let.$total.0
+
+    while.$i.lt.$iterations.{
+        add.$total.$values.[0]
+        add.$total.$values.[1]
+        add.$total.$values.[2]
+        add.$total.$values.[3]
+        add.$total.$values.[4]
+        add.$total.$values.[5]
+        add.$total.$values.[6]
+        add.$total.$values.[7]
+
+        add.$i.1
+    }
+
+    ret.$total
+}
+
+# ------------------------------------------------------------
+# Map creation and access
+# ------------------------------------------------------------
+
+fn.bench_map.$iterations.{
+    let.$i.0
+    let.$total.0
+
+    while.$i.lt.$iterations.{
+        let.$record.{
+            "a": $i,
+            "b": $i.add.1,
+            "c": $i.add.2
+        }
+
+        add.$total.$record.["a"]
+        add.$total.$record.["b"]
+        add.$total.$record.["c"]
+
+        add.$i.1
+    }
+
+    ret.$total
+}
+
+# ------------------------------------------------------------
+# Tuple operations
+# ------------------------------------------------------------
+
+fn.bench_tuple.$iterations.{
+    let.$i.0
+    let.$total.0
+
+    while.$i.lt.$iterations.{
+        let.$pair.(
+            $i,
+            $i.add.1
+        )
+
+        add.$total.$pair.[0]
+        add.$total.$pair.[1]
+
+        add.$i.1
+    }
+
+    ret.$total
+}
+
+# ------------------------------------------------------------
+# Boolean expressions
+# ------------------------------------------------------------
+
+fn.bench_boolean.$iterations.{
+    let.$i.0
+    let.$matches.0
+
+    while.$i.lt.$iterations.{
+        let.$condition.
+            $i.gte.10
+            .and.
+            $i.lt.$iterations
+            .and.
+            not.$i.eq.42
+
+        if.$condition.{
+            add.$matches.1
+        }
+
+        add.$i.1
+    }
+
+    ret.$matches
+}
+
+# ------------------------------------------------------------
+# Match dispatch
+# ------------------------------------------------------------
+
+fn.bench_match.$iterations.{
+    let.$i.0
+    let.$total.0
+
+    while.$i.lt.$iterations.{
+        let.$value.$i.mod.5
+
+        match.$value.{
+            case.0.{
+                add.$total.1
+            }
+
+            case.1.{
+                add.$total.2
+            }
+
+            case.2.{
+                add.$total.3
+            }
+
+            case.3.{
+                add.$total.4
+            }
+
+            default.{
+                add.$total.5
+            }
+        }
+
+        add.$i.1
+    }
+
+    ret.$total
+}
+
+# ------------------------------------------------------------
+# Temporary values / interpreter pressure
+# ------------------------------------------------------------
+
+fn.bench_temporaries.$iterations.{
+    let.$i.0
+    let.$result.0
+
+    while.$i.lt.$iterations.{
+        let.$a.$i.add.1
+        let.$b.$a.mul.2
+        let.$c.$b.add.3
+        let.$d.$c.mul.4
+        let.$e.$d.sub.5
+        let.$f.$e.div.2
+
+        add.$result.$f
+
+        add.$i.1
+    }
+
+    ret.$result
+}
+
+# ------------------------------------------------------------
+# Mixed workload
+# ------------------------------------------------------------
+
+fn.bench_mixed.$iterations.{
+    let.$i.0
+    let.$total.0
+
+    while.$i.lt.$iterations.{
+        let.$a.$i.mul.3
+        let.$b.$a.add.7
+        let.$c.call.transform.$b
+
+        if.$c.mod.2.eq.0.{
+            add.$total.$c
+        }
+        else.{
+            sub.$total.1
+        }
+
+        let.$values.[
+            $a,
+            $b,
+            $c
+        ]
+
+        add.$total.$values.[0]
+
+        add.$i.1
+    }
+
+    ret.$total
+}
+
+# ------------------------------------------------------------
+# Assertions
+# ------------------------------------------------------------
+
+fn.self_test.{
+    assert.call.increment.1.eq.2."increment failed"
+
+    assert.call.double.4.eq.8."double failed"
+
+    assert.call.transform.10.eq.21."transform failed"
+
+    assert.call.fibonacci.10.eq.55."fibonacci failed"
+
+    assert.call.bench_fibonacci_iterative.10.eq.55.
+        "iterative fibonacci failed"
+
+    println."[self-test] passed"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Small benchmark suite
+# ------------------------------------------------------------
+
+fn.run_small_suite.{
+    call.section."small suite"
+
+    let.$arithmetic.call.bench_integer_arithmetic.$SMALL
+    call.check."integer arithmetic".$arithmetic
+
+    let.$float.call.bench_float_arithmetic.$SMALL
+    call.check."float arithmetic".$float
+
+    let.$loop.call.bench_loop.$SMALL
+    call.check."loop".$loop
+
+    let.$branches.call.bench_branches.$SMALL
+    call.check."branches".$branches
+
+    let.$calls.call.bench_function_calls.$SMALL
+    call.check."function calls".$calls
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Standard benchmark suite
+# ------------------------------------------------------------
+
+fn.run_standard_suite.{
+    call.section."standard suite"
+
+    let.$arithmetic.call.bench_integer_arithmetic.$LARGE
+    call.check."integer arithmetic".$arithmetic
+
+    let.$float.call.bench_float_arithmetic.$LARGE
+    call.check."float arithmetic".$float
+
+    let.$loop.call.bench_loop.$LARGE
+    call.check."loop".$loop
+
+    let.$nested.call.bench_nested_loop.100
+    call.check."nested loop".$nested
+
+    let.$branches.call.bench_branches.$LARGE
+    call.check."branches".$branches
+
+    let.$calls.call.bench_function_calls.$LARGE
+    call.check."function calls".$calls
+
+    let.$recursive.call.bench_recursion
+    call.check."recursive fibonacci".$recursive
+
+    let.$iterative.call.bench_fibonacci_iterative.100
+    call.check."iterative fibonacci".$iterative
+
+    let.$lists.call.bench_list_create.$MEDIUM
+    call.check."list creation".$lists
+
+    let.$access.call.bench_list_access.$MEDIUM
+    call.check."list access".$access
+
+    let.$maps.call.bench_map.$MEDIUM
+    call.check."map".$maps
+
+    let.$tuples.call.bench_tuple.$MEDIUM
+    call.check."tuple".$tuples
+
+    let.$boolean.call.bench_boolean.$LARGE
+    call.check."boolean".$boolean
+
+    let.$matches.call.bench_match.$LARGE
+    call.check."match".$matches
+
+    let.$temporaries.call.bench_temporaries.$LARGE
+    call.check."temporaries".$temporaries
+
+    let.$mixed.call.bench_mixed.$LARGE
+    call.check."mixed workload".$mixed
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Stress suite
+# ------------------------------------------------------------
+
+fn.run_stress_suite.{
+    call.section."stress suite"
+
+    let.$arithmetic.call.bench_integer_arithmetic.100000
+    call.check."integer arithmetic stress".$arithmetic
+
+    let.$loop.call.bench_loop.100000
+    call.check."loop stress".$loop
+
+    let.$branches.call.bench_branches.100000
+    call.check."branch stress".$branches
+
+    let.$calls.call.bench_function_calls.100000
+    call.check."function calls stress".$calls
+
+    let.$lists.call.bench_list_create.10000
+    call.check."list stress".$lists
+
+    let.$maps.call.bench_map.10000
+    call.check."map stress".$maps
+
+    let.$mixed.call.bench_mixed.100000
+    call.check."mixed stress".$mixed
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Main
+# ------------------------------------------------------------
+
+fn.main.{
+    println."========================================"
+    println."          DotS Bench Runner"
+    println."========================================"
+
+    call.self_test
+
+    call.run_small_suite
+    call.run_standard_suite
+
+    # Stress suite is intentionally separate.
+    #
+    # Enable this when testing interpreter performance:
+    #
+    # call.run_stress_suite
+
+    println.""
+    println."========================================"
+    println."       Bench Runner Completed"
+    println."========================================"
+
+    ret.0
+}
+
+let.$exit_code.call.main
+
+print."exit code: "
+println.$exit_code

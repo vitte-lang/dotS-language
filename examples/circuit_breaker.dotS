@@ -1,9 +1,644 @@
-module.circuit_breaker
-fn.main.$service
-set.$threshold.2
-set.$cooldown_ms.100
-call.cb.mark.failure.$service.$threshold
-call.cb.mark.failure.$service.$threshold
-call.cb.is.open.$service.$cooldown_ms
-call.cb.mark.success.$service
-ret.true
+# ============================================================
+# DotS Script Language
+# examples/circuit_breaker.dotS
+#
+# Circuit Breaker demonstration
+#
+# States:
+#   CLOSED    -> calls are allowed
+#   OPEN      -> calls are rejected
+#   HALF_OPEN -> one recovery attempt is allowed
+#
+# Demonstrates:
+#   - async functions
+#   - await / spawn
+#   - error handling
+#   - state transitions
+#   - failure thresholds
+#   - recovery
+# ============================================================
+
+module.examples.circuit_breaker
+
+# ------------------------------------------------------------
+# Constants
+# ------------------------------------------------------------
+
+const.$STATE_CLOSED."closed"
+const.$STATE_OPEN."open"
+const.$STATE_HALF_OPEN."half_open"
+
+const.$FAILURE_THRESHOLD.3
+const.$RECOVERY_DELAY.250
+const.$SERVICE_DELAY.25
+
+# ------------------------------------------------------------
+# Logging
+# ------------------------------------------------------------
+
+fn.log.$message.{
+    print."[circuit-breaker] "
+    println.$message
+
+    ret.true
+}
+
+fn.log_state.$state.{
+    print."[circuit-breaker] state = "
+    println.$state
+
+    ret.true
+}
+
+fn.log_failures.$failures.{
+    print."[circuit-breaker] failures = "
+    println.$failures
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# State predicates
+# ------------------------------------------------------------
+
+fn.is_closed.$state.{
+    ret.$state.eq.$STATE_CLOSED
+}
+
+fn.is_open.$state.{
+    ret.$state.eq.$STATE_OPEN
+}
+
+fn.is_half_open.$state.{
+    ret.$state.eq.$STATE_HALF_OPEN
+}
+
+# ------------------------------------------------------------
+# Simulated external service
+#
+# No network API is required.
+# The caller explicitly decides whether the simulated
+# service invocation succeeds or fails.
+# ------------------------------------------------------------
+
+async.fn.remote_service.$request.$should_fail.{
+    print."[service] request: "
+    println.$request
+
+    sleep.$SERVICE_DELAY
+
+    if.$should_fail.{
+        println."[service] simulated failure"
+
+        throw."remote service unavailable"
+    }
+
+    println."[service] request succeeded"
+
+    ret."service-response"
+}
+
+# ------------------------------------------------------------
+# Successful call handling
+# ------------------------------------------------------------
+
+fn.on_success.$state.$failures.{
+    if.call.is_half_open.$state.{
+        println."[circuit-breaker] recovery succeeded"
+        println."[circuit-breaker] HALF_OPEN -> CLOSED"
+    }
+
+    if.call.is_closed.$state.{
+        if.$failures.gt.0.{
+            println."[circuit-breaker] failure counter reset"
+        }
+    }
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Failure handling
+# ------------------------------------------------------------
+
+fn.failure_count_after_error.$failures.{
+    ret.$failures.add.1
+}
+
+fn.should_open.$failures.{
+    ret.$failures.gte.$FAILURE_THRESHOLD
+}
+
+# ------------------------------------------------------------
+# One protected invocation
+#
+# Returns a tuple:
+#
+#   (
+#       success,
+#       state,
+#       failures
+#   )
+# ------------------------------------------------------------
+
+async.fn.protected_call.$state.$failures.$request.$should_fail.{
+    if.call.is_open.$state.{
+        println."[circuit-breaker] request rejected"
+        println."[circuit-breaker] circuit is OPEN"
+
+        ret.(
+            false,
+            $state,
+            $failures
+        )
+    }
+
+    try.{
+        let.$response.
+            await.call.remote_service.
+                $request.
+                $should_fail
+
+        print."[client] response: "
+        println.$response
+
+        call.on_success.$state.$failures
+
+        ret.(
+            true,
+            $STATE_CLOSED,
+            0
+        )
+    }
+    .catch.$error.{
+        print."[client] error: "
+        println.$error
+
+        let.$new_failures.
+            call.failure_count_after_error.
+                $failures
+
+        call.log_failures.$new_failures
+
+        if.call.is_half_open.$state.{
+            println."[circuit-breaker] recovery failed"
+            println."[circuit-breaker] HALF_OPEN -> OPEN"
+
+            ret.(
+                false,
+                $STATE_OPEN,
+                $new_failures
+            )
+        }
+
+        if.call.should_open.$new_failures.{
+            println."[circuit-breaker] threshold reached"
+            println."[circuit-breaker] CLOSED -> OPEN"
+
+            ret.(
+                false,
+                $STATE_OPEN,
+                $new_failures
+            )
+        }
+
+        ret.(
+            false,
+            $STATE_CLOSED,
+            $new_failures
+        )
+    }
+}
+
+# ------------------------------------------------------------
+# Initial healthy call
+# ------------------------------------------------------------
+
+async.fn.demo_success.{
+    println.""
+    println."--- healthy service ---"
+
+    let.$state.$STATE_CLOSED
+    let.$failures.0
+
+    let.$result.
+        await.call.protected_call.
+            $state.
+            $failures.
+            "healthy-request".
+            false
+
+    set.$state.$result.[1]
+    set.$failures.$result.[2]
+
+    call.log_state.$state
+    call.log_failures.$failures
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Failure threshold demonstration
+# ------------------------------------------------------------
+
+async.fn.demo_open_circuit.{
+    println.""
+    println."--- opening circuit ---"
+
+    let.$state.$STATE_CLOSED
+    let.$failures.0
+
+    # Failure 1
+
+    let.$result1.
+        await.call.protected_call.
+            $state.
+            $failures.
+            "request-1".
+            true
+
+    set.$state.$result1.[1]
+    set.$failures.$result1.[2]
+
+    call.log_state.$state
+
+    # Failure 2
+
+    let.$result2.
+        await.call.protected_call.
+            $state.
+            $failures.
+            "request-2".
+            true
+
+    set.$state.$result2.[1]
+    set.$failures.$result2.[2]
+
+    call.log_state.$state
+
+    # Failure 3
+
+    let.$result3.
+        await.call.protected_call.
+            $state.
+            $failures.
+            "request-3".
+            true
+
+    set.$state.$result3.[1]
+    set.$failures.$result3.[2]
+
+    call.log_state.$state
+    call.log_failures.$failures
+
+    assert.$state.eq.$STATE_OPEN.
+        "circuit should be open"
+
+    ret.(
+        $state,
+        $failures
+    )
+}
+
+# ------------------------------------------------------------
+# Fast-fail demonstration
+# ------------------------------------------------------------
+
+async.fn.demo_fast_fail.$state.$failures.{
+    println.""
+    println."--- fast fail while OPEN ---"
+
+    let.$result.
+        await.call.protected_call.
+            $state.
+            $failures.
+            "rejected-request".
+            false
+
+    set.$state.$result.[1]
+    set.$failures.$result.[2]
+
+    assert.$state.eq.$STATE_OPEN.
+        "open circuit must reject calls"
+
+    call.log_state.$state
+
+    ret.(
+        $state,
+        $failures
+    )
+}
+
+# ------------------------------------------------------------
+# Recovery transition
+# ------------------------------------------------------------
+
+async.fn.begin_recovery.$state.$failures.{
+    println.""
+    println."--- recovery timeout ---"
+
+    if.not.call.is_open.$state.{
+        println."[circuit-breaker] recovery not required"
+
+        ret.(
+            $state,
+            $failures
+        )
+    }
+
+    print."[circuit-breaker] waiting "
+    print.$RECOVERY_DELAY
+    println." ms"
+
+    sleep.$RECOVERY_DELAY
+
+    println."[circuit-breaker] OPEN -> HALF_OPEN"
+
+    set.$state.$STATE_HALF_OPEN
+
+    call.log_state.$state
+
+    ret.(
+        $state,
+        $failures
+    )
+}
+
+# ------------------------------------------------------------
+# Successful recovery
+# ------------------------------------------------------------
+
+async.fn.demo_successful_recovery.$state.$failures.{
+    println.""
+    println."--- successful recovery ---"
+
+    assert.$state.eq.$STATE_HALF_OPEN.
+        "circuit must be half-open before recovery test"
+
+    let.$result.
+        await.call.protected_call.
+            $state.
+            $failures.
+            "recovery-request".
+            false
+
+    set.$state.$result.[1]
+    set.$failures.$result.[2]
+
+    call.log_state.$state
+    call.log_failures.$failures
+
+    assert.$state.eq.$STATE_CLOSED.
+        "successful recovery must close circuit"
+
+    assert.$failures.eq.0.
+        "successful recovery must reset failures"
+
+    ret.(
+        $state,
+        $failures
+    )
+}
+
+# ------------------------------------------------------------
+# Failed recovery
+# ------------------------------------------------------------
+
+async.fn.demo_failed_recovery.{
+    println.""
+    println."--- failed recovery ---"
+
+    let.$state.$STATE_HALF_OPEN
+    let.$failures.$FAILURE_THRESHOLD
+
+    let.$result.
+        await.call.protected_call.
+            $state.
+            $failures.
+            "failed-recovery-request".
+            true
+
+    set.$state.$result.[1]
+    set.$failures.$result.[2]
+
+    call.log_state.$state
+    call.log_failures.$failures
+
+    assert.$state.eq.$STATE_OPEN.
+        "failed recovery must reopen circuit"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Complete lifecycle
+# ------------------------------------------------------------
+
+async.fn.demo_lifecycle.{
+    println.""
+    println."========================================"
+    println."       Circuit Breaker Lifecycle"
+    println."========================================"
+
+    let.$state.$STATE_CLOSED
+    let.$failures.0
+
+    call.log_state.$state
+
+    # --------------------------------------------------------
+    # Healthy request
+    # --------------------------------------------------------
+
+    println.""
+    println."[demo] healthy request"
+
+    let.$healthy.
+        await.call.protected_call.
+            $state.
+            $failures.
+            "initial-request".
+            false
+
+    set.$state.$healthy.[1]
+    set.$failures.$healthy.[2]
+
+    # --------------------------------------------------------
+    # First failure
+    # --------------------------------------------------------
+
+    println.""
+    println."[demo] failure 1"
+
+    let.$failure1.
+        await.call.protected_call.
+            $state.
+            $failures.
+            "failure-1".
+            true
+
+    set.$state.$failure1.[1]
+    set.$failures.$failure1.[2]
+
+    # --------------------------------------------------------
+    # Second failure
+    # --------------------------------------------------------
+
+    println.""
+    println."[demo] failure 2"
+
+    let.$failure2.
+        await.call.protected_call.
+            $state.
+            $failures.
+            "failure-2".
+            true
+
+    set.$state.$failure2.[1]
+    set.$failures.$failure2.[2]
+
+    # --------------------------------------------------------
+    # Third failure
+    # --------------------------------------------------------
+
+    println.""
+    println."[demo] failure 3"
+
+    let.$failure3.
+        await.call.protected_call.
+            $state.
+            $failures.
+            "failure-3".
+            true
+
+    set.$state.$failure3.[1]
+    set.$failures.$failure3.[2]
+
+    assert.$state.eq.$STATE_OPEN.
+        "failure threshold should open circuit"
+
+    # --------------------------------------------------------
+    # Request rejected without calling service
+    # --------------------------------------------------------
+
+    println.""
+    println."[demo] request while open"
+
+    let.$rejected.
+        await.call.protected_call.
+            $state.
+            $failures.
+            "should-not-reach-service".
+            false
+
+    set.$state.$rejected.[1]
+    set.$failures.$rejected.[2]
+
+    # --------------------------------------------------------
+    # Recovery delay
+    # --------------------------------------------------------
+
+    let.$recovery.
+        await.call.begin_recovery.
+            $state.
+            $failures
+
+    set.$state.$recovery.[0]
+    set.$failures.$recovery.[1]
+
+    assert.$state.eq.$STATE_HALF_OPEN.
+        "circuit should enter half-open state"
+
+    # --------------------------------------------------------
+    # Recovery probe
+    # --------------------------------------------------------
+
+    println.""
+    println."[demo] recovery probe"
+
+    let.$probe.
+        await.call.protected_call.
+            $state.
+            $failures.
+            "recovery-probe".
+            false
+
+    set.$state.$probe.[1]
+    set.$failures.$probe.[2]
+
+    assert.$state.eq.$STATE_CLOSED.
+        "successful probe should close circuit"
+
+    assert.$failures.eq.0.
+        "successful probe should reset failures"
+
+    println.""
+    println("[demo] service recovered")
+
+    call.log_state.$state
+    call.log_failures.$failures
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Main
+# ------------------------------------------------------------
+
+async.fn.main.{
+    println."========================================"
+    println."       DotS Circuit Breaker Demo"
+    println."========================================"
+
+    await.call.demo_success
+
+    let.$opened.
+        await.call.demo_open_circuit
+
+    let.$state.$opened.[0]
+    let.$failures.$opened.[1]
+
+    let.$rejected.
+        await.call.demo_fast_fail.
+            $state.
+            $failures
+
+    set.$state.$rejected.[0]
+    set.$failures.$rejected.[1]
+
+    let.$recovery.
+        await.call.begin_recovery.
+            $state.
+            $failures
+
+    set.$state.$recovery.[0]
+    set.$failures.$recovery.[1]
+
+    let.$recovered.
+        await.call.demo_successful_recovery.
+            $state.
+            $failures
+
+    set.$state.$recovered.[0]
+    set.$failures.$recovered.[1]
+
+    await.call.demo_failed_recovery
+
+    await.call.demo_lifecycle
+
+    println.""
+    println."========================================"
+    println."    Circuit Breaker Demo Completed"
+    println."========================================"
+
+    ret.0
+}
+
+# ------------------------------------------------------------
+# Entry point
+# ------------------------------------------------------------
+
+let.$main_task.spawn.call.main
+let.$exit_code.await.$main_task
+
+print."exit code: "
+println.$exit_code

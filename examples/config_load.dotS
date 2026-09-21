@@ -1,12 +1,692 @@
-module.config_load
-fn.main.$config
-set.$mode."dev"
-set.$timeout_ms.1000
-call.sys.env.get."DOTS_MODE".$mode_env
-call.sys.env.get."DOTS_TIMEOUT_MS".$timeout_env
-if.$mode_env
-set.$mode.$mode_env
-if.$timeout_env
-set.$timeout_ms.$timeout_env
-call.config.validate.$mode.$timeout_ms
-ret.true
+# ============================================================
+# DotS Script Language
+# examples/config_load.dotS
+#
+# Configuration loading / validation / override demonstration
+#
+# Demonstrates:
+#   - maps
+#   - configuration defaults
+#   - validation
+#   - overrides
+#   - environment-style values
+#   - profiles
+#   - error handling
+#   - assertions
+#
+# Native file/environment loading belongs to the future
+# DotS stdlib/runtime and is intentionally not invented here.
+# ============================================================
+
+module.examples.config_load
+
+# ------------------------------------------------------------
+# Constants
+# ------------------------------------------------------------
+
+const.$APP_NAME."DotS Config Demo"
+const.$APP_VERSION."0.1.0"
+
+const.$MODE_DEVELOPMENT."development"
+const.$MODE_PRODUCTION."production"
+const.$MODE_TEST."test"
+
+const.$DEFAULT_HOST."127.0.0.1"
+const.$DEFAULT_PORT.8080
+const.$DEFAULT_WORKERS.4
+const.$DEFAULT_TIMEOUT.30
+const.$DEFAULT_DEBUG.false
+const.$DEFAULT_LOG_LEVEL."info"
+
+const.$MIN_PORT.1
+const.$MAX_PORT.65535
+
+const.$MIN_WORKERS.1
+const.$MAX_WORKERS.256
+
+const.$MIN_TIMEOUT.1
+const.$MAX_TIMEOUT.3600
+
+# ------------------------------------------------------------
+# Logging
+# ------------------------------------------------------------
+
+fn.log.$message.{
+    print."[config] "
+    println.$message
+
+    ret.true
+}
+
+fn.log_error.$message.{
+    print."[config:error] "
+    println.$message
+
+    ret.false
+}
+
+fn.separator.{
+    println."----------------------------------------"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Default configuration
+# ------------------------------------------------------------
+
+fn.default_config.{
+    ret.{
+        "name": $APP_NAME,
+        "version": $APP_VERSION,
+
+        "mode": $MODE_DEVELOPMENT,
+
+        "host": $DEFAULT_HOST,
+        "port": $DEFAULT_PORT,
+
+        "workers": $DEFAULT_WORKERS,
+        "timeout": $DEFAULT_TIMEOUT,
+
+        "debug": $DEFAULT_DEBUG,
+        "log_level": $DEFAULT_LOG_LEVEL,
+
+        "allow_network": true,
+        "allow_filesystem": true
+    }
+}
+
+# ------------------------------------------------------------
+# Development configuration
+# ------------------------------------------------------------
+
+fn.development_config.{
+    let.$config.call.default_config
+
+    set.$config.["mode"].$MODE_DEVELOPMENT
+    set.$config.["debug"].true
+    set.$config.["log_level"]."debug"
+
+    ret.$config
+}
+
+# ------------------------------------------------------------
+# Production configuration
+# ------------------------------------------------------------
+
+fn.production_config.{
+    let.$config.call.default_config
+
+    set.$config.["mode"].$MODE_PRODUCTION
+    set.$config.["debug"].false
+    set.$config.["log_level"]."info"
+    set.$config.["workers"].8
+
+    ret.$config
+}
+
+# ------------------------------------------------------------
+# Test configuration
+# ------------------------------------------------------------
+
+fn.test_config.{
+    let.$config.call.default_config
+
+    set.$config.["mode"].$MODE_TEST
+    set.$config.["debug"].true
+    set.$config.["log_level"]."debug"
+
+    set.$config.["allow_network"].false
+    set.$config.["allow_filesystem"].false
+
+    ret.$config
+}
+
+# ------------------------------------------------------------
+# Configuration display
+# ------------------------------------------------------------
+
+fn.print_config.$config.{
+    println."Configuration"
+    call.separator
+
+    print."name             : "
+    println.$config.["name"]
+
+    print."version          : "
+    println.$config.["version"]
+
+    print."mode             : "
+    println.$config.["mode"]
+
+    print."host             : "
+    println.$config.["host"]
+
+    print."port             : "
+    println.$config.["port"]
+
+    print."workers          : "
+    println.$config.["workers"]
+
+    print."timeout          : "
+    println.$config.["timeout"]
+
+    print."debug            : "
+    println.$config.["debug"]
+
+    print."log level        : "
+    println.$config.["log_level"]
+
+    print."allow network    : "
+    println.$config.["allow_network"]
+
+    print."allow filesystem : "
+    println.$config.["allow_filesystem"]
+
+    call.separator
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Mode validation
+# ------------------------------------------------------------
+
+fn.valid_mode.$mode.{
+    if.$mode.eq.$MODE_DEVELOPMENT.{
+        ret.true
+    }
+
+    if.$mode.eq.$MODE_PRODUCTION.{
+        ret.true
+    }
+
+    if.$mode.eq.$MODE_TEST.{
+        ret.true
+    }
+
+    ret.false
+}
+
+# ------------------------------------------------------------
+# Log-level validation
+# ------------------------------------------------------------
+
+fn.valid_log_level.$level.{
+    match.$level.{
+        case."trace".{
+            ret.true
+        }
+
+        case."debug".{
+            ret.true
+        }
+
+        case."info".{
+            ret.true
+        }
+
+        case."warning".{
+            ret.true
+        }
+
+        case."error".{
+            ret.true
+        }
+
+        default.{
+            ret.false
+        }
+    }
+}
+
+# ------------------------------------------------------------
+# Port validation
+# ------------------------------------------------------------
+
+fn.valid_port.$port.{
+    if.$port.lt.$MIN_PORT.{
+        ret.false
+    }
+
+    if.$port.gt.$MAX_PORT.{
+        ret.false
+    }
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Worker validation
+# ------------------------------------------------------------
+
+fn.valid_workers.$workers.{
+    if.$workers.lt.$MIN_WORKERS.{
+        ret.false
+    }
+
+    if.$workers.gt.$MAX_WORKERS.{
+        ret.false
+    }
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Timeout validation
+# ------------------------------------------------------------
+
+fn.valid_timeout.$timeout.{
+    if.$timeout.lt.$MIN_TIMEOUT.{
+        ret.false
+    }
+
+    if.$timeout.gt.$MAX_TIMEOUT.{
+        ret.false
+    }
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Full validation
+# ------------------------------------------------------------
+
+fn.validate_config.$config.{
+    if.not.call.valid_mode.$config.["mode"].{
+        throw."invalid configuration mode"
+    }
+
+    if.$config.["host"].eq."".{
+        throw."configuration host cannot be empty"
+    }
+
+    if.not.call.valid_port.$config.["port"].{
+        throw."configuration port is outside valid range"
+    }
+
+    if.not.call.valid_workers.$config.["workers"].{
+        throw."configuration worker count is outside valid range"
+    }
+
+    if.not.call.valid_timeout.$config.["timeout"].{
+        throw."configuration timeout is outside valid range"
+    }
+
+    if.not.call.valid_log_level.$config.["log_level"].{
+        throw."invalid configuration log level"
+    }
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Apply one override
+# ------------------------------------------------------------
+
+fn.apply_override.$config.$key.$value.{
+    match.$key.{
+        case."mode".{
+            set.$config.["mode"].$value
+        }
+
+        case."host".{
+            set.$config.["host"].$value
+        }
+
+        case."port".{
+            set.$config.["port"].$value
+        }
+
+        case."workers".{
+            set.$config.["workers"].$value
+        }
+
+        case."timeout".{
+            set.$config.["timeout"].$value
+        }
+
+        case."debug".{
+            set.$config.["debug"].$value
+        }
+
+        case."log_level".{
+            set.$config.["log_level"].$value
+        }
+
+        case."allow_network".{
+            set.$config.["allow_network"].$value
+        }
+
+        case."allow_filesystem".{
+            set.$config.["allow_filesystem"].$value
+        }
+
+        default.{
+            print."[config] ignored unknown key: "
+            println.$key
+        }
+    }
+
+    ret.$config
+}
+
+# ------------------------------------------------------------
+# Apply known overrides
+#
+# Explicit keys are used because the current DotS grammar does
+# not define map iteration.
+# ------------------------------------------------------------
+
+fn.apply_overrides.$config.$overrides.{
+    if.$overrides.["mode"].neq.null.{
+        set.$config.call.apply_override.
+            $config.
+            "mode".
+            $overrides.["mode"]
+    }
+
+    if.$overrides.["host"].neq.null.{
+        set.$config.call.apply_override.
+            $config.
+            "host".
+            $overrides.["host"]
+    }
+
+    if.$overrides.["port"].neq.null.{
+        set.$config.call.apply_override.
+            $config.
+            "port".
+            $overrides.["port"]
+    }
+
+    if.$overrides.["workers"].neq.null.{
+        set.$config.call.apply_override.
+            $config.
+            "workers".
+            $overrides.["workers"]
+    }
+
+    if.$overrides.["timeout"].neq.null.{
+        set.$config.call.apply_override.
+            $config.
+            "timeout".
+            $overrides.["timeout"]
+    }
+
+    if.$overrides.["debug"].neq.null.{
+        set.$config.call.apply_override.
+            $config.
+            "debug".
+            $overrides.["debug"]
+    }
+
+    if.$overrides.["log_level"].neq.null.{
+        set.$config.call.apply_override.
+            $config.
+            "log_level".
+            $overrides.["log_level"]
+    }
+
+    if.$overrides.["allow_network"].neq.null.{
+        set.$config.call.apply_override.
+            $config.
+            "allow_network".
+            $overrides.["allow_network"]
+    }
+
+    if.$overrides.["allow_filesystem"].neq.null.{
+        set.$config.call.apply_override.
+            $config.
+            "allow_filesystem".
+            $overrides.["allow_filesystem"]
+    }
+
+    ret.$config
+}
+
+# ------------------------------------------------------------
+# Simulated configuration file
+# ------------------------------------------------------------
+
+fn.load_file_config.{
+    call.log."loading simulated configuration file"
+
+    ret.{
+        "mode": null,
+        "host": "0.0.0.0",
+        "port": 9000,
+        "workers": 6,
+        "timeout": 45,
+        "debug": null,
+        "log_level": "info",
+        "allow_network": null,
+        "allow_filesystem": null
+    }
+}
+
+# ------------------------------------------------------------
+# Simulated environment overrides
+#
+# A real runtime can later replace this function with values
+# obtained from the host environment.
+# ------------------------------------------------------------
+
+fn.load_environment_config.{
+    call.log."loading simulated environment overrides"
+
+    ret.{
+        "mode": null,
+        "host": null,
+        "port": 9100,
+        "workers": null,
+        "timeout": null,
+        "debug": true,
+        "log_level": "debug",
+        "allow_network": null,
+        "allow_filesystem": null
+    }
+}
+
+# ------------------------------------------------------------
+# Simulated command-line overrides
+# ------------------------------------------------------------
+
+fn.load_cli_config.{
+    call.log."loading simulated command-line overrides"
+
+    ret.{
+        "mode": $MODE_DEVELOPMENT,
+        "host": null,
+        "port": null,
+        "workers": 12,
+        "timeout": null,
+        "debug": null,
+        "log_level": null,
+        "allow_network": null,
+        "allow_filesystem": null
+    }
+}
+
+# ------------------------------------------------------------
+# Configuration loading pipeline
+#
+# Priority:
+#
+#   defaults
+#       <
+#   file
+#       <
+#   environment
+#       <
+#   command line
+# ------------------------------------------------------------
+
+fn.load_config.{
+    call.log."creating defaults"
+
+    let.$config.call.default_config
+
+    call.log."applying file configuration"
+
+    let.$file_config.call.load_file_config
+
+    set.$config.call.apply_overrides.
+        $config.
+        $file_config
+
+    call.log."applying environment configuration"
+
+    let.$environment_config.
+        call.load_environment_config
+
+    set.$config.call.apply_overrides.
+        $config.
+        $environment_config
+
+    call.log."applying command-line configuration"
+
+    let.$cli_config.call.load_cli_config
+
+    set.$config.call.apply_overrides.
+        $config.
+        $cli_config
+
+    call.log."validating final configuration"
+
+    call.validate_config.$config
+
+    ret.$config
+}
+
+# ------------------------------------------------------------
+# Invalid configuration demonstration
+# ------------------------------------------------------------
+
+fn.invalid_config_demo.{
+    println.""
+    println."--- invalid configuration ---"
+
+    let.$config.call.default_config
+
+    set.$config.["port"].70000
+
+    try.{
+        call.validate_config.$config
+
+        println."unexpected validation success"
+
+        ret.false
+    }
+    .catch.$error.{
+        print."validation error: "
+        println.$error
+
+        ret.true
+    }
+}
+
+# ------------------------------------------------------------
+# Profile demonstration
+# ------------------------------------------------------------
+
+fn.profile_demo.{
+    println.""
+    println."--- development profile ---"
+
+    let.$development.call.development_config
+    call.validate_config.$development
+    call.print_config.$development
+
+    println.""
+    println."--- production profile ---"
+
+    let.$production.call.production_config
+    call.validate_config.$production
+    call.print_config.$production
+
+    println.""
+    println."--- test profile ---"
+
+    let.$test.call.test_config
+    call.validate_config.$test
+    call.print_config.$test
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Assertions
+# ------------------------------------------------------------
+
+fn.self_test.$config.{
+    assert.$config.["mode"].eq.$MODE_DEVELOPMENT.
+        "CLI mode override failed"
+
+    assert.$config.["host"].eq."0.0.0.0".
+        "file host override failed"
+
+    assert.$config.["port"].eq.9100.
+        "environment port override failed"
+
+    assert.$config.["workers"].eq.12.
+        "CLI workers override failed"
+
+    assert.$config.["timeout"].eq.45.
+        "file timeout override failed"
+
+    assert.$config.["debug"].eq.true.
+        "environment debug override failed"
+
+    assert.$config.["log_level"].eq."debug".
+        "environment log-level override failed"
+
+    println."[self-test] configuration precedence passed"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Main
+# ------------------------------------------------------------
+
+fn.main.{
+    println."========================================"
+    println."          DotS Config Loader"
+    println."========================================"
+
+    try.{
+        let.$config.call.load_config
+
+        println.""
+        println."--- final configuration ---"
+
+        call.print_config.$config
+
+        call.self_test.$config
+        call.invalid_config_demo
+        call.profile_demo
+
+        println.""
+        println."========================================"
+        println."      Config Load Demo Completed"
+        println."========================================"
+
+        ret.0
+    }
+    .catch.$error.{
+        print."fatal configuration error: "
+        println.$error
+
+        ret.1
+    }
+}
+
+# ------------------------------------------------------------
+# Entry point
+# ------------------------------------------------------------
+
+let.$exit_code.call.main
+
+print."exit code: "
+println.$exit_code

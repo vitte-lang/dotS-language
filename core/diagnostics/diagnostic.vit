@@ -1,122 +1,845 @@
-space core/diagnostics
+space dots.core.diagnostics.diagnostic
 
-use core/str
+export *
 
-const SCHEMA_VERSION: string = "1.1.0"
+const DIAGNOSTIC_UNKNOWN_FILE: string = "<unknown>";
 
-form RelatedInfo
-{
-    file: string
-    line: i32
-    col: i32
+const DIAGNOSTIC_CODE_INTERNAL: string = "D0000";
+const DIAGNOSTIC_CODE_LEXER: string = "D1000";
+const DIAGNOSTIC_CODE_PARSER: string = "D2000";
+const DIAGNOSTIC_CODE_SEMANTIC: string = "D3000";
+const DIAGNOSTIC_CODE_RUNTIME: string = "D4000";
+const DIAGNOSTIC_CODE_IMPORT: string = "D5000";
+const DIAGNOSTIC_CODE_CONFIG: string = "D6000";
+const DIAGNOSTIC_CODE_IO: string = "D7000";
+
+pick DiagnosticSeverity {
+    Note,
+    Help,
+    Info,
+    Warning,
+    Error,
+    Fatal,
+}
+
+pick DiagnosticCategory {
+    General,
+    Lexer,
+    Parser,
+    Semantic,
+    Runtime,
+    Import,
+    Configuration,
+    IO,
+    Internal,
+}
+
+pick DiagnosticStage {
+    Unknown,
+    Configuration,
+    Source,
+    Lexing,
+    Parsing,
+    Analysis,
+    Evaluation,
+    Runtime,
+    Shutdown,
+}
+
+pick DiagnosticLabelKind {
+    Primary,
+    Secondary,
+}
+
+pick SuggestionApplicability {
+    Unspecified,
+    MachineApplicable,
+    MaybeIncorrect,
+    HasPlaceholders,
+}
+
+form SourcePosition {
+    pub offset: usize,
+    pub line: usize,
+    pub column: usize,
+}
+
+form SourceSpan {
+    pub file: string,
+
+    pub start: SourcePosition,
+    pub end: SourcePosition,
+}
+
+form DiagnosticLabel {
+    pub kind: DiagnosticLabelKind,
+    pub span: SourceSpan,
+    pub message: string,
+}
+
+form DiagnosticNote {
+    pub message: string,
+}
+
+form DiagnosticSuggestion {
+    pub message: string,
+
+    pub span: SourceSpan,
+    pub replacement: string,
+
+    pub applicability: SuggestionApplicability,
+}
+
+form Diagnostic {
+    pub severity: DiagnosticSeverity,
+    pub category: DiagnosticCategory,
+    pub stage: DiagnosticStage,
+
+    pub code: string,
+    pub message: string,
+
+    pub primary_span: SourceSpan,
+
+    pub labels: [DiagnosticLabel],
+    pub notes: [DiagnosticNote],
+    pub suggestions: [DiagnosticSuggestion],
+
+    pub recoverable: bool,
+}
+
+form DiagnosticCounters {
+    pub notes: usize,
+    pub helps: usize,
+    pub infos: usize,
+    pub warnings: usize,
+    pub errors: usize,
+    pub fatals: usize,
+}
+
+proc unknown_source_position() -> SourcePosition {
+    give SourcePosition {
+        offset: 0,
+        line: 0,
+        column: 0,
+    };
+}
+
+proc source_position(
+    offset: usize,
+    line: usize,
+    column: usize
+) -> SourcePosition {
+    give SourcePosition {
+        offset: offset,
+        line: line,
+        column: column,
+    };
+}
+
+proc unknown_source_span() -> SourceSpan {
+    give SourceSpan {
+        file: DIAGNOSTIC_UNKNOWN_FILE,
+        start: unknown_source_position(),
+        end: unknown_source_position(),
+    };
+}
+
+proc source_span(
+    file: string,
+    start: SourcePosition,
+    end: SourcePosition
+) -> SourceSpan {
+    give SourceSpan {
+        file: file,
+        start: start,
+        end: end,
+    };
+}
+
+proc point_span(
+    file: string,
+    position: SourcePosition
+) -> SourceSpan {
+    give SourceSpan {
+        file: file,
+        start: position,
+        end: position,
+    };
+}
+
+proc diagnostic_label(
+    kind: DiagnosticLabelKind,
+    span: SourceSpan,
     message: string
+) -> DiagnosticLabel {
+    give DiagnosticLabel {
+        kind: kind,
+        span: span,
+        message: message,
+    };
 }
 
-form QuickFix
-{
-    kind: string
-    title: string
-    replacement: string
-}
-
-form DiagnosticMeta
-{
-    code: string
-    severity: string
-    category: string
-    fixable: bool
-    docs_url: string
-}
-
-form Diagnostic
-{
-    code: string
-    severity: string
-    category: string
+proc primary_label(
+    span: SourceSpan,
     message: string
-    file: string
-    line: i32
-    col: i32
-    end_line: i32
-    end_col: i32
-    fixable: bool
-    docs_url: string
-    source: string
-    quick_fixes: [QuickFix]
-    related: [RelatedInfo]
+) -> DiagnosticLabel {
+    give diagnostic_label(
+        DiagnosticLabelKind.Primary,
+        span,
+        message
+    );
 }
 
-proc meta_catalog() -> [DiagnosticMeta]
-{
-    give [
-        DiagnosticMeta("DOTS0001", "error", "lexer", true, "docs/grammar.md#DOTS0001"),
-        DiagnosticMeta("DOTS0002", "error", "parser", true, "docs/grammar.md#DOTS0002"),
-        DiagnosticMeta("DOTS0003", "error", "semantic", false, "docs/grammar.md#DOTS0003"),
-        DiagnosticMeta("DOTS0004", "warning", "style", true, "docs/grammar.md#DOTS0004"),
-        DiagnosticMeta("DOTS0005", "error", "runtime", false, "docs/runtime.md#DOTS0005"),
-        DiagnosticMeta("DOTS0006", "warning", "security", true, "docs/runtime.md#DOTS0006"),
-        DiagnosticMeta("DOTS0007", "info", "performance", false, "docs/runtime.md#DOTS0007")
-    ]
+proc secondary_label(
+    span: SourceSpan,
+    message: string
+) -> DiagnosticLabel {
+    give diagnostic_label(
+        DiagnosticLabelKind.Secondary,
+        span,
+        message
+    );
 }
 
-proc lookup_meta(code: string) -> Option[DiagnosticMeta]
-{
-    for m in meta_catalog()
-    {
-        if m.code == code { give m }
-    }
-    give null
+proc diagnostic_note(
+    message: string
+) -> DiagnosticNote {
+    give DiagnosticNote {
+        message: message,
+    };
 }
 
-proc default_meta() -> DiagnosticMeta
-{
-    give DiagnosticMeta("DOTS0000", "error", "generic", false, "docs/grammar.md")
+proc diagnostic_suggestion(
+    message: string,
+    span: SourceSpan,
+    replacement: string,
+    applicability: SuggestionApplicability
+) -> DiagnosticSuggestion {
+    give DiagnosticSuggestion {
+        message: message,
+        span: span,
+        replacement: replacement,
+        applicability: applicability,
+    };
 }
 
-proc new(code: string, message: string, file: string, line: i32, col: i32, end_line: i32, end_col: i32, source: string) -> Diagnostic
-{
-    let m = lookup_meta(code)
-    if m == null { m = default_meta() }
+proc empty_diagnostic(
+    severity: DiagnosticSeverity,
+    category: DiagnosticCategory,
+    stage: DiagnosticStage,
+    code: string,
+    message: string,
+    span: SourceSpan
+) -> Diagnostic {
+    give Diagnostic {
+        severity: severity,
+        category: category,
+        stage: stage,
 
-    give Diagnostic(
-        m.code,
-        m.severity,
-        m.category,
+        code: code,
+        message: message,
+
+        primary_span: span,
+
+        labels: [],
+        notes: [],
+        suggestions: [],
+
+        recoverable: true,
+    };
+}
+
+proc make_diagnostic(
+    severity: DiagnosticSeverity,
+    category: DiagnosticCategory,
+    stage: DiagnosticStage,
+    code: string,
+    message: string,
+    span: SourceSpan
+) -> Diagnostic {
+    give empty_diagnostic(
+        severity,
+        category,
+        stage,
+        code,
         message,
-        file,
-        line,
-        col,
-        end_line,
-        end_col,
-        m.fixable,
-        m.docs_url,
-        source,
-        [],
-        []
-    )
+        span
+    );
 }
 
-proc with_quick_fix(d: Diagnostic, kind: string, title: string, replacement: string) -> Diagnostic
-{
-    d.quick_fixes = d.quick_fixes.push(QuickFix(kind, title, replacement))
-    give d
+proc make_note(
+    category: DiagnosticCategory,
+    stage: DiagnosticStage,
+    code: string,
+    message: string,
+    span: SourceSpan
+) -> Diagnostic {
+    give make_diagnostic(
+        DiagnosticSeverity.Note,
+        category,
+        stage,
+        code,
+        message,
+        span
+    );
 }
 
-proc with_related(d: Diagnostic, file: string, line: i32, col: i32, message: string) -> Diagnostic
-{
-    d.related = d.related.push(RelatedInfo(file, line, col, message))
-    give d
+proc make_help(
+    category: DiagnosticCategory,
+    stage: DiagnosticStage,
+    code: string,
+    message: string,
+    span: SourceSpan
+) -> Diagnostic {
+    give make_diagnostic(
+        DiagnosticSeverity.Help,
+        category,
+        stage,
+        code,
+        message,
+        span
+    );
 }
 
-proc identity(d: Diagnostic) -> string
-{
-    give d.code + "|" + d.file + "|" + str.from_i64(d.line) + "|" + str.from_i64(d.col) + "|" + d.message
+proc make_info(
+    category: DiagnosticCategory,
+    stage: DiagnosticStage,
+    code: string,
+    message: string,
+    span: SourceSpan
+) -> Diagnostic {
+    give make_diagnostic(
+        DiagnosticSeverity.Info,
+        category,
+        stage,
+        code,
+        message,
+        span
+    );
 }
 
-proc by_severity_rank(sev: string) -> i32
-{
-    if sev == "error" { give 0 }
-    if sev == "warning" { give 1 }
-    if sev == "info" { give 2 }
-    give 3
+proc make_warning(
+    category: DiagnosticCategory,
+    stage: DiagnosticStage,
+    code: string,
+    message: string,
+    span: SourceSpan
+) -> Diagnostic {
+    give make_diagnostic(
+        DiagnosticSeverity.Warning,
+        category,
+        stage,
+        code,
+        message,
+        span
+    );
+}
+
+proc make_error(
+    category: DiagnosticCategory,
+    stage: DiagnosticStage,
+    code: string,
+    message: string,
+    span: SourceSpan
+) -> Diagnostic {
+    give make_diagnostic(
+        DiagnosticSeverity.Error,
+        category,
+        stage,
+        code,
+        message,
+        span
+    );
+}
+
+proc make_fatal(
+    category: DiagnosticCategory,
+    stage: DiagnosticStage,
+    code: string,
+    message: string,
+    span: SourceSpan
+) -> Diagnostic {
+    let mut diagnostic: Diagnostic =
+        make_diagnostic(
+            DiagnosticSeverity.Fatal,
+            category,
+            stage,
+            code,
+            message,
+            span
+        );
+
+    set diagnostic.recoverable = false;
+
+    give diagnostic;
+}
+
+proc internal_error(
+    message: string
+) -> Diagnostic {
+    let mut diagnostic: Diagnostic =
+        make_fatal(
+            DiagnosticCategory.Internal,
+            DiagnosticStage.Runtime,
+            DIAGNOSTIC_CODE_INTERNAL,
+            message,
+            unknown_source_span()
+        );
+
+    set diagnostic.recoverable = false;
+
+    give diagnostic;
+}
+
+proc lexer_error(
+    code: string,
+    message: string,
+    span: SourceSpan
+) -> Diagnostic {
+    give make_error(
+        DiagnosticCategory.Lexer,
+        DiagnosticStage.Lexing,
+        code,
+        message,
+        span
+    );
+}
+
+proc parser_error(
+    code: string,
+    message: string,
+    span: SourceSpan
+) -> Diagnostic {
+    give make_error(
+        DiagnosticCategory.Parser,
+        DiagnosticStage.Parsing,
+        code,
+        message,
+        span
+    );
+}
+
+proc semantic_error(
+    code: string,
+    message: string,
+    span: SourceSpan
+) -> Diagnostic {
+    give make_error(
+        DiagnosticCategory.Semantic,
+        DiagnosticStage.Analysis,
+        code,
+        message,
+        span
+    );
+}
+
+proc runtime_error(
+    code: string,
+    message: string,
+    span: SourceSpan
+) -> Diagnostic {
+    give make_error(
+        DiagnosticCategory.Runtime,
+        DiagnosticStage.Runtime,
+        code,
+        message,
+        span
+    );
+}
+
+proc import_error(
+    code: string,
+    message: string,
+    span: SourceSpan
+) -> Diagnostic {
+    give make_error(
+        DiagnosticCategory.Import,
+        DiagnosticStage.Analysis,
+        code,
+        message,
+        span
+    );
+}
+
+proc configuration_error(
+    code: string,
+    message: string
+) -> Diagnostic {
+    give make_error(
+        DiagnosticCategory.Configuration,
+        DiagnosticStage.Configuration,
+        code,
+        message,
+        unknown_source_span()
+    );
+}
+
+proc io_error(
+    code: string,
+    message: string,
+    span: SourceSpan
+) -> Diagnostic {
+    give make_error(
+        DiagnosticCategory.IO,
+        DiagnosticStage.Runtime,
+        code,
+        message,
+        span
+    );
+}
+
+proc diagnostic_add_label(
+    diagnostic: &mut Diagnostic,
+    label: DiagnosticLabel
+) {
+    set diagnostic.labels =
+        diagnostic.labels + [label];
+}
+
+proc diagnostic_add_primary_label(
+    diagnostic: &mut Diagnostic,
+    span: SourceSpan,
+    message: string
+) {
+    diagnostic_add_label(
+        diagnostic,
+        primary_label(span, message)
+    );
+}
+
+proc diagnostic_add_secondary_label(
+    diagnostic: &mut Diagnostic,
+    span: SourceSpan,
+    message: string
+) {
+    diagnostic_add_label(
+        diagnostic,
+        secondary_label(span, message)
+    );
+}
+
+proc diagnostic_add_note(
+    diagnostic: &mut Diagnostic,
+    message: string
+) {
+    set diagnostic.notes =
+        diagnostic.notes + [
+            diagnostic_note(message)
+        ];
+}
+
+proc diagnostic_add_suggestion(
+    diagnostic: &mut Diagnostic,
+    message: string,
+    span: SourceSpan,
+    replacement: string,
+    applicability: SuggestionApplicability
+) {
+    set diagnostic.suggestions =
+        diagnostic.suggestions + [
+            diagnostic_suggestion(
+                message,
+                span,
+                replacement,
+                applicability
+            )
+        ];
+}
+
+proc diagnostic_set_recoverable(
+    diagnostic: &mut Diagnostic,
+    recoverable: bool
+) {
+    set diagnostic.recoverable = recoverable;
+}
+
+proc diagnostic_is_error(
+    diagnostic: &Diagnostic
+) -> bool {
+    if diagnostic.severity == DiagnosticSeverity.Error {
+        give true;
+    }
+
+    if diagnostic.severity == DiagnosticSeverity.Fatal {
+        give true;
+    }
+
+    give false;
+}
+
+proc diagnostic_is_fatal(
+    diagnostic: &Diagnostic
+) -> bool {
+    give diagnostic.severity == DiagnosticSeverity.Fatal;
+}
+
+proc diagnostic_is_warning(
+    diagnostic: &Diagnostic
+) -> bool {
+    give diagnostic.severity == DiagnosticSeverity.Warning;
+}
+
+proc diagnostic_is_recoverable(
+    diagnostic: &Diagnostic
+) -> bool {
+    give diagnostic.recoverable;
+}
+
+proc diagnostic_has_code(
+    diagnostic: &Diagnostic
+) -> bool {
+    give diagnostic.code != "";
+}
+
+proc diagnostic_has_location(
+    diagnostic: &Diagnostic
+) -> bool {
+    give diagnostic.primary_span.file
+        != DIAGNOSTIC_UNKNOWN_FILE;
+}
+
+proc diagnostic_severity_name(
+    severity: DiagnosticSeverity
+) -> string {
+    match severity {
+        case DiagnosticSeverity.Note => give "note";
+        case DiagnosticSeverity.Help => give "help";
+        case DiagnosticSeverity.Info => give "info";
+        case DiagnosticSeverity.Warning => give "warning";
+        case DiagnosticSeverity.Error => give "error";
+        case DiagnosticSeverity.Fatal => give "fatal";
+    };
+}
+
+proc diagnostic_category_name(
+    category: DiagnosticCategory
+) -> string {
+    match category {
+        case DiagnosticCategory.General => give "general";
+        case DiagnosticCategory.Lexer => give "lexer";
+        case DiagnosticCategory.Parser => give "parser";
+        case DiagnosticCategory.Semantic => give "semantic";
+        case DiagnosticCategory.Runtime => give "runtime";
+        case DiagnosticCategory.Import => give "import";
+        case DiagnosticCategory.Configuration => give "configuration";
+        case DiagnosticCategory.IO => give "io";
+        case DiagnosticCategory.Internal => give "internal";
+    };
+}
+
+proc diagnostic_stage_name(
+    stage: DiagnosticStage
+) -> string {
+    match stage {
+        case DiagnosticStage.Unknown => give "unknown";
+        case DiagnosticStage.Configuration => give "configuration";
+        case DiagnosticStage.Source => give "source";
+        case DiagnosticStage.Lexing => give "lexing";
+        case DiagnosticStage.Parsing => give "parsing";
+        case DiagnosticStage.Analysis => give "analysis";
+        case DiagnosticStage.Evaluation => give "evaluation";
+        case DiagnosticStage.Runtime => give "runtime";
+        case DiagnosticStage.Shutdown => give "shutdown";
+    };
+}
+
+proc suggestion_applicability_name(
+    applicability: SuggestionApplicability
+) -> string {
+    match applicability {
+        case SuggestionApplicability.Unspecified => {
+            give "unspecified";
+        }
+
+        case SuggestionApplicability.MachineApplicable => {
+            give "machine-applicable";
+        }
+
+        case SuggestionApplicability.MaybeIncorrect => {
+            give "maybe-incorrect";
+        }
+
+        case SuggestionApplicability.HasPlaceholders => {
+            give "has-placeholders";
+        }
+    };
+}
+
+proc source_position_valid(
+    position: &SourcePosition
+) -> bool {
+    if position.line == 0 {
+        give false;
+    }
+
+    if position.column == 0 {
+        give false;
+    }
+
+    give true;
+}
+
+proc source_span_valid(
+    span: &SourceSpan
+) -> bool {
+    if span.file == "" {
+        give false;
+    }
+
+    if span.file == DIAGNOSTIC_UNKNOWN_FILE {
+        give true;
+    }
+
+    if not source_position_valid(&span.start) {
+        give false;
+    }
+
+    if not source_position_valid(&span.end) {
+        give false;
+    }
+
+    if span.end.offset < span.start.offset {
+        give false;
+    }
+
+    give true;
+}
+
+proc diagnostic_label_valid(
+    label: &DiagnosticLabel
+) -> bool {
+    give source_span_valid(&label.span);
+}
+
+proc diagnostic_suggestion_valid(
+    suggestion: &DiagnosticSuggestion
+) -> bool {
+    if suggestion.message == "" {
+        give false;
+    }
+
+    give source_span_valid(&suggestion.span);
+}
+
+proc diagnostic_valid(
+    diagnostic: &Diagnostic
+) -> bool {
+    if diagnostic.message == "" {
+        give false;
+    }
+
+    if not source_span_valid(
+        &diagnostic.primary_span
+    ) {
+        give false;
+    }
+
+    let mut label_index: usize = 0;
+
+    while label_index < diagnostic.labels.length {
+        if not diagnostic_label_valid(
+            &diagnostic.labels[label_index]
+        ) {
+            give false;
+        }
+
+        set label_index += 1;
+    }
+
+    let mut suggestion_index: usize = 0;
+
+    while suggestion_index
+        < diagnostic.suggestions.length {
+        if not diagnostic_suggestion_valid(
+            &diagnostic.suggestions[suggestion_index]
+        ) {
+            give false;
+        }
+
+        set suggestion_index += 1;
+    }
+
+    give true;
+}
+
+proc empty_diagnostic_counters() -> DiagnosticCounters {
+    give DiagnosticCounters {
+        notes: 0,
+        helps: 0,
+        infos: 0,
+        warnings: 0,
+        errors: 0,
+        fatals: 0,
+    };
+}
+
+proc diagnostic_counters_add(
+    counters: &mut DiagnosticCounters,
+    diagnostic: &Diagnostic
+) {
+    match diagnostic.severity {
+        case DiagnosticSeverity.Note => {
+            set counters.notes += 1;
+        }
+
+        case DiagnosticSeverity.Help => {
+            set counters.helps += 1;
+        }
+
+        case DiagnosticSeverity.Info => {
+            set counters.infos += 1;
+        }
+
+        case DiagnosticSeverity.Warning => {
+            set counters.warnings += 1;
+        }
+
+        case DiagnosticSeverity.Error => {
+            set counters.errors += 1;
+        }
+
+        case DiagnosticSeverity.Fatal => {
+            set counters.fatals += 1;
+        }
+    };
+}
+
+proc diagnostic_counters_total(
+    counters: &DiagnosticCounters
+) -> usize {
+    give counters.notes
+        + counters.helps
+        + counters.infos
+        + counters.warnings
+        + counters.errors
+        + counters.fatals;
+}
+
+proc diagnostic_counters_error_count(
+    counters: &DiagnosticCounters
+) -> usize {
+    give counters.errors + counters.fatals;
+}
+
+proc diagnostic_counters_has_errors(
+    counters: &DiagnosticCounters
+) -> bool {
+    give diagnostic_counters_error_count(counters) > 0;
+}
+
+proc diagnostic_counters_has_fatal(
+    counters: &DiagnosticCounters
+) -> bool {
+    give counters.fatals > 0;
+}
+
+proc diagnostic_counters_reset(
+    counters: &mut DiagnosticCounters
+) {
+    set counters.notes = 0;
+    set counters.helps = 0;
+    set counters.infos = 0;
+    set counters.warnings = 0;
+    set counters.errors = 0;
+    set counters.fatals = 0;
 }

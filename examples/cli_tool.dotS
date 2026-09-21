@@ -1,8 +1,362 @@
-module.cli_tool
-fn.main.$argv
-set.$cmd."status"
-call.cli.parse.$argv
-if.$argv
-set.$cmd.$argv
-call.cli.dispatch.$cmd
-ret.true
+# ============================================================
+# DotS Script Language
+# examples/cli_tool.dotS
+#
+# Command-line tool demonstration.
+#
+# Current DotS grammar has no native argv primitive.
+# Arguments are therefore represented as a list and passed
+# explicitly to main.
+# ============================================================
+
+module.examples.cli_tool
+
+const.$APP_NAME."dots-example"
+const.$APP_VERSION."0.1.0"
+
+const.$CMD_HELP."help"
+const.$CMD_VERSION."version"
+const.$CMD_ECHO."echo"
+const.$CMD_ADD."add"
+const.$CMD_MUL."mul"
+const.$CMD_CHECK."check"
+const.$CMD_INFO."info"
+
+const.$EXIT_OK.0
+const.$EXIT_ERROR.1
+const.$EXIT_USAGE.2
+
+# ------------------------------------------------------------
+# Output
+# ------------------------------------------------------------
+
+fn.header.{
+    println."========================================"
+    println."            DotS CLI Tool"
+    println."========================================"
+
+    ret.true
+}
+
+fn.print_version.{
+    print.$APP_NAME
+    print." "
+    println.$APP_VERSION
+
+    ret.$EXIT_OK
+}
+
+fn.print_help.{
+    println."Usage:"
+    println."  dots-example help"
+    println."  dots-example version"
+    println."  dots-example echo <value>"
+    println."  dots-example add <a> <b>"
+    println."  dots-example mul <a> <b>"
+    println."  dots-example check <value>"
+    println."  dots-example info"
+    println.""
+    println."Commands:"
+    println."  help       Show this help"
+    println."  version    Show application version"
+    println."  echo       Print a value"
+    println."  add        Add two numbers"
+    println."  mul        Multiply two numbers"
+    println."  check      Classify a numeric value"
+    println."  info       Show application information"
+
+    ret.$EXIT_OK
+}
+
+fn.usage_error.$message.{
+    print."error: "
+    println.$message
+    println.""
+    call.print_help
+
+    ret.$EXIT_USAGE
+}
+
+# ------------------------------------------------------------
+# Commands
+# ------------------------------------------------------------
+
+fn.command_echo.$args.{
+    let.$value.$args.[1]
+
+    println.$value
+
+    ret.$EXIT_OK
+}
+
+fn.command_add.$args.{
+    let.$left.$args.[1]
+    let.$right.$args.[2]
+
+    let.$result.$left.add.$right
+
+    print.$left
+    print." + "
+    print.$right
+    print." = "
+    println.$result
+
+    ret.$EXIT_OK
+}
+
+fn.command_mul.$args.{
+    let.$left.$args.[1]
+    let.$right.$args.[2]
+
+    let.$result.$left.mul.$right
+
+    print.$left
+    print." * "
+    print.$right
+    print." = "
+    println.$result
+
+    ret.$EXIT_OK
+}
+
+fn.command_check.$args.{
+    let.$value.$args.[1]
+
+    print."value: "
+    println.$value
+
+    if.$value.lt.0.{
+        println."classification: negative"
+
+        ret.$EXIT_OK
+    }
+    elif.$value.eq.0.{
+        println."classification: zero"
+
+        ret.$EXIT_OK
+    }
+    elif.$value.lt.10.{
+        println."classification: small positive"
+
+        ret.$EXIT_OK
+    }
+    elif.$value.lt.100.{
+        println."classification: medium positive"
+
+        ret.$EXIT_OK
+    }
+    else.{
+        println."classification: large positive"
+
+        ret.$EXIT_OK
+    }
+}
+
+fn.command_info.{
+    println."Application information"
+    println.""
+
+    print."name: "
+    println.$APP_NAME
+
+    print."version: "
+    println.$APP_VERSION
+
+    println."language: DotS"
+    println."execution: interpreted"
+
+    ret.$EXIT_OK
+}
+
+# ------------------------------------------------------------
+# Command dispatcher
+# ------------------------------------------------------------
+
+fn.dispatch.$args.{
+    let.$command.$args.[0]
+
+    match.$command.{
+        case."help".{
+            ret.call.print_help
+        }
+
+        case."version".{
+            ret.call.print_version
+        }
+
+        case."echo".{
+            ret.call.command_echo.$args
+        }
+
+        case."add".{
+            ret.call.command_add.$args
+        }
+
+        case."mul".{
+            ret.call.command_mul.$args
+        }
+
+        case."check".{
+            ret.call.command_check.$args
+        }
+
+        case."info".{
+            ret.call.command_info
+        }
+
+        default.{
+            print."unknown command: "
+            println.$command
+
+            ret.$EXIT_USAGE
+        }
+    }
+}
+
+# ------------------------------------------------------------
+# Demonstration
+# ------------------------------------------------------------
+
+fn.run_examples.{
+    println.""
+    println."--- help ---"
+
+    let.$help_args.["help"]
+    call.dispatch.$help_args
+
+    println.""
+    println."--- version ---"
+
+    let.$version_args.["version"]
+    call.dispatch.$version_args
+
+    println.""
+    println."--- echo ---"
+
+    let.$echo_args.[
+        "echo",
+        "Hello from DotS"
+    ]
+
+    call.dispatch.$echo_args
+
+    println.""
+    println."--- add ---"
+
+    let.$add_args.[
+        "add",
+        21,
+        21
+    ]
+
+    call.dispatch.$add_args
+
+    println.""
+    println."--- multiply ---"
+
+    let.$mul_args.[
+        "mul",
+        6,
+        7
+    ]
+
+    call.dispatch.$mul_args
+
+    println.""
+    println."--- check ---"
+
+    let.$check_args.[
+        "check",
+        42
+    ]
+
+    call.dispatch.$check_args
+
+    println.""
+    println."--- info ---"
+
+    let.$info_args.["info"]
+    call.dispatch.$info_args
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Error handling demonstration
+# ------------------------------------------------------------
+
+fn.run_error_example.{
+    println.""
+    println."--- unknown command ---"
+
+    let.$args.["does-not-exist"]
+
+    let.$result.call.dispatch.$args
+
+    assert.$result.eq.$EXIT_USAGE.
+        "unknown command should return usage error"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Main
+# ------------------------------------------------------------
+
+fn.main.$args.{
+    call.header
+
+    try.{
+        let.$result.call.dispatch.$args
+
+        ret.$result
+    }
+    .catch.$error.{
+        print."fatal: "
+        println.$error
+
+        ret.$EXIT_ERROR
+    }
+}
+
+# ------------------------------------------------------------
+# Self-test
+# ------------------------------------------------------------
+
+fn.self_test.{
+    println.""
+    println."========================================"
+    println."          DotS CLI Self-Test"
+    println."========================================"
+
+    call.run_examples
+    call.run_error_example
+
+    println.""
+    println."self-test completed"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Example entry point
+#
+# Replace this list when testing another command.
+# A future runtime argv API can inject the real command-line
+# arguments into main.
+# ------------------------------------------------------------
+
+let.$arguments.[
+    "add",
+    20,
+    22
+]
+
+let.$exit_code.call.main.$arguments
+
+print."exit code: "
+println.$exit_code
+
+# Uncomment conceptually when using this file as a test suite:
+#
+# call.self_test

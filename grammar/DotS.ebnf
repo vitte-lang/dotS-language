@@ -1,149 +1,280 @@
-(* ========================================= *)
-(* DotS Script Language Grammar              *)
-(* Minimal Script-Oriented Syntax            *)
-(* ========================================= *)
+(* ============================================================ *)
+(* DotS Script Language Grammar                                 *)
+(* Async Extension                                              *)
+(* ============================================================ *)
 
-program         = { statement } ;
+(* ------------------------------------------------------------ *)
+(* Statements                                                   *)
+(* ------------------------------------------------------------ *)
 
-(* ----------------------------------------- *)
-(* Statements                                *)
-(* ----------------------------------------- *)
+statement = module_stmt
+          | use_stmt
+          | import_stmt
+          | export_stmt
+          | assignment
+          | function_def
+          | async_function_def
+          | return_stmt
+          | control
+          | async_stmt
+          | error_stmt
+          | io_stmt
+          | assertion_stmt
+          | expression
+          ;
 
-statement       = assignment
-                | function_def
-                | function_call
-                | control
-                | error_stmt
-                | expression ;
+(* ------------------------------------------------------------ *)
+(* Functions                                                    *)
+(* ------------------------------------------------------------ *)
 
-(* ----------------------------------------- *)
-(* Assignment                                *)
-(* ----------------------------------------- *)
+function_def =
+    "fn" "." qualified_identifier
+    { "." parameter }
+    [ "." function_body ]
+    ;
 
-assignment      = "set" "." variable "." expression
-                | "let" "." variable "." expression
-                | "const" "." variable "." expression ;
+async_function_def =
+    "async" "."
+    "fn" "."
+    qualified_identifier
+    { "." parameter }
+    [ "." function_body ]
+    ;
 
-(* ----------------------------------------- *)
-(* Functions                                 *)
-(* ----------------------------------------- *)
+parameter = variable
+          | variable "." expression
+          ;
 
-function_def    = "fn" "." qualified_identifier { "." parameter } ;
+function_body = block ;
 
-parameter       = variable ;
+function_call =
+    "call" "." qualified_identifier
+    { "." argument }
+    ;
 
-function_call   = "call" "." qualified_identifier { "." argument } ;
+async_function_call =
+    "async" "."
+    "call" "."
+    qualified_identifier
+    { "." argument }
+    ;
 
-return_stmt     = "ret" [ "." argument ] ;
+return_stmt =
+    "ret"
+    [ "." expression ]
+    ;
 
-(* ----------------------------------------- *)
-(* Control flow                              *)
-(* ----------------------------------------- *)
+(* ------------------------------------------------------------ *)
+(* Asynchronous statements                                      *)
+(* ------------------------------------------------------------ *)
 
-control         = if_stmt
-                | loop_stmt
-                | while_stmt
-                | for_stmt
-                | break_stmt
-                | continue_stmt ;
+async_stmt =
+      spawn_stmt
+    | await_stmt
+    | yield_stmt
+    | sleep_stmt
+    | cancel_stmt
+    ;
 
-if_stmt         = "if" "." expression ;
+spawn_stmt =
+    "spawn" "."
+    expression
+    ;
 
-elif_stmt       = "elif" "." expression ;
+await_stmt =
+    "await" "."
+    expression
+    ;
 
-else_stmt       = "else" ;
+yield_stmt =
+    "yield"
+    [ "." expression ]
+    ;
 
-loop_stmt       = "loop" "." expression ;
+sleep_stmt =
+    "sleep" "."
+    expression
+    ;
 
-while_stmt      = "while" "." expression ;
+cancel_stmt =
+    "cancel" "."
+    expression
+    ;
 
-for_stmt        = "for" "." variable "." expression ;
+(* ------------------------------------------------------------ *)
+(* Expressions                                                  *)
+(* ------------------------------------------------------------ *)
 
-break_stmt      = "break" ;
+expression = conditional_expression ;
 
-continue_stmt   = "continue" ;
+conditional_expression =
+    logical_or
+    [ "." "?" "." expression "." ":" "." expression ]
+    ;
 
-(* ----------------------------------------- *)
-(* Error handling                            *)
-(* ----------------------------------------- *)
+logical_or =
+    logical_and
+    { "." "or" "." logical_and }
+    ;
 
-error_stmt      = try_stmt
-                | catch_stmt
-                | throw_stmt ;
+logical_and =
+    equality
+    { "." "and" "." equality }
+    ;
 
-try_stmt        = "try" ;
+equality =
+    comparison
+    { "."
+      ( "eq"
+      | "neq"
+      )
+      "."
+      comparison
+    }
+    ;
 
-catch_stmt      = "catch" ;
+comparison =
+    additive
+    { "."
+      ( "lt"
+      | "lte"
+      | "gt"
+      | "gte"
+      )
+      "."
+      additive
+    }
+    ;
 
-throw_stmt      = "throw" "." expression ;
+additive =
+    multiplicative
+    { "."
+      ( "add"
+      | "sub"
+      )
+      "."
+      multiplicative
+    }
+    ;
 
-(* ----------------------------------------- *)
-(* Expressions                               *)
-(* ----------------------------------------- *)
+multiplicative =
+    unary
+    { "."
+      ( "mul"
+      | "div"
+      | "mod"
+      )
+      "."
+      unary
+    }
+    ;
 
-expression      = pipeline ;
+unary =
+      "not" "." unary
+    | "neg" "." unary
+    | "await" "." unary
+    | "spawn" "." unary
+    | postfix
+    ;
 
-pipeline        = value { "." value } ;
+(* ------------------------------------------------------------ *)
+(* Tasks                                                        *)
+(* ------------------------------------------------------------ *)
 
-value           = identifier
-                | variable
-                | literal
-                | function_call ;
+task_expression =
+    "task" "."
+    expression
+    ;
 
-argument        = expression ;
+(* ------------------------------------------------------------ *)
+(* Primary expressions                                          *)
+(* ------------------------------------------------------------ *)
 
-(* ----------------------------------------- *)
-(* Modules / imports                         *)
-(* ----------------------------------------- *)
+primary = literal
+        | variable
+        | function_call
+        | async_function_call
+        | task_expression
+        | member_access
+        | index_access
+        | list_literal
+        | map_literal
+        | tuple_literal
+        | "(" expression ")"
+        ;
 
-module_stmt     = "module" "." qualified_identifier ;
+(* ------------------------------------------------------------ *)
+(* Reserved words                                               *)
+(* ------------------------------------------------------------ *)
 
-use_stmt        = "use" "." qualified_identifier ;
+keyword =
+      "module"
+    | "use"
+    | "import"
+    | "export"
+    | "as"
 
-import_stmt     = "import" "." qualified_identifier ;
+    | "let"
+    | "const"
+    | "set"
 
-(* ----------------------------------------- *)
-(* Variables                                 *)
-(* ----------------------------------------- *)
+    | "fn"
+    | "call"
+    | "ret"
 
-variable        = "$" identifier ;
+    | "async"
+    | "await"
+    | "spawn"
+    | "yield"
+    | "task"
+    | "cancel"
+    | "sleep"
 
-(* ----------------------------------------- *)
-(* Literals                                  *)
-(* ----------------------------------------- *)
+    | "if"
+    | "elif"
+    | "else"
 
-literal         = string
-                | number
-                | boolean ;
+    | "loop"
+    | "while"
+    | "for"
+    | "foreach"
+    | "in"
 
-string          = '"' { character } '"' ;
+    | "break"
+    | "continue"
 
-number          = digit { digit } [ "." digit { digit } ] ;
+    | "match"
+    | "case"
+    | "default"
 
-boolean         = "true" | "false" ;
+    | "try"
+    | "catch"
+    | "finally"
+    | "throw"
 
-(* ----------------------------------------- *)
-(* Identifiers                               *)
-(* ----------------------------------------- *)
+    | "assert"
 
-identifier      = letter { letter | digit | "_" } ;
+    | "print"
+    | "println"
 
-qualified_identifier = identifier { "." identifier } ;
+    | "true"
+    | "false"
+    | "null"
 
-(* ----------------------------------------- *)
-(* Characters                                *)
-(* ----------------------------------------- *)
+    | "and"
+    | "or"
+    | "not"
 
-letter          = "a"…"z" | "A"…"Z" ;
+    | "eq"
+    | "neq"
+    | "lt"
+    | "lte"
+    | "gt"
+    | "gte"
 
-digit           = "0"…"9" ;
-
-character       = ? any unicode char except " ? ;
-
-(* ----------------------------------------- *)
-(* Whitespace and comments                   *)
-(* ----------------------------------------- *)
-
-whitespace      = " " | "\t" | "\n" | "\r" ;
-
-comment         = "#" { character } ;
+    | "add"
+    | "sub"
+    | "mul"
+    | "div"
+    | "mod"
+    ;

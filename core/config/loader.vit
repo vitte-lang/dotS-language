@@ -1,274 +1,1060 @@
-space core/loader
+space dots.core.config.loader
 
-use core/str
-use core/fs
-use core/process
-use core/time
-use core/config
+export *
 
-form LoadResult
-{
-    ok: bool
-    items: [config.ConfigKV]
-    warnings: [string]
-    errors: [config.ConfigError]
-    format: string
+use dots.core.config as config
+use dots.core.config.environment as environment
+
+const DEFAULT_CONFIG_FILE: string = "dots.conf";
+const DEFAULT_CONFIG_DIRECTORY: string = ".dots";
+
+const CONFIG_KEY_MODE: string = "mode";
+const CONFIG_KEY_ENTRY: string = "entry";
+const CONFIG_KEY_CORE: string = "core";
+const CONFIG_KEY_STDLIB: string = "stdlib";
+const CONFIG_KEY_MODULES: string = "modules";
+
+const CONFIG_KEY_DEBUG: string = "debug";
+const CONFIG_KEY_RECOVER_ERRORS: string = "recover_errors";
+const CONFIG_KEY_ALLOW_IO: string = "allow_io";
+const CONFIG_KEY_ALLOW_IMPORTS: string = "allow_imports";
+const CONFIG_KEY_ALLOW_ENVIRONMENT: string = "allow_environment";
+
+const CONFIG_KEY_MAX_SOURCE_SIZE: string = "max_source_size";
+const CONFIG_KEY_MAX_TOKEN_COUNT: string = "max_token_count";
+const CONFIG_KEY_MAX_PARSE_DEPTH: string = "max_parse_depth";
+const CONFIG_KEY_MAX_CALL_DEPTH: string = "max_call_depth";
+const CONFIG_KEY_MAX_LOOP_ITERATIONS: string = "max_loop_iterations";
+const CONFIG_KEY_MAX_CONTAINER_SIZE: string = "max_container_size";
+const CONFIG_KEY_MAX_STRING_SIZE: string = "max_string_size";
+
+pick ConfigSourceKind {
+    Defaults,
+    File,
+    Environment,
+    CommandLine,
+    Programmatic,
+}
+
+pick ConfigLoadStatus {
+    Ok,
+    NotFound,
+    InvalidSyntax,
+    InvalidKey,
+    InvalidValue,
+    InvalidConfiguration,
+    Unsupported,
+}
+
+pick ConfigValueKind {
+    String,
+    Boolean,
+    Integer,
+}
+
+form ConfigSource {
+    pub kind: ConfigSourceKind,
+    pub name: string,
+    pub priority: usize,
+}
+
+form ConfigEntry {
+    pub key: string,
+    pub value: string,
+    pub source: ConfigSource,
+    pub line: usize,
+    pub column: usize,
+}
+
+form ConfigLoadError {
+    pub status: ConfigLoadStatus,
+    pub source: string,
+    pub key: string,
+    pub value: string,
+    pub message: string,
+    pub line: usize,
+    pub column: usize,
+}
+
+form ConfigLoadReport {
+    pub status: ConfigLoadStatus,
+
+    pub loaded_entries: usize,
+    pub ignored_entries: usize,
+    pub warning_count: usize,
+    pub error_count: usize,
+
+    pub source_name: string,
+}
+
+form LoadedConfig {
+    pub config: config.DotSConfig,
+    pub environment: environment.Environment,
+    pub report: ConfigLoadReport,
+}
+
+form ConfigLoaderOptions {
+    pub strict: bool,
+
+    pub load_defaults: bool,
+    pub load_file: bool,
+    pub load_environment: bool,
+    pub load_command_line: bool,
+
+    pub allow_unknown_keys: bool,
+    pub allow_duplicate_keys: bool,
+
+    pub config_file: string,
+}
+
+proc default_loader_options() -> ConfigLoaderOptions {
+    give ConfigLoaderOptions {
+        strict: true,
+
+        load_defaults: true,
+        load_file: true,
+        load_environment: true,
+        load_command_line: true,
+
+        allow_unknown_keys: false,
+        allow_duplicate_keys: true,
+
+        config_file: DEFAULT_CONFIG_FILE,
+    };
+}
+
+proc default_config_source() -> ConfigSource {
+    give ConfigSource {
+        kind: ConfigSourceKind.Defaults,
+        name: "defaults",
+        priority: 0,
+    };
+}
+
+proc file_config_source(
     path: string
-    mtime_ms: i64
+) -> ConfigSource {
+    give ConfigSource {
+        kind: ConfigSourceKind.File,
+        name: path,
+        priority: 100,
+    };
 }
 
-proc detect_format(path: string) -> string
-{
-    if str.ends_with(path, ".json") { give "json" }
-    if str.ends_with(path, ".jsonc") { give "jsonc" }
-    if str.ends_with(path, ".toml") { give "toml" }
-    give "kv"
+proc environment_config_source() -> ConfigSource {
+    give ConfigSource {
+        kind: ConfigSourceKind.Environment,
+        name: "environment",
+        priority: 200,
+    };
 }
 
-proc parse_kv(raw: string, source_path: string) -> [config.ConfigKV]
-{
-    let out: [config.ConfigKV] = []
-    let lines = str.split(raw, "\n")
-    for l in lines
-    {
-        let line = str.trim(l)
-        if line == "" { continue }
-        if str.starts_with(line, "#") { continue }
-        if str.starts_with(line, "//") { continue }
-
-        let p = str.split(line, "=")
-        if p.len < 2 { continue }
-        let k = str.trim(p[0])
-        let v = str.trim(str.replace(line, k + "=", ""))
-        out = out.push(config.ConfigKV(k, v, "file", source_path))
-    }
-    give out
+proc command_line_config_source() -> ConfigSource {
+    give ConfigSource {
+        kind: ConfigSourceKind.CommandLine,
+        name: "command-line",
+        priority: 300,
+    };
 }
 
-proc parse_toml(raw: string, source_path: string) -> [config.ConfigKV]
-{
-    # subset TOML: key = value (flat), comments '#'.
-    give parse_kv(raw, source_path)
+proc programmatic_config_source() -> ConfigSource {
+    give ConfigSource {
+        kind: ConfigSourceKind.Programmatic,
+        name: "programmatic",
+        priority: 400,
+    };
 }
 
-proc strip_jsonc(raw: string) -> string
-{
-    let out = ""
-    let lines = str.split(raw, "\n")
-    for l in lines
-    {
-        let line = str.trim(l)
-        if str.starts_with(line, "//") { continue }
-        if str.starts_with(line, "#") { continue }
-        out = out + l + "\n"
-    }
-    give out
+proc empty_load_report() -> ConfigLoadReport {
+    give ConfigLoadReport {
+        status: ConfigLoadStatus.Ok,
+
+        loaded_entries: 0,
+        ignored_entries: 0,
+        warning_count: 0,
+        error_count: 0,
+
+        source_name: "",
+    };
 }
 
-proc parse_json_flat(raw: string, source_path: string) -> [config.ConfigKV]
-{
-    let out: [config.ConfigKV] = []
-    let t = str.replace(raw, "{", "")
-    t = str.replace(t, "}", "")
-    let pairs = str.split(t, ",")
-
-    for pair in pairs
-    {
-        let p = str.split(pair, ":")
-        if p.len < 2 { continue }
-
-        let k = str.trim(str.replace(p[0], "\"", ""))
-        let v = str.trim(str.replace(str.replace(p[1], "\"", ""), "\n", ""))
-        if k == "" { continue }
-        out = out.push(config.ConfigKV(k, v, "file", source_path))
-    }
-
-    give out
+proc make_load_error(
+    status: ConfigLoadStatus,
+    source: string,
+    key: string,
+    value: string,
+    message: string,
+    line: usize,
+    column: usize
+) -> ConfigLoadError {
+    give ConfigLoadError {
+        status: status,
+        source: source,
+        key: key,
+        value: value,
+        message: message,
+        line: line,
+        column: column,
+    };
 }
 
-proc load_plain(path: string) -> LoadResult
-{
-    let warnings: [string] = []
-    let errors: [config.ConfigError] = []
-
-    if not fs.exists(path)
-    {
-        errors = errors.push(config.ConfigError(config.ERR_MISSING, "file", "config file not found", "file", path))
-        give LoadResult(false, [], warnings, errors, detect_format(path), path, 0)
-    }
-
-    let raw = fs.read_file(path)
-    let fmt = detect_format(path)
-    let items: [config.ConfigKV] = []
-
-    if fmt == "kv"
-    {
-        items = parse_kv(raw, path)
-    }
-    else if fmt == "toml"
-    {
-        items = parse_toml(raw, path)
-    }
-    else if fmt == "json"
-    {
-        items = parse_json_flat(raw, path)
-    }
-    else
-    {
-        items = parse_json_flat(strip_jsonc(raw), path)
-    }
-
-    if items.len == 0  and  str.trim(raw) != ""
-    {
-        errors = errors.push(config.ConfigError(config.ERR_INVALID_TYPE, "file", "failed to parse config file", "file", path))
-        give LoadResult(false, items, warnings, errors, fmt, path, fs.mtime_ms(path))
-    }
-
-    give LoadResult(true, items, warnings, errors, fmt, path, fs.mtime_ms(path))
+proc config_source_kind_name(
+    kind: ConfigSourceKind
+) -> string {
+    match kind {
+        case ConfigSourceKind.Defaults => give "defaults";
+        case ConfigSourceKind.File => give "file";
+        case ConfigSourceKind.Environment => give "environment";
+        case ConfigSourceKind.CommandLine => give "command-line";
+        case ConfigSourceKind.Programmatic => give "programmatic";
+    };
 }
 
-proc load_atomic_with_rollback(path: string) -> LoadResult
-{
-    let res = load_plain(path)
-    if res.ok { give res }
-
-    let backup = path + ".bak"
-    if fs.exists(backup)
-    {
-        let back = load_plain(backup)
-        if back.ok
-        {
-            back.warnings = back.warnings.push("rollback used from backup: " + backup)
-            give back
+proc config_load_status_name(
+    status: ConfigLoadStatus
+) -> string {
+    match status {
+        case ConfigLoadStatus.Ok => give "ok";
+        case ConfigLoadStatus.NotFound => give "not-found";
+        case ConfigLoadStatus.InvalidSyntax => give "invalid-syntax";
+        case ConfigLoadStatus.InvalidKey => give "invalid-key";
+        case ConfigLoadStatus.InvalidValue => give "invalid-value";
+        case ConfigLoadStatus.InvalidConfiguration => {
+            give "invalid-configuration";
         }
-    }
-
-    give res
+        case ConfigLoadStatus.Unsupported => give "unsupported";
+    };
 }
 
-proc include_depth_max() -> i32
-{
-    let n = config.parse_i64_strict(process.env("DOTS_CONFIG_INCLUDE_DEPTH"))
-    if n == null  or  n < 1 { give 5 }
-    if n > 20 { give 20 }
-    give n
+proc config_value_kind_name(
+    kind: ConfigValueKind
+) -> string {
+    match kind {
+        case ConfigValueKind.String => give "string";
+        case ConfigValueKind.Boolean => give "boolean";
+        case ConfigValueKind.Integer => give "integer";
+    };
 }
 
-proc contains_path(list: [string], path: string) -> bool
-{
-    for p in list
-    {
-        if p == path { give true }
+proc is_space(
+    value: char
+) -> bool {
+    if value == ' ' {
+        give true;
     }
-    give false
+
+    if value == '\t' {
+        give true;
+    }
+
+    if value == '\n' {
+        give true;
+    }
+
+    if value == '\r' {
+        give true;
+    }
+
+    give false;
 }
 
-proc resolve_include(base: string, rel: string) -> string
-{
-    if str.starts_with(rel, "/") { give rel }
-    if str.contains(rel, "../")  or  str.contains(rel, "..\\") { give "" }
-    let dir = fs.dir_name(base)
-    if dir == "" { dir = "." }
-    give dir + "/" + rel
+proc is_digit(
+    value: char
+) -> bool {
+    give value >= '0' and value <= '9';
 }
 
-proc load_with_includes(path: string, depth: i32, seen: [string]) -> LoadResult
-{
-    if depth > include_depth_max()
-    {
-        let e = [config.ConfigError(config.ERR_OUT_OF_RANGE, "include", "include depth exceeded", "file", path)]
-        give LoadResult(false, [], [], e, detect_format(path), path, 0)
+proc is_config_key_character(
+    value: char
+) -> bool {
+    if value >= 'a' and value <= 'z' {
+        give true;
     }
 
-    if contains_path(seen, path)
-    {
-        let e2 = [config.ConfigError(config.ERR_CONFLICT, "include", "include cycle detected", "file", path)]
-        give LoadResult(false, [], [], e2, detect_format(path), path, 0)
+    if value >= 'A' and value <= 'Z' {
+        give true;
     }
 
-    let cur = load_atomic_with_rollback(path)
-    if not cur.ok { give cur }
+    if value >= '0' and value <= '9' {
+        give true;
+    }
 
-    let out = cur.items
-    let warnings = cur.warnings
-    let errors = cur.errors
+    if value == '_' {
+        give true;
+    }
 
-    for kv in cur.items
-    {
-        if kv.key != "include" { continue }
+    if value == '-' {
+        give true;
+    }
 
-        let list = config.normalize_csv_list(kv.value)
-        for rel in list
-        {
-            let inc = resolve_include(path, rel)
-            if inc == ""
-            {
-                errors = errors.push(config.ConfigError(config.ERR_PATH_INVALID, "include", "include traversal rejected", "file", kv.source_path))
-                continue
+    if value == '.' {
+        give true;
+    }
+
+    give false;
+}
+
+proc parse_boolean(
+    value: string
+) -> ?bool {
+    if value == "true" {
+        give true;
+    }
+
+    if value == "false" {
+        give false;
+    }
+
+    if value == "yes" {
+        give true;
+    }
+
+    if value == "no" {
+        give false;
+    }
+
+    if value == "on" {
+        give true;
+    }
+
+    if value == "off" {
+        give false;
+    }
+
+    if value == "1" {
+        give true;
+    }
+
+    if value == "0" {
+        give false;
+    }
+
+    give null;
+}
+
+proc parse_usize(
+    value: string
+) -> ?usize {
+    if value == "" {
+        give null;
+    }
+
+    let mut result: usize = 0;
+    let mut index: usize = 0;
+
+    while index < value.length {
+        let character: char = value[index];
+
+        if not is_digit(character) {
+            give null;
+        }
+
+        let digit: usize = (character as usize) - ('0' as usize);
+
+        set result = result * 10 + digit;
+        set index += 1;
+    }
+
+    give result;
+}
+
+proc expected_value_kind(
+    key: string
+) -> ?ConfigValueKind {
+    if key == CONFIG_KEY_MODE {
+        give ConfigValueKind.String;
+    }
+
+    if key == CONFIG_KEY_ENTRY {
+        give ConfigValueKind.String;
+    }
+
+    if key == CONFIG_KEY_CORE {
+        give ConfigValueKind.String;
+    }
+
+    if key == CONFIG_KEY_STDLIB {
+        give ConfigValueKind.String;
+    }
+
+    if key == CONFIG_KEY_MODULES {
+        give ConfigValueKind.String;
+    }
+
+    if key == CONFIG_KEY_DEBUG {
+        give ConfigValueKind.Boolean;
+    }
+
+    if key == CONFIG_KEY_RECOVER_ERRORS {
+        give ConfigValueKind.Boolean;
+    }
+
+    if key == CONFIG_KEY_ALLOW_IO {
+        give ConfigValueKind.Boolean;
+    }
+
+    if key == CONFIG_KEY_ALLOW_IMPORTS {
+        give ConfigValueKind.Boolean;
+    }
+
+    if key == CONFIG_KEY_ALLOW_ENVIRONMENT {
+        give ConfigValueKind.Boolean;
+    }
+
+    if key == CONFIG_KEY_MAX_SOURCE_SIZE {
+        give ConfigValueKind.Integer;
+    }
+
+    if key == CONFIG_KEY_MAX_TOKEN_COUNT {
+        give ConfigValueKind.Integer;
+    }
+
+    if key == CONFIG_KEY_MAX_PARSE_DEPTH {
+        give ConfigValueKind.Integer;
+    }
+
+    if key == CONFIG_KEY_MAX_CALL_DEPTH {
+        give ConfigValueKind.Integer;
+    }
+
+    if key == CONFIG_KEY_MAX_LOOP_ITERATIONS {
+        give ConfigValueKind.Integer;
+    }
+
+    if key == CONFIG_KEY_MAX_CONTAINER_SIZE {
+        give ConfigValueKind.Integer;
+    }
+
+    if key == CONFIG_KEY_MAX_STRING_SIZE {
+        give ConfigValueKind.Integer;
+    }
+
+    give null;
+}
+
+proc is_known_config_key(
+    key: string
+) -> bool {
+    give expected_value_kind(key) != null;
+}
+
+proc apply_mode(
+    target: &mut config.DotSConfig,
+    host: &mut environment.Environment,
+    value: string
+) -> bool {
+    if value == "script" {
+        set target.runtime.mode = config.RuntimeMode.Script;
+        give true;
+    }
+
+    if value == "repl" {
+        set target.runtime.mode = config.RuntimeMode.Repl;
+
+        set host.terminal.mode =
+            environment.TerminalMode.Interactive;
+
+        set host.terminal.interactive = true;
+
+        give true;
+    }
+
+    if value == "module" {
+        set target.runtime.mode = config.RuntimeMode.Module;
+        give true;
+    }
+
+    if value == "test" {
+        set target.runtime.mode = config.RuntimeMode.Test;
+        set host.mode = environment.EnvironmentMode.Test;
+        give true;
+    }
+
+    give false;
+}
+
+proc apply_boolean_entry(
+    target: &mut config.DotSConfig,
+    host: &mut environment.Environment,
+    key: string,
+    value: bool
+) -> bool {
+    if key == CONFIG_KEY_DEBUG {
+        set host.debug = value;
+        give true;
+    }
+
+    if key == CONFIG_KEY_RECOVER_ERRORS {
+        set target.parser.recover_errors = value;
+        give true;
+    }
+
+    if key == CONFIG_KEY_ALLOW_IO {
+        set target.runtime.allow_io = value;
+
+        set host.capabilities.streams.stdin = value;
+        set host.capabilities.streams.stdout = value;
+        set host.capabilities.streams.stderr = value;
+
+        give true;
+    }
+
+    if key == CONFIG_KEY_ALLOW_IMPORTS {
+        set target.runtime.allow_imports = value;
+        give true;
+    }
+
+    if key == CONFIG_KEY_ALLOW_ENVIRONMENT {
+        set target.runtime.allow_environment = value;
+        set host.capabilities.environment_variables = value;
+        give true;
+    }
+
+    give false;
+}
+
+proc apply_integer_entry(
+    target: &mut config.DotSConfig,
+    key: string,
+    value: usize
+) -> bool {
+    if key == CONFIG_KEY_MAX_SOURCE_SIZE {
+        set target.lexer.max_source_size = value;
+        give true;
+    }
+
+    if key == CONFIG_KEY_MAX_TOKEN_COUNT {
+        set target.lexer.max_token_count = value;
+        give true;
+    }
+
+    if key == CONFIG_KEY_MAX_PARSE_DEPTH {
+        set target.parser.max_depth = value;
+        give true;
+    }
+
+    if key == CONFIG_KEY_MAX_CALL_DEPTH {
+        set target.runtime.max_call_depth = value;
+        give true;
+    }
+
+    if key == CONFIG_KEY_MAX_LOOP_ITERATIONS {
+        set target.runtime.max_loop_iterations = value;
+        give true;
+    }
+
+    if key == CONFIG_KEY_MAX_CONTAINER_SIZE {
+        set target.runtime.max_container_size = value;
+        give true;
+    }
+
+    if key == CONFIG_KEY_MAX_STRING_SIZE {
+        set target.runtime.max_string_size = value;
+        give true;
+    }
+
+    give false;
+}
+
+proc apply_string_entry(
+    target: &mut config.DotSConfig,
+    host: &mut environment.Environment,
+    key: string,
+    value: string
+) -> bool {
+    if key == CONFIG_KEY_MODE {
+        give apply_mode(target, host, value);
+    }
+
+    if key == CONFIG_KEY_ENTRY {
+        set target.paths.entry = value;
+        give true;
+    }
+
+    if key == CONFIG_KEY_CORE {
+        set target.paths.core = value;
+        set host.paths.core = value;
+        give true;
+    }
+
+    if key == CONFIG_KEY_STDLIB {
+        set target.paths.stdlib = value;
+        set host.paths.stdlib = value;
+        give true;
+    }
+
+    if key == CONFIG_KEY_MODULES {
+        set target.paths.modules = value;
+        set host.paths.modules = value;
+        give true;
+    }
+
+    give false;
+}
+
+proc apply_config_entry(
+    target: &mut config.DotSConfig,
+    host: &mut environment.Environment,
+    entry: &ConfigEntry
+) -> ConfigLoadStatus {
+    let kind: ?ConfigValueKind =
+        expected_value_kind(entry.key);
+
+    if kind == null {
+        give ConfigLoadStatus.InvalidKey;
+    }
+
+    match kind {
+        case ConfigValueKind.String => {
+            if apply_string_entry(
+                target,
+                host,
+                entry.key,
+                entry.value
+            ) {
+                give ConfigLoadStatus.Ok;
             }
 
-            let next_seen = seen.push(path)
-            let child = load_with_includes(inc, depth + 1, next_seen)
-            if not child.ok
-            {
-                for e in child.errors { errors = errors.push(e) }
-                continue
+            give ConfigLoadStatus.InvalidValue;
+        }
+
+        case ConfigValueKind.Boolean => {
+            let parsed: ?bool = parse_boolean(entry.value);
+
+            if parsed == null {
+                give ConfigLoadStatus.InvalidValue;
             }
 
-            warnings = warnings.push("included: " + inc)
-            for it in child.items
-            {
-                out = out.push(it)
+            if apply_boolean_entry(
+                target,
+                host,
+                entry.key,
+                parsed
+            ) {
+                give ConfigLoadStatus.Ok;
+            }
+
+            give ConfigLoadStatus.InvalidKey;
+        }
+
+        case ConfigValueKind.Integer => {
+            let parsed: ?usize = parse_usize(entry.value);
+
+            if parsed == null {
+                give ConfigLoadStatus.InvalidValue;
+            }
+
+            if parsed == 0 {
+                give ConfigLoadStatus.InvalidValue;
+            }
+
+            if apply_integer_entry(
+                target,
+                entry.key,
+                parsed
+            ) {
+                give ConfigLoadStatus.Ok;
+            }
+
+            give ConfigLoadStatus.InvalidKey;
+        }
+    };
+}
+
+proc validate_loaded_config(
+    loaded: &LoadedConfig
+) -> bool {
+    if not config.validate_config(&loaded.config) {
+        give false;
+    }
+
+    if not environment.validate_environment(
+        &loaded.environment
+    ) {
+        give false;
+    }
+
+    give true;
+}
+
+proc new_loaded_config() -> LoadedConfig {
+    give LoadedConfig {
+        config: config.default_config(),
+        environment: environment.default_environment(),
+        report: empty_load_report(),
+    };
+}
+
+proc repl_loaded_config() -> LoadedConfig {
+    give LoadedConfig {
+        config: config.repl_config(),
+        environment: environment.repl_environment(),
+        report: empty_load_report(),
+    };
+}
+
+proc test_loaded_config() -> LoadedConfig {
+    give LoadedConfig {
+        config: config.test_config(),
+        environment: environment.test_environment(),
+        report: empty_load_report(),
+    };
+}
+
+proc production_loaded_config() -> LoadedConfig {
+    give LoadedConfig {
+        config: config.default_config(),
+        environment: environment.production_environment(),
+        report: empty_load_report(),
+    };
+}
+
+proc apply_entry(
+    loaded: &mut LoadedConfig,
+    entry: &ConfigEntry,
+    options: &ConfigLoaderOptions
+) -> ConfigLoadStatus {
+    if not is_known_config_key(entry.key) {
+        if options.allow_unknown_keys {
+            set loaded.report.ignored_entries += 1;
+            set loaded.report.warning_count += 1;
+
+            give ConfigLoadStatus.Ok;
+        }
+
+        set loaded.report.error_count += 1;
+        set loaded.report.status = ConfigLoadStatus.InvalidKey;
+
+        give ConfigLoadStatus.InvalidKey;
+    }
+
+    let status: ConfigLoadStatus =
+        apply_config_entry(
+            &mut loaded.config,
+            &mut loaded.environment,
+            entry
+        );
+
+    match status {
+        case ConfigLoadStatus.Ok => {
+            set loaded.report.loaded_entries += 1;
+        }
+
+        else => {
+            set loaded.report.error_count += 1;
+            set loaded.report.status = status;
+        }
+    };
+
+    give status;
+}
+
+proc finalize_loaded_config(
+    loaded: &mut LoadedConfig
+) -> ConfigLoadStatus {
+    if not validate_loaded_config(loaded) {
+        set loaded.report.status =
+            ConfigLoadStatus.InvalidConfiguration;
+
+        set loaded.report.error_count += 1;
+
+        give ConfigLoadStatus.InvalidConfiguration;
+    }
+
+    set loaded.report.status = ConfigLoadStatus.Ok;
+
+    give ConfigLoadStatus.Ok;
+}
+
+proc load_defaults(
+    options: &ConfigLoaderOptions
+) -> LoadedConfig {
+    if not options.load_defaults {
+        let mut loaded: LoadedConfig = new_loaded_config();
+
+        set loaded.report.source_name = "empty";
+
+        give loaded;
+    }
+
+    let mut loaded: LoadedConfig = new_loaded_config();
+
+    set loaded.report.source_name = "defaults";
+
+    give loaded;
+}
+
+proc load_repl_defaults() -> LoadedConfig {
+    let mut loaded: LoadedConfig = repl_loaded_config();
+
+    set loaded.report.source_name = "repl-defaults";
+
+    give loaded;
+}
+
+proc load_test_defaults() -> LoadedConfig {
+    let mut loaded: LoadedConfig = test_loaded_config();
+
+    set loaded.report.source_name = "test-defaults";
+
+    give loaded;
+}
+
+proc load_production_defaults() -> LoadedConfig {
+    let mut loaded: LoadedConfig =
+        production_loaded_config();
+
+    set loaded.report.source_name =
+        "production-defaults";
+
+    give loaded;
+}
+
+proc config_environment_name(
+    key: string
+) -> string {
+    if key == CONFIG_KEY_MODE {
+        give "DOTS_MODE";
+    }
+
+    if key == CONFIG_KEY_ENTRY {
+        give "DOTS_ENTRY";
+    }
+
+    if key == CONFIG_KEY_CORE {
+        give "DOTS_CORE";
+    }
+
+    if key == CONFIG_KEY_STDLIB {
+        give "DOTS_STDLIB";
+    }
+
+    if key == CONFIG_KEY_MODULES {
+        give "DOTS_MODULES";
+    }
+
+    if key == CONFIG_KEY_DEBUG {
+        give "DOTS_DEBUG";
+    }
+
+    if key == CONFIG_KEY_RECOVER_ERRORS {
+        give "DOTS_RECOVER_ERRORS";
+    }
+
+    if key == CONFIG_KEY_ALLOW_IO {
+        give "DOTS_ALLOW_IO";
+    }
+
+    if key == CONFIG_KEY_ALLOW_IMPORTS {
+        give "DOTS_ALLOW_IMPORTS";
+    }
+
+    if key == CONFIG_KEY_ALLOW_ENVIRONMENT {
+        give "DOTS_ALLOW_ENVIRONMENT";
+    }
+
+    if key == CONFIG_KEY_MAX_SOURCE_SIZE {
+        give "DOTS_MAX_SOURCE_SIZE";
+    }
+
+    if key == CONFIG_KEY_MAX_TOKEN_COUNT {
+        give "DOTS_MAX_TOKEN_COUNT";
+    }
+
+    if key == CONFIG_KEY_MAX_PARSE_DEPTH {
+        give "DOTS_MAX_PARSE_DEPTH";
+    }
+
+    if key == CONFIG_KEY_MAX_CALL_DEPTH {
+        give "DOTS_MAX_CALL_DEPTH";
+    }
+
+    if key == CONFIG_KEY_MAX_LOOP_ITERATIONS {
+        give "DOTS_MAX_LOOP_ITERATIONS";
+    }
+
+    if key == CONFIG_KEY_MAX_CONTAINER_SIZE {
+        give "DOTS_MAX_CONTAINER_SIZE";
+    }
+
+    if key == CONFIG_KEY_MAX_STRING_SIZE {
+        give "DOTS_MAX_STRING_SIZE";
+    }
+
+    give "";
+}
+
+proc config_command_line_name(
+    key: string
+) -> string {
+    if key == CONFIG_KEY_MODE {
+        give "--mode";
+    }
+
+    if key == CONFIG_KEY_ENTRY {
+        give "--entry";
+    }
+
+    if key == CONFIG_KEY_CORE {
+        give "--core";
+    }
+
+    if key == CONFIG_KEY_STDLIB {
+        give "--stdlib";
+    }
+
+    if key == CONFIG_KEY_MODULES {
+        give "--modules";
+    }
+
+    if key == CONFIG_KEY_DEBUG {
+        give "--debug";
+    }
+
+    if key == CONFIG_KEY_RECOVER_ERRORS {
+        give "--recover-errors";
+    }
+
+    if key == CONFIG_KEY_ALLOW_IO {
+        give "--allow-io";
+    }
+
+    if key == CONFIG_KEY_ALLOW_IMPORTS {
+        give "--allow-imports";
+    }
+
+    if key == CONFIG_KEY_ALLOW_ENVIRONMENT {
+        give "--allow-environment";
+    }
+
+    if key == CONFIG_KEY_MAX_SOURCE_SIZE {
+        give "--max-source-size";
+    }
+
+    if key == CONFIG_KEY_MAX_TOKEN_COUNT {
+        give "--max-token-count";
+    }
+
+    if key == CONFIG_KEY_MAX_PARSE_DEPTH {
+        give "--max-parse-depth";
+    }
+
+    if key == CONFIG_KEY_MAX_CALL_DEPTH {
+        give "--max-call-depth";
+    }
+
+    if key == CONFIG_KEY_MAX_LOOP_ITERATIONS {
+        give "--max-loop-iterations";
+    }
+
+    if key == CONFIG_KEY_MAX_CONTAINER_SIZE {
+        give "--max-container-size";
+    }
+
+    if key == CONFIG_KEY_MAX_STRING_SIZE {
+        give "--max-string-size";
+    }
+
+    give "";
+}
+
+proc config_source_priority(
+    kind: ConfigSourceKind
+) -> usize {
+    match kind {
+        case ConfigSourceKind.Defaults => give 0;
+        case ConfigSourceKind.File => give 100;
+        case ConfigSourceKind.Environment => give 200;
+        case ConfigSourceKind.CommandLine => give 300;
+        case ConfigSourceKind.Programmatic => give 400;
+    };
+}
+
+proc source_overrides(
+    current: &ConfigSource,
+    incoming: &ConfigSource
+) -> bool {
+    give incoming.priority >= current.priority;
+}
+
+proc loader_options_valid(
+    options: &ConfigLoaderOptions
+) -> bool {
+    if options.load_file and options.config_file == "" {
+        give false;
+    }
+
+    give true;
+}
+
+proc validate_config_entry(
+    entry: &ConfigEntry
+) -> ConfigLoadStatus {
+    if entry.key == "" {
+        give ConfigLoadStatus.InvalidKey;
+    }
+
+    let mut index: usize = 0;
+
+    while index < entry.key.length {
+        if not is_config_key_character(entry.key[index]) {
+            give ConfigLoadStatus.InvalidKey;
+        }
+
+        set index += 1;
+    }
+
+    let kind: ?ConfigValueKind =
+        expected_value_kind(entry.key);
+
+    if kind == null {
+        give ConfigLoadStatus.InvalidKey;
+    }
+
+    match kind {
+        case ConfigValueKind.Boolean => {
+            if parse_boolean(entry.value) == null {
+                give ConfigLoadStatus.InvalidValue;
             }
         }
-    }
 
-    let ok = errors.len == 0
-    give LoadResult(ok, out, warnings, errors, cur.format, path, cur.mtime_ms)
-}
+        case ConfigValueKind.Integer => {
+            let value: ?usize = parse_usize(entry.value);
 
-proc cache_file(path: string) -> string
-{
-    let escaped = str.replace(str.replace(str.replace(path, "/", "_"), "\\", "_"), ":", "_")
-    give ".dots/config_loader_cache." + escaped + ".v1"
-}
+            if value == null {
+                give ConfigLoadStatus.InvalidValue;
+            }
 
-proc load_cached(path: string) -> LoadResult
-{
-    let cfile = cache_file(path)
-
-    if fs.exists(cfile)  and  fs.exists(path)
-    {
-        let lines = str.split(fs.read_file(cfile), "\n")
-        if lines.len > 0  and  str.starts_with(lines[0], "mtime=")
-        {
-            let m_cached = config.parse_i64_strict(str.replace(lines[0], "mtime=", ""))
-            let m_now = fs.mtime_ms(path)
-            if m_cached != null  and  m_cached == m_now
-            {
-                let raw = str.replace(fs.read_file(cfile), lines[0] + "\n", "")
-                let items = parse_kv(raw, path)
-                give LoadResult(true, items, ["loader cache hit"], [], detect_format(path), path, m_now)
+            if value == 0 {
+                give ConfigLoadStatus.InvalidValue;
             }
         }
-    }
 
-    let loaded = load_with_includes(path, 0, [])
-    if loaded.ok
-    {
-        let out = "mtime=" + str.from_i64(loaded.mtime_ms) + "\n"
-        for kv in loaded.items
-        {
-            out = out + kv.key + "=" + kv.value + "\n"
+        case ConfigValueKind.String => {
+            if entry.value == "" {
+                give ConfigLoadStatus.InvalidValue;
+            }
         }
-        fs.mkdir_p(".dots")
-        fs.write_file(cfile, out)
-    }
+    };
 
-    give loaded
+    give ConfigLoadStatus.Ok;
 }
 
-proc load(path: string) -> LoadResult
-{
-    give load_cached(path)
+proc load(
+    options: &ConfigLoaderOptions
+) -> LoadedConfig {
+    assert loader_options_valid(options),
+        "invalid DotS configuration loader options";
+
+    let mut loaded: LoadedConfig =
+        load_defaults(options);
+
+    let status: ConfigLoadStatus =
+        finalize_loaded_config(&mut loaded);
+
+    if status != ConfigLoadStatus.Ok {
+        set loaded.report.status = status;
+    }
+
+    give loaded;
 }

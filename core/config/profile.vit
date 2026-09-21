@@ -1,139 +1,1112 @@
-space core/profile
+space dots.core.config.profile
 
-use core/str
-use core/process
-use core/config
+export *
 
-form ProfileDef
-{
+use dots.core.config as config
+use dots.core.config.environment as environment
+
+const PROFILE_DEVELOPMENT_NAME: string = "development";
+const PROFILE_PRODUCTION_NAME: string = "production";
+const PROFILE_REPL_NAME: string = "repl";
+const PROFILE_TEST_NAME: string = "test";
+const PROFILE_SANDBOX_NAME: string = "sandbox";
+const PROFILE_MODULE_NAME: string = "module";
+const PROFILE_MINIMAL_NAME: string = "minimal";
+const PROFILE_CUSTOM_NAME: string = "custom";
+
+pick ProfileKind {
+    Development,
+    Production,
+    Repl,
+    Test,
+    Sandbox,
+    Module,
+    Minimal,
+    Custom,
+}
+
+pick ProfileSecurity {
+    Permissive,
+    Restricted,
+    Strict,
+}
+
+pick ProfileDiagnostics {
+    Quiet,
+    Normal,
+    Verbose,
+    Debug,
+    Trace,
+}
+
+form ProfileMetadata {
+    pub name: string,
+    pub description: string,
+
+    pub builtin: bool,
+    pub mutable: bool,
+}
+
+form ProfileFeatures {
+    pub io: bool,
+    pub imports: bool,
+    pub environment_variables: bool,
+
+    pub filesystem_read: bool,
+    pub filesystem_write: bool,
+
+    pub processes: bool,
+    pub network_client: bool,
+    pub network_server: bool,
+
+    pub interactive: bool,
+    pub debug: bool,
+}
+
+form ProfileLimits {
+    pub max_source_size: usize,
+    pub max_token_count: usize,
+    pub max_parse_depth: usize,
+
+    pub max_call_depth: usize,
+    pub max_loop_iterations: usize,
+    pub max_container_size: usize,
+    pub max_string_size: usize,
+
+    pub max_open_files: usize,
+    pub max_processes: usize,
+    pub max_environment_variables: usize,
+}
+
+form Profile {
+    pub kind: ProfileKind,
+
+    pub metadata: ProfileMetadata,
+    pub security: ProfileSecurity,
+    pub diagnostics: ProfileDiagnostics,
+
+    pub features: ProfileFeatures,
+    pub limits: ProfileLimits,
+}
+
+form ProfileApplication {
+    pub profile: Profile,
+
+    pub config: config.DotSConfig,
+    pub environment: environment.Environment,
+}
+
+proc default_profile_metadata() -> ProfileMetadata {
+    give ProfileMetadata {
+        name: PROFILE_DEVELOPMENT_NAME,
+        description: "DotS development profile",
+
+        builtin: true,
+        mutable: false,
+    };
+}
+
+proc default_profile_features() -> ProfileFeatures {
+    give ProfileFeatures {
+        io: true,
+        imports: true,
+        environment_variables: true,
+
+        filesystem_read: true,
+        filesystem_write: true,
+
+        processes: false,
+        network_client: false,
+        network_server: false,
+
+        interactive: false,
+        debug: false,
+    };
+}
+
+proc default_profile_limits() -> ProfileLimits {
+    give ProfileLimits {
+        max_source_size: config.DEFAULT_MAX_SOURCE_SIZE,
+        max_token_count: config.DEFAULT_MAX_TOKEN_COUNT,
+        max_parse_depth: config.DEFAULT_MAX_PARSE_DEPTH,
+
+        max_call_depth: config.DEFAULT_MAX_CALL_DEPTH,
+        max_loop_iterations:
+            config.DEFAULT_MAX_LOOP_ITERATIONS,
+
+        max_container_size:
+            config.DEFAULT_MAX_CONTAINER_SIZE,
+
+        max_string_size:
+            config.DEFAULT_MAX_STRING_SIZE,
+
+        max_open_files:
+            environment.DOTS_DEFAULT_MAX_OPEN_FILES,
+
+        max_processes:
+            environment.DOTS_DEFAULT_MAX_PROCESSES,
+
+        max_environment_variables:
+            environment.DOTS_DEFAULT_MAX_ENVIRONMENT_VARIABLES,
+    };
+}
+
+proc development_profile() -> Profile {
+    give Profile {
+        kind: ProfileKind.Development,
+
+        metadata: ProfileMetadata {
+            name: PROFILE_DEVELOPMENT_NAME,
+            description: "DotS development profile",
+
+            builtin: true,
+            mutable: false,
+        },
+
+        security: ProfileSecurity.Permissive,
+        diagnostics: ProfileDiagnostics.Debug,
+
+        features: ProfileFeatures {
+            io: true,
+            imports: true,
+            environment_variables: true,
+
+            filesystem_read: true,
+            filesystem_write: true,
+
+            processes: false,
+            network_client: false,
+            network_server: false,
+
+            interactive: false,
+            debug: true,
+        },
+
+        limits: default_profile_limits(),
+    };
+}
+
+proc production_profile() -> Profile {
+    give Profile {
+        kind: ProfileKind.Production,
+
+        metadata: ProfileMetadata {
+            name: PROFILE_PRODUCTION_NAME,
+            description: "DotS production profile",
+
+            builtin: true,
+            mutable: false,
+        },
+
+        security: ProfileSecurity.Restricted,
+        diagnostics: ProfileDiagnostics.Normal,
+
+        features: ProfileFeatures {
+            io: true,
+            imports: true,
+            environment_variables: false,
+
+            filesystem_read: true,
+            filesystem_write: false,
+
+            processes: false,
+            network_client: false,
+            network_server: false,
+
+            interactive: false,
+            debug: false,
+        },
+
+        limits: default_profile_limits(),
+    };
+}
+
+proc repl_profile() -> Profile {
+    give Profile {
+        kind: ProfileKind.Repl,
+
+        metadata: ProfileMetadata {
+            name: PROFILE_REPL_NAME,
+            description: "DotS interactive REPL profile",
+
+            builtin: true,
+            mutable: false,
+        },
+
+        security: ProfileSecurity.Permissive,
+        diagnostics: ProfileDiagnostics.Normal,
+
+        features: ProfileFeatures {
+            io: true,
+            imports: true,
+            environment_variables: true,
+
+            filesystem_read: true,
+            filesystem_write: true,
+
+            processes: false,
+            network_client: false,
+            network_server: false,
+
+            interactive: true,
+            debug: false,
+        },
+
+        limits: default_profile_limits(),
+    };
+}
+
+proc test_profile() -> Profile {
+    give Profile {
+        kind: ProfileKind.Test,
+
+        metadata: ProfileMetadata {
+            name: PROFILE_TEST_NAME,
+            description: "DotS deterministic test profile",
+
+            builtin: true,
+            mutable: false,
+        },
+
+        security: ProfileSecurity.Strict,
+        diagnostics: ProfileDiagnostics.Debug,
+
+        features: ProfileFeatures {
+            io: false,
+            imports: true,
+            environment_variables: false,
+
+            filesystem_read: false,
+            filesystem_write: false,
+
+            processes: false,
+            network_client: false,
+            network_server: false,
+
+            interactive: false,
+            debug: true,
+        },
+
+        limits: default_profile_limits(),
+    };
+}
+
+proc sandbox_profile() -> Profile {
+    give Profile {
+        kind: ProfileKind.Sandbox,
+
+        metadata: ProfileMetadata {
+            name: PROFILE_SANDBOX_NAME,
+            description: "DotS restricted sandbox profile",
+
+            builtin: true,
+            mutable: false,
+        },
+
+        security: ProfileSecurity.Strict,
+        diagnostics: ProfileDiagnostics.Normal,
+
+        features: ProfileFeatures {
+            io: true,
+            imports: true,
+            environment_variables: false,
+
+            filesystem_read: true,
+            filesystem_write: false,
+
+            processes: false,
+            network_client: false,
+            network_server: false,
+
+            interactive: false,
+            debug: false,
+        },
+
+        limits: ProfileLimits {
+            max_source_size: 4194304,
+            max_token_count: 250000,
+            max_parse_depth: 256,
+
+            max_call_depth: 256,
+            max_loop_iterations: 1000000,
+            max_container_size: 100000,
+            max_string_size: 4194304,
+
+            max_open_files: 32,
+            max_processes: 1,
+            max_environment_variables: 256,
+        },
+    };
+}
+
+proc module_profile() -> Profile {
+    give Profile {
+        kind: ProfileKind.Module,
+
+        metadata: ProfileMetadata {
+            name: PROFILE_MODULE_NAME,
+            description: "DotS module execution profile",
+
+            builtin: true,
+            mutable: false,
+        },
+
+        security: ProfileSecurity.Restricted,
+        diagnostics: ProfileDiagnostics.Normal,
+
+        features: ProfileFeatures {
+            io: false,
+            imports: true,
+            environment_variables: false,
+
+            filesystem_read: true,
+            filesystem_write: false,
+
+            processes: false,
+            network_client: false,
+            network_server: false,
+
+            interactive: false,
+            debug: false,
+        },
+
+        limits: default_profile_limits(),
+    };
+}
+
+proc minimal_profile() -> Profile {
+    give Profile {
+        kind: ProfileKind.Minimal,
+
+        metadata: ProfileMetadata {
+            name: PROFILE_MINIMAL_NAME,
+            description: "Minimal DotS execution profile",
+
+            builtin: true,
+            mutable: false,
+        },
+
+        security: ProfileSecurity.Strict,
+        diagnostics: ProfileDiagnostics.Quiet,
+
+        features: ProfileFeatures {
+            io: false,
+            imports: false,
+            environment_variables: false,
+
+            filesystem_read: false,
+            filesystem_write: false,
+
+            processes: false,
+            network_client: false,
+            network_server: false,
+
+            interactive: false,
+            debug: false,
+        },
+
+        limits: ProfileLimits {
+            max_source_size: 1048576,
+            max_token_count: 100000,
+            max_parse_depth: 128,
+
+            max_call_depth: 128,
+            max_loop_iterations: 100000,
+            max_container_size: 10000,
+            max_string_size: 1048576,
+
+            max_open_files: 8,
+            max_processes: 1,
+            max_environment_variables: 64,
+        },
+    };
+}
+
+proc custom_profile(
+    name: string,
+    description: string
+) -> Profile {
+    let mut profile: Profile = development_profile();
+
+    set profile.kind = ProfileKind.Custom;
+
+    set profile.metadata.name = name;
+    set profile.metadata.description = description;
+    set profile.metadata.builtin = false;
+    set profile.metadata.mutable = true;
+
+    give profile;
+}
+
+proc profile_kind_name(
+    kind: ProfileKind
+) -> string {
+    match kind {
+        case ProfileKind.Development => give PROFILE_DEVELOPMENT_NAME;
+        case ProfileKind.Production => give PROFILE_PRODUCTION_NAME;
+        case ProfileKind.Repl => give PROFILE_REPL_NAME;
+        case ProfileKind.Test => give PROFILE_TEST_NAME;
+        case ProfileKind.Sandbox => give PROFILE_SANDBOX_NAME;
+        case ProfileKind.Module => give PROFILE_MODULE_NAME;
+        case ProfileKind.Minimal => give PROFILE_MINIMAL_NAME;
+        case ProfileKind.Custom => give PROFILE_CUSTOM_NAME;
+    };
+}
+
+proc profile_security_name(
+    security: ProfileSecurity
+) -> string {
+    match security {
+        case ProfileSecurity.Permissive => give "permissive";
+        case ProfileSecurity.Restricted => give "restricted";
+        case ProfileSecurity.Strict => give "strict";
+    };
+}
+
+proc profile_diagnostics_name(
+    diagnostics: ProfileDiagnostics
+) -> string {
+    match diagnostics {
+        case ProfileDiagnostics.Quiet => give "quiet";
+        case ProfileDiagnostics.Normal => give "normal";
+        case ProfileDiagnostics.Verbose => give "verbose";
+        case ProfileDiagnostics.Debug => give "debug";
+        case ProfileDiagnostics.Trace => give "trace";
+    };
+}
+
+proc profile_from_name(
     name: string
-    extends: string
-    overrides: [config.ConfigKV]
-}
-
-form ProfileResult
-{
-    ok: bool
-    items: [config.ConfigKV]
-    errors: [config.ConfigError]
-}
-
-proc standard_profiles() -> [ProfileDef]
-{
-    let dev = ProfileDef(
-        "dev",
-        "",
-        [
-            config.ConfigKV("mode", "dev", "profile", "profile:dev"),
-            config.ConfigKV("workers", "4", "profile", "profile:dev"),
-            config.ConfigKV("retries", "1", "profile", "profile:dev")
-        ]
-    )
-
-    let ci = ProfileDef(
-        "ci",
-        "",
-        [
-            config.ConfigKV("mode", "ci", "profile", "profile:ci"),
-            config.ConfigKV("strict", "true", "profile", "profile:ci"),
-            config.ConfigKV("workers", "2", "profile", "profile:ci")
-        ]
-    )
-
-    let perf = ProfileDef(
-        "perf",
-        "ci",
-        [
-            config.ConfigKV("mode", "perf", "profile", "profile:perf"),
-            config.ConfigKV("workers", "8", "profile", "profile:perf"),
-            config.ConfigKV("timeout_overall_ms", "300000", "profile", "profile:perf")
-        ]
-    )
-
-    let release = ProfileDef(
-        "release",
-        "ci",
-        [
-            config.ConfigKV("mode", "release", "profile", "profile:release"),
-            config.ConfigKV("retries", "3", "profile", "profile:release")
-        ]
-    )
-
-    give [dev, ci, perf, release]
-}
-
-proc find_profile(name: string) -> Option[ProfileDef]
-{
-    for p in standard_profiles()
-    {
-        if p.name == name { give p }
-    }
-    give null
-}
-
-proc merge_overrides(base: [config.ConfigKV], extra: [config.ConfigKV]) -> [config.ConfigKV]
-{
-    let out = base
-    for kv in extra
-    {
-        out = config.kv_upsert(out, kv)
-    }
-    give out
-}
-
-proc resolve_profile(name: string, stack: [string]) -> ProfileResult
-{
-    let p = find_profile(name)
-    if p == null
-    {
-        let e = [config.ConfigError(config.ERR_MISSING, "profile", "unknown profile: " + name, "profile", "<profile>")]
-        give ProfileResult(false, [], e)
+) -> ?Profile {
+    if name == PROFILE_DEVELOPMENT_NAME {
+        give development_profile();
     }
 
-    for s in stack
-    {
-        if s == name
-        {
-            let e2 = [config.ConfigError(config.ERR_CONFLICT, "profile", "profile inheritance cycle: " + name, "profile", "<profile>")]
-            give ProfileResult(false, [], e2)
+    if name == PROFILE_PRODUCTION_NAME {
+        give production_profile();
+    }
+
+    if name == PROFILE_REPL_NAME {
+        give repl_profile();
+    }
+
+    if name == PROFILE_TEST_NAME {
+        give test_profile();
+    }
+
+    if name == PROFILE_SANDBOX_NAME {
+        give sandbox_profile();
+    }
+
+    if name == PROFILE_MODULE_NAME {
+        give module_profile();
+    }
+
+    if name == PROFILE_MINIMAL_NAME {
+        give minimal_profile();
+    }
+
+    give null;
+}
+
+proc diagnostic_level_for_profile(
+    diagnostics: ProfileDiagnostics
+) -> config.DiagnosticLevel {
+    match diagnostics {
+        case ProfileDiagnostics.Quiet => {
+            give config.DiagnosticLevel.Error;
         }
-    }
 
-    if p.extends == ""
-    {
-        give ProfileResult(true, p.overrides, [])
-    }
+        case ProfileDiagnostics.Normal => {
+            give config.DiagnosticLevel.Warning;
+        }
 
-    let next_stack = stack.push(name)
-    let parent = resolve_profile(p.extends, next_stack)
-    if not parent.ok { give parent }
+        case ProfileDiagnostics.Verbose => {
+            give config.DiagnosticLevel.Info;
+        }
 
-    let merged = merge_overrides(parent.items, p.overrides)
-    give ProfileResult(true, merged, [])
+        case ProfileDiagnostics.Debug => {
+            give config.DiagnosticLevel.Debug;
+        }
+
+        case ProfileDiagnostics.Trace => {
+            give config.DiagnosticLevel.Trace;
+        }
+    };
 }
 
-proc selected_profile(cli_profile: string) -> string
-{
-    if cli_profile != "" { give cli_profile }
-    let env = process.env("DOTS_PROFILE")
-    if env != "" { give env }
-    give "dev"
+proc runtime_mode_for_profile(
+    kind: ProfileKind
+) -> config.RuntimeMode {
+    match kind {
+        case ProfileKind.Repl => give config.RuntimeMode.Repl;
+        case ProfileKind.Test => give config.RuntimeMode.Test;
+        case ProfileKind.Module => give config.RuntimeMode.Module;
+
+        else => give config.RuntimeMode.Script;
+    };
 }
 
-proc apply_profile(base: [config.ConfigKV], cli_profile: string) -> ProfileResult
-{
-    let prof = selected_profile(cli_profile)
-    let resolved = resolve_profile(prof, [])
-    if not resolved.ok { give resolved }
+proc environment_mode_for_profile(
+    kind: ProfileKind
+) -> environment.EnvironmentMode {
+    match kind {
+        case ProfileKind.Production => {
+            give environment.EnvironmentMode.Production;
+        }
 
-    let out = merge_overrides(base, resolved.items)
-    out = config.kv_upsert(out, config.ConfigKV("profile", prof, "profile", "profile:" + prof))
+        case ProfileKind.Test => {
+            give environment.EnvironmentMode.Test;
+        }
 
-    let force_strict = process.env("DOTS_CONFIG_STRICT")
-    if force_strict == "1"
-    {
-        out = config.kv_upsert(out, config.ConfigKV("strict", "true", "env", "DOTS_CONFIG_STRICT"))
+        else => {
+            give environment.EnvironmentMode.Development;
+        }
+    };
+}
+
+proc apply_profile_limits_to_config(
+    target: &mut config.DotSConfig,
+    limits: &ProfileLimits
+) {
+    set target.lexer.max_source_size =
+        limits.max_source_size;
+
+    set target.lexer.max_token_count =
+        limits.max_token_count;
+
+    set target.parser.max_depth =
+        limits.max_parse_depth;
+
+    set target.runtime.max_call_depth =
+        limits.max_call_depth;
+
+    set target.runtime.max_loop_iterations =
+        limits.max_loop_iterations;
+
+    set target.runtime.max_container_size =
+        limits.max_container_size;
+
+    set target.runtime.max_string_size =
+        limits.max_string_size;
+}
+
+proc apply_profile_limits_to_environment(
+    target: &mut environment.Environment,
+    limits: &ProfileLimits
+) {
+    set target.limits.max_open_files =
+        limits.max_open_files;
+
+    set target.limits.max_processes =
+        limits.max_processes;
+
+    set target.limits.max_environment_variables =
+        limits.max_environment_variables;
+}
+
+proc apply_profile_features_to_config(
+    target: &mut config.DotSConfig,
+    features: &ProfileFeatures
+) {
+    set target.runtime.allow_io =
+        features.io;
+
+    set target.runtime.allow_imports =
+        features.imports;
+
+    set target.runtime.allow_environment =
+        features.environment_variables;
+}
+
+proc apply_profile_filesystem(
+    target: &mut environment.Environment,
+    features: &ProfileFeatures
+) {
+    set target.capabilities.filesystem.read =
+        features.filesystem_read;
+
+    set target.capabilities.filesystem.write =
+        features.filesystem_write;
+
+    set target.capabilities.filesystem.create =
+        features.filesystem_write;
+
+    set target.capabilities.filesystem.remove =
+        features.filesystem_write;
+
+    set target.capabilities.filesystem.rename =
+        features.filesystem_write;
+
+    set target.capabilities.filesystem.metadata =
+        features.filesystem_read;
+}
+
+proc apply_profile_processes(
+    target: &mut environment.Environment,
+    features: &ProfileFeatures
+) {
+    set target.capabilities.process.spawn =
+        features.processes;
+
+    set target.capabilities.process.execute =
+        features.processes;
+
+    set target.capabilities.process.terminate =
+        features.processes;
+
+    set target.security.allow_native_processes =
+        features.processes;
+}
+
+proc apply_profile_network(
+    target: &mut environment.Environment,
+    features: &ProfileFeatures
+) {
+    let enabled: bool =
+        features.network_client or features.network_server;
+
+    set target.capabilities.network.enabled =
+        enabled;
+
+    set target.capabilities.network.client =
+        features.network_client;
+
+    set target.capabilities.network.server =
+        features.network_server;
+}
+
+proc apply_profile_streams(
+    target: &mut environment.Environment,
+    features: &ProfileFeatures
+) {
+    set target.capabilities.streams.stdin =
+        features.io;
+
+    set target.capabilities.streams.stdout =
+        features.io;
+
+    set target.capabilities.streams.stderr =
+        true;
+}
+
+proc apply_profile_security(
+    target: &mut environment.Environment,
+    security: ProfileSecurity
+) {
+    match security {
+        case ProfileSecurity.Permissive => {
+            set target.security.sandbox =
+                environment.SandboxMode.Disabled;
+
+            set target.security.allow_absolute_paths = true;
+            set target.security.allow_parent_paths = true;
+            set target.security.allow_external_modules = true;
+        }
+
+        case ProfileSecurity.Restricted => {
+            set target.security.sandbox =
+                environment.SandboxMode.Restricted;
+
+            set target.security.allow_absolute_paths = true;
+            set target.security.allow_parent_paths = false;
+            set target.security.allow_external_modules = false;
+        }
+
+        case ProfileSecurity.Strict => {
+            set target.security.sandbox =
+                environment.SandboxMode.Strict;
+
+            set target.security.allow_absolute_paths = false;
+            set target.security.allow_parent_paths = false;
+            set target.security.allow_external_modules = false;
+        }
+    };
+}
+
+proc apply_profile_diagnostics(
+    target: &mut config.DotSConfig,
+    diagnostics: ProfileDiagnostics
+) {
+    set target.diagnostics.level =
+        diagnostic_level_for_profile(diagnostics);
+
+    match diagnostics {
+        case ProfileDiagnostics.Quiet => {
+            set target.diagnostics.enabled = true;
+            set target.diagnostics.show_source = false;
+            set target.diagnostics.show_line = true;
+            set target.diagnostics.show_column = true;
+            set target.diagnostics.show_module = false;
+            set target.diagnostics.show_stacktrace = false;
+        }
+
+        case ProfileDiagnostics.Normal => {
+            set target.diagnostics.enabled = true;
+            set target.diagnostics.show_source = true;
+            set target.diagnostics.show_line = true;
+            set target.diagnostics.show_column = true;
+            set target.diagnostics.show_module = true;
+            set target.diagnostics.show_stacktrace = false;
+        }
+
+        case ProfileDiagnostics.Verbose => {
+            set target.diagnostics.enabled = true;
+            set target.diagnostics.show_source = true;
+            set target.diagnostics.show_line = true;
+            set target.diagnostics.show_column = true;
+            set target.diagnostics.show_module = true;
+            set target.diagnostics.show_stacktrace = true;
+        }
+
+        case ProfileDiagnostics.Debug => {
+            set target.diagnostics.enabled = true;
+            set target.diagnostics.show_source = true;
+            set target.diagnostics.show_line = true;
+            set target.diagnostics.show_column = true;
+            set target.diagnostics.show_module = true;
+            set target.diagnostics.show_stacktrace = true;
+        }
+
+        case ProfileDiagnostics.Trace => {
+            set target.diagnostics.enabled = true;
+            set target.diagnostics.show_source = true;
+            set target.diagnostics.show_line = true;
+            set target.diagnostics.show_column = true;
+            set target.diagnostics.show_module = true;
+            set target.diagnostics.show_stacktrace = true;
+        }
+    };
+}
+
+proc apply_profile_terminal(
+    target: &mut environment.Environment,
+    features: &ProfileFeatures
+) {
+    set target.terminal.interactive =
+        features.interactive;
+
+    if features.interactive {
+        set target.terminal.mode =
+            environment.TerminalMode.Interactive;
+    } else {
+        set target.terminal.mode =
+            environment.TerminalMode.Basic;
+    }
+}
+
+proc apply_profile_to_config(
+    target: &mut config.DotSConfig,
+    profile: &Profile
+) {
+    set target.runtime.mode =
+        runtime_mode_for_profile(profile.kind);
+
+    set target.runtime.error_policy =
+        config.ErrorPolicy.Stop;
+
+    if profile.kind == ProfileKind.Repl {
+        set target.runtime.error_policy =
+            config.ErrorPolicy.Continue;
     }
 
-    give ProfileResult(true, out, [])
+    set target.parser.recover_errors =
+        profile.kind == ProfileKind.Development
+        or profile.kind == ProfileKind.Repl;
+
+    apply_profile_features_to_config(
+        target,
+        &profile.features
+    );
+
+    apply_profile_limits_to_config(
+        target,
+        &profile.limits
+    );
+
+    apply_profile_diagnostics(
+        target,
+        profile.diagnostics
+    );
+}
+
+proc apply_profile_to_environment(
+    target: &mut environment.Environment,
+    profile: &Profile
+) {
+    set target.mode =
+        environment_mode_for_profile(profile.kind);
+
+    set target.debug =
+        profile.features.debug;
+
+    set target.capabilities.environment_variables =
+        profile.features.environment_variables;
+
+    apply_profile_filesystem(
+        target,
+        &profile.features
+    );
+
+    apply_profile_processes(
+        target,
+        &profile.features
+    );
+
+    apply_profile_network(
+        target,
+        &profile.features
+    );
+
+    apply_profile_streams(
+        target,
+        &profile.features
+    );
+
+    apply_profile_security(
+        target,
+        profile.security
+    );
+
+    apply_profile_terminal(
+        target,
+        &profile.features
+    );
+
+    apply_profile_limits_to_environment(
+        target,
+        &profile.limits
+    );
+}
+
+proc apply_profile(
+    profile: &Profile
+) -> ProfileApplication {
+    let mut target_config: config.DotSConfig =
+        config.default_config();
+
+    let mut target_environment: environment.Environment =
+        environment.default_environment();
+
+    apply_profile_to_config(
+        &mut target_config,
+        profile
+    );
+
+    apply_profile_to_environment(
+        &mut target_environment,
+        profile
+    );
+
+    give ProfileApplication {
+        profile: profile,
+        config: target_config,
+        environment: target_environment,
+    };
+}
+
+proc load_profile(
+    kind: ProfileKind
+) -> ProfileApplication {
+    match kind {
+        case ProfileKind.Development => {
+            give apply_profile(&development_profile());
+        }
+
+        case ProfileKind.Production => {
+            give apply_profile(&production_profile());
+        }
+
+        case ProfileKind.Repl => {
+            give apply_profile(&repl_profile());
+        }
+
+        case ProfileKind.Test => {
+            give apply_profile(&test_profile());
+        }
+
+        case ProfileKind.Sandbox => {
+            give apply_profile(&sandbox_profile());
+        }
+
+        case ProfileKind.Module => {
+            give apply_profile(&module_profile());
+        }
+
+        case ProfileKind.Minimal => {
+            give apply_profile(&minimal_profile());
+        }
+
+        case ProfileKind.Custom => {
+            give apply_profile(
+                &custom_profile(
+                    PROFILE_CUSTOM_NAME,
+                    "Custom DotS profile"
+                )
+            );
+        }
+    };
+}
+
+proc profile_has_network(
+    profile: &Profile
+) -> bool {
+    give profile.features.network_client
+        or profile.features.network_server;
+}
+
+proc profile_has_filesystem(
+    profile: &Profile
+) -> bool {
+    give profile.features.filesystem_read
+        or profile.features.filesystem_write;
+}
+
+proc profile_is_interactive(
+    profile: &Profile
+) -> bool {
+    give profile.features.interactive;
+}
+
+proc profile_is_sandboxed(
+    profile: &Profile
+) -> bool {
+    give profile.security != ProfileSecurity.Permissive;
+}
+
+proc profile_is_strict(
+    profile: &Profile
+) -> bool {
+    give profile.security == ProfileSecurity.Strict;
+}
+
+proc profile_is_builtin(
+    profile: &Profile
+) -> bool {
+    give profile.metadata.builtin;
+}
+
+proc validate_profile_metadata(
+    metadata: &ProfileMetadata
+) -> bool {
+    if metadata.name == "" {
+        give false;
+    }
+
+    if metadata.description == "" {
+        give false;
+    }
+
+    give true;
+}
+
+proc validate_profile_limits(
+    limits: &ProfileLimits
+) -> bool {
+    if limits.max_source_size == 0 {
+        give false;
+    }
+
+    if limits.max_token_count == 0 {
+        give false;
+    }
+
+    if limits.max_parse_depth == 0 {
+        give false;
+    }
+
+    if limits.max_call_depth == 0 {
+        give false;
+    }
+
+    if limits.max_loop_iterations == 0 {
+        give false;
+    }
+
+    if limits.max_container_size == 0 {
+        give false;
+    }
+
+    if limits.max_string_size == 0 {
+        give false;
+    }
+
+    if limits.max_open_files == 0 {
+        give false;
+    }
+
+    if limits.max_processes == 0 {
+        give false;
+    }
+
+    if limits.max_environment_variables == 0 {
+        give false;
+    }
+
+    give true;
+}
+
+proc validate_profile_features(
+    profile: &Profile
+) -> bool {
+    if profile.features.filesystem_write
+        and not profile.features.filesystem_read {
+        give false;
+    }
+
+    if profile.features.network_server
+        and profile.security == ProfileSecurity.Strict {
+        give false;
+    }
+
+    if profile.features.processes
+        and profile.security == ProfileSecurity.Strict {
+        give false;
+    }
+
+    give true;
+}
+
+proc validate_profile(
+    profile: &Profile
+) -> bool {
+    if not validate_profile_metadata(
+        &profile.metadata
+    ) {
+        give false;
+    }
+
+    if not validate_profile_limits(
+        &profile.limits
+    ) {
+        give false;
+    }
+
+    if not validate_profile_features(profile) {
+        give false;
+    }
+
+    give true;
+}
+
+proc validate_profile_application(
+    application: &ProfileApplication
+) -> bool {
+    if not validate_profile(&application.profile) {
+        give false;
+    }
+
+    if not config.validate_config(
+        &application.config
+    ) {
+        give false;
+    }
+
+    if not environment.validate_environment(
+        &application.environment
+    ) {
+        give false;
+    }
+
+    give true;
 }

@@ -1,231 +1,248 @@
-<<< =========================================================
-    Module: core/config
-    Description: Global configuration system (DotS runtime)
-========================================================= >>>
+space dots.core.config
 
-space core/config
+export *
 
-<<< =========================================================
-    TYPES — BASICS
-========================================================= >>>
+const DOTS_NAME: string = "DotS";
+const DOTS_VERSION: string = "0.1.0";
+const DOTS_EXTENSION: string = ".dots";
 
-pick Value {
-    case String(v: string),
-    case Int(v: i64),
-    case Bool(v: bool),
-    case Float(v: string),
-    case List(v: [Value]),
-    case Map(v: [Pair]),
-    case Null
+const DEFAULT_ENTRY_FILE: string = "main.dots";
+const DEFAULT_ENCODING: string = "UTF-8";
+
+const DEFAULT_CORE_PATH: string = "core";
+const DEFAULT_STDLIB_PATH: string = "stdlib";
+const DEFAULT_MODULE_PATH: string = "modules";
+
+const DEFAULT_MAX_SOURCE_SIZE: usize = 16777216;
+const DEFAULT_MAX_TOKEN_COUNT: usize = 1000000;
+const DEFAULT_MAX_PARSE_DEPTH: usize = 512;
+
+const DEFAULT_MAX_CALL_DEPTH: usize = 1024;
+const DEFAULT_MAX_LOOP_ITERATIONS: usize = 10000000;
+const DEFAULT_MAX_CONTAINER_SIZE: usize = 1000000;
+const DEFAULT_MAX_STRING_SIZE: usize = 16777216;
+
+pick DiagnosticLevel {
+    Error,
+    Warning,
+    Info,
+    Debug,
+    Trace,
 }
 
-form Pair {
-    key: string,
-    value: Value
+pick RuntimeMode {
+    Script,
+    Repl,
+    Module,
+    Test,
 }
 
-form Config {
-    data: [Pair]
+pick ErrorPolicy {
+    Stop,
+    Throw,
+    Continue,
 }
 
-pick ConfigResult {
-    case Ok(cfg: Config),
-    case Error(message: string)
+form LexerConfig {
+    pub preserve_comments: bool,
+    pub preserve_whitespace: bool,
+    pub allow_block_comments: bool,
+    pub allow_unicode: bool,
+    pub max_source_size: usize,
+    pub max_token_count: usize,
 }
 
-<<< =========================================================
-    CORE API
-========================================================= >>>
-
-proc new() -> Config {
-    give Config { data: [] }
+form ParserConfig {
+    pub max_depth: usize,
+    pub recover_errors: bool,
+    pub allow_trailing_separator: bool,
 }
 
-proc set(cfg: Config, key: string, value: Value) -> Config {
-    make found = false
-    make out = []
+form RuntimeConfig {
+    pub mode: RuntimeMode,
+    pub error_policy: ErrorPolicy,
 
-    for p in cfg.data {
-        if p.key == key {
-            out.push(Pair { key: key, value: value })
-            set found = true
-        } else {
-            out.push(p)
-        }
+    pub max_call_depth: usize,
+    pub max_loop_iterations: usize,
+    pub max_container_size: usize,
+    pub max_string_size: usize,
+
+    pub allow_io: bool,
+    pub allow_imports: bool,
+    pub allow_environment: bool,
+}
+
+form DiagnosticConfig {
+    pub level: DiagnosticLevel,
+
+    pub enabled: bool,
+    pub show_source: bool,
+    pub show_line: bool,
+    pub show_column: bool,
+    pub show_module: bool,
+    pub show_stacktrace: bool,
+}
+
+form PathConfig {
+    pub core: string,
+    pub stdlib: string,
+    pub modules: string,
+    pub entry: string,
+}
+
+form DotSConfig {
+    pub lexer: LexerConfig,
+    pub parser: ParserConfig,
+    pub runtime: RuntimeConfig,
+    pub diagnostics: DiagnosticConfig,
+    pub paths: PathConfig,
+}
+
+proc default_lexer_config() -> LexerConfig {
+    give LexerConfig {
+        preserve_comments: false,
+        preserve_whitespace: false,
+        allow_block_comments: true,
+        allow_unicode: true,
+        max_source_size: DEFAULT_MAX_SOURCE_SIZE,
+        max_token_count: DEFAULT_MAX_TOKEN_COUNT,
+    };
+}
+
+proc default_parser_config() -> ParserConfig {
+    give ParserConfig {
+        max_depth: DEFAULT_MAX_PARSE_DEPTH,
+        recover_errors: true,
+        allow_trailing_separator: true,
+    };
+}
+
+proc default_runtime_config() -> RuntimeConfig {
+    give RuntimeConfig {
+        mode: RuntimeMode.Script,
+        error_policy: ErrorPolicy.Stop,
+
+        max_call_depth: DEFAULT_MAX_CALL_DEPTH,
+        max_loop_iterations: DEFAULT_MAX_LOOP_ITERATIONS,
+        max_container_size: DEFAULT_MAX_CONTAINER_SIZE,
+        max_string_size: DEFAULT_MAX_STRING_SIZE,
+
+        allow_io: true,
+        allow_imports: true,
+        allow_environment: false,
+    };
+}
+
+proc default_diagnostic_config() -> DiagnosticConfig {
+    give DiagnosticConfig {
+        level: DiagnosticLevel.Error,
+
+        enabled: true,
+        show_source: true,
+        show_line: true,
+        show_column: true,
+        show_module: true,
+        show_stacktrace: true,
+    };
+}
+
+proc default_path_config() -> PathConfig {
+    give PathConfig {
+        core: DEFAULT_CORE_PATH,
+        stdlib: DEFAULT_STDLIB_PATH,
+        modules: DEFAULT_MODULE_PATH,
+        entry: DEFAULT_ENTRY_FILE,
+    };
+}
+
+proc default_config() -> DotSConfig {
+    give DotSConfig {
+        lexer: default_lexer_config(),
+        parser: default_parser_config(),
+        runtime: default_runtime_config(),
+        diagnostics: default_diagnostic_config(),
+        paths: default_path_config(),
+    };
+}
+
+proc repl_config() -> DotSConfig {
+    let mut config: DotSConfig = default_config();
+
+    set config.runtime.mode = RuntimeMode.Repl;
+    set config.runtime.error_policy = ErrorPolicy.Continue;
+
+    set config.parser.recover_errors = true;
+
+    set config.diagnostics.level = DiagnosticLevel.Info;
+    set config.diagnostics.show_stacktrace = false;
+
+    give config;
+}
+
+proc test_config() -> DotSConfig {
+    let mut config: DotSConfig = default_config();
+
+    set config.runtime.mode = RuntimeMode.Test;
+    set config.runtime.error_policy = ErrorPolicy.Stop;
+
+    set config.diagnostics.level = DiagnosticLevel.Debug;
+    set config.diagnostics.show_stacktrace = true;
+
+    give config;
+}
+
+proc validate_lexer_config(config: &LexerConfig) -> bool {
+    if config.max_source_size == 0 {
+        give false;
     }
 
-    if not found {
-        out.push(Pair { key: key, value: value })
+    if config.max_token_count == 0 {
+        give false;
     }
 
-    give Config { data: out }
+    give true;
 }
 
-proc get(cfg: Config, key: string) -> Value {
-    for p in cfg.data {
-        if p.key == key {
-            give p.value
-        }
-    }
-    give Value.Null
-}
-
-proc has(cfg: Config, key: string) -> bool {
-    for p in cfg.data {
-        if p.key == key {
-            give true
-        }
-    }
-    give false
-}
-
-<<< =========================================================
-    TYPE HELPERS
-========================================================= >>>
-
-proc get_string(cfg: Config, key: string) -> string {
-    make v = get(cfg, key)
-
-    match v {
-        case Value.String(s) { return s }
-        else { return "" }
-    }
-}
-
-proc get_int(cfg: Config, key: string) -> i64 {
-    make v = get(cfg, key)
-
-    match v {
-        case Value.Int(i) { return i }
-        else { return 0 }
-    }
-}
-
-proc get_bool(cfg: Config, key: string) -> bool {
-    make v = get(cfg, key)
-
-    match v {
-        case Value.Bool(b) { return b }
-        else { return false }
-    }
-}
-
-<<< =========================================================
-    MERGE / COMPOSE
-========================================================= >>>
-
-proc merge(a: Config, b: Config) -> Config {
-    make out = a
-
-    for p in b.data {
-        set out = set(out, p.key, p.value)
+proc validate_parser_config(config: &ParserConfig) -> bool {
+    if config.max_depth == 0 {
+        give false;
     }
 
-    give out
+    give true;
 }
 
-<<< =========================================================
-    ENV SUPPORT
-========================================================= >>>
-
-proc load_env(env: [Pair]) -> Config {
-    make cfg = new()
-
-    for p in env {
-        set cfg = set(cfg, p.key, p.value)
+proc validate_runtime_config(config: &RuntimeConfig) -> bool {
+    if config.max_call_depth == 0 {
+        give false;
     }
 
-    give cfg
-}
-
-<<< =========================================================
-    DOTS PARSER BRIDGE
-========================================================= >>>
-
-proc from_pairs(pairs: [Pair]) -> Config {
-    give Config { data: pairs }
-}
-
-proc to_pairs(cfg: Config) -> [Pair] {
-    give cfg.data
-}
-
-<<< =========================================================
-    VALIDATION
-========================================================= >>>
-
-proc require(cfg: Config, key: string) -> ConfigResult {
-    if has(cfg, key) {
-        give ConfigResult.Ok(cfg)
-    } else {
-        give ConfigResult.Error("Missing key: " + key)
-    }
-}
-
-proc require_all(cfg: Config, keys: [string]) -> ConfigResult {
-    for k in keys {
-        if not has(cfg, k) {
-            give ConfigResult.Error("Missing key: " + k)
-        }
-    }
-    give ConfigResult.Ok(cfg)
-}
-
-<<< =========================================================
-    SERIALIZATION (BASIC)
-========================================================= >>>
-
-proc to_string(v: Value) -> string {
-    match v {
-        case Value.String(s) { return "\"" + s + "\"" }
-        case Value.Int(i) { return i as string }
-        case Value.Bool(b) { return b as string }
-        case Value.Float(f) { return f }
-        case Value.Null { return "null" }
-
-        case Value.List(lst) {
-            make out = "["
-            for x in lst {
-                set out = out + to_string(x) + ","
-            }
-            give out + "]"
-        }
-
-        case Value.Map(map) {
-            make out = "{"
-            for p in map {
-                set out = out + p.key + ":" + to_string(p.value) + ","
-            }
-            give out + "}"
-        }
-    }
-}
-
-proc dump(cfg: Config) -> string {
-    make out = "{"
-
-    for p in cfg.data {
-        set out = out + p.key + "=" + to_string(p.value) + "\n"
+    if config.max_loop_iterations == 0 {
+        give false;
     }
 
-    give out + "}"
+    if config.max_container_size == 0 {
+        give false;
+    }
+
+    if config.max_string_size == 0 {
+        give false;
+    }
+
+    give true;
 }
 
-<<< =========================================================
-    DEFAULT CONFIG (DOTS RUNTIME)
-========================================================= >>>
+proc validate_config(config: &DotSConfig) -> bool {
+    if not validate_lexer_config(&config.lexer) {
+        give false;
+    }
 
-proc default() -> Config {
-    make cfg = new()
+    if not validate_parser_config(&config.parser) {
+        give false;
+    }
 
-    set cfg = set(cfg, "runtime.mode", Value.String("dev"))
-    set cfg = set(cfg, "runtime.debug", Value.Bool(true))
-    set cfg = set(cfg, "runtime.max_threads", Value.Int(4))
+    if not validate_runtime_config(&config.runtime) {
+        give false;
+    }
 
-    set cfg = set(cfg, "dots.optimize", Value.Bool(false))
-    set cfg = set(cfg, "dots.strict", Value.Bool(false))
-
-    set cfg = set(cfg, "io.buffer_size", Value.Int(4096))
-
-    give cfg
+    give true;
 }

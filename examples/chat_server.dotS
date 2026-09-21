@@ -1,8 +1,374 @@
-module.chat_server
-fn.main.$port
-set.$port.8080
-call.net.listen.$port
-call.net.accept.$client
-call.chat.join.$client
-call.chat.broadcast."welcome"
-ret.true
+# ============================================================
+# DotS Script Language
+# examples/chat_server.dotS
+#
+# Asynchronous TCP chat server example
+#
+# Required future stdlib module:
+#   dots.net
+#
+# Expected API:
+#   net.listen
+#   net.accept
+#   net.read
+#   net.write
+#   net.close
+#   net.address
+#
+# ============================================================
+
+module.examples.chat_server
+
+import.dots.net.as.net
+
+const.$HOST."127.0.0.1"
+const.$PORT.8080
+
+const.$MAX_CLIENTS.64
+const.$MAX_MESSAGE_SIZE.4096
+
+const.$SERVER_NAME."DotS Chat"
+const.$WELCOME_MESSAGE."Welcome to DotS Chat"
+const.$GOODBYE_MESSAGE."Goodbye"
+
+# ------------------------------------------------------------
+# Output helpers
+# ------------------------------------------------------------
+
+fn.log.$message.{
+    print."[chat] "
+    println.$message
+
+    ret.true
+}
+
+fn.log_client.$client.$message.{
+    print."[client "
+    print.$client
+    print."] "
+    println.$message
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Message helpers
+# ------------------------------------------------------------
+
+fn.is_empty_message.$message.{
+    ret.$message.eq.""
+}
+
+fn.is_quit_command.$message.{
+    if.$message.eq."/quit".{
+        ret.true
+    }
+
+    if.$message.eq."/exit".{
+        ret.true
+    }
+
+    ret.false
+}
+
+fn.is_help_command.$message.{
+    ret.$message.eq."/help"
+}
+
+fn.is_ping_command.$message.{
+    ret.$message.eq."/ping"
+}
+
+# ------------------------------------------------------------
+# Client write
+# ------------------------------------------------------------
+
+async.fn.send_message.$client.$message.{
+    try.{
+        let.$result.await.call.net.write.$client.$message
+
+        ret.$result
+    }
+    .catch.$error.{
+        print."[chat] write error: "
+        println.$error
+
+        ret.false
+    }
+}
+
+# ------------------------------------------------------------
+# Help
+# ------------------------------------------------------------
+
+async.fn.send_help.$client.{
+    await.call.send_message.$client.
+        "DotS Chat commands:\n"
+
+    await.call.send_message.$client.
+        "/help - show commands\n"
+
+    await.call.send_message.$client.
+        "/ping - test connection\n"
+
+    await.call.send_message.$client.
+        "/quit - disconnect\n"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Welcome
+# ------------------------------------------------------------
+
+async.fn.send_welcome.$client.{
+    await.call.send_message.$client.
+        "========================================\n"
+
+    await.call.send_message.$client.
+        "             DotS Chat Server\n"
+
+    await.call.send_message.$client.
+        "========================================\n"
+
+    await.call.send_message.$client.
+        "Welcome to DotS Chat\n"
+
+    await.call.send_message.$client.
+        "Type /help for available commands\n"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Process one message
+# ------------------------------------------------------------
+
+async.fn.process_message.$client.$message.{
+    if.call.is_empty_message.$message.{
+        ret.true
+    }
+
+    if.call.is_help_command.$message.{
+        await.call.send_help.$client
+
+        ret.true
+    }
+
+    if.call.is_ping_command.$message.{
+        await.call.send_message.$client."pong\n"
+
+        ret.true
+    }
+
+    if.call.is_quit_command.$message.{
+        await.call.send_message.$client.
+            "Goodbye\n"
+
+        ret.false
+    }
+
+    print."[message] "
+    println.$message
+
+    await.call.send_message.$client.
+        "message received\n"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Client connection
+# ------------------------------------------------------------
+
+async.fn.handle_client.$client.{
+    let.$address.call.net.address.$client
+
+    print."[server] connected: "
+    println.$address
+
+    await.call.send_welcome.$client
+
+    let.$connected.true
+
+    while.$connected.{
+        try.{
+            let.$message.await.call.net.read.
+                $client.
+                $MAX_MESSAGE_SIZE
+
+            if.$message.eq.null.{
+                println."[server] client disconnected"
+
+                set.$connected.false
+            }
+            else.{
+                let.$keep_connection.
+                    await.call.process_message.
+                        $client.
+                        $message
+
+                if.not.$keep_connection.{
+                    set.$connected.false
+                }
+            }
+        }
+        .catch.$error.{
+            print."[server] client error: "
+            println.$error
+
+            set.$connected.false
+        }
+
+        yield
+    }
+
+    try.{
+        await.call.net.close.$client
+    }
+    .catch.$error.{
+        print."[server] close error: "
+        println.$error
+    }
+
+    print."[server] disconnected: "
+    println.$address
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Accept connection
+# ------------------------------------------------------------
+
+async.fn.accept_client.$server.{
+    let.$client.await.call.net.accept.$server
+
+    if.$client.eq.null.{
+        ret.false
+    }
+
+    let.$client_task.spawn.call.handle_client.$client
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Server loop
+# ------------------------------------------------------------
+
+async.fn.server_loop.$server.{
+    println."[server] accepting connections"
+
+    let.$running.true
+
+    while.$running.{
+        try.{
+            let.$accepted.
+                await.call.accept_client.$server
+
+            if.not.$accepted.{
+                println."[server] accept returned no client"
+            }
+        }
+        .catch.$error.{
+            print."[server] accept error: "
+            println.$error
+
+            yield
+        }
+    }
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Server startup
+# ------------------------------------------------------------
+
+async.fn.start_server.{
+    println."========================================"
+    println."          DotS Chat Server"
+    println."========================================"
+
+    print."[server] host: "
+    println.$HOST
+
+    print."[server] port: "
+    println.$PORT
+
+    let.$server.null
+
+    try.{
+        set.$server.
+            await.call.net.listen.
+                $HOST.
+                $PORT.
+                $MAX_CLIENTS
+
+        println."[server] listening"
+
+        await.call.server_loop.$server
+    }
+    .catch.$error.{
+        print."[server] fatal error: "
+        println.$error
+
+        ret.false
+    }
+    .finally.{
+        if.$server.neq.null.{
+            try.{
+                await.call.net.close.$server
+            }
+            .catch.$error.{
+                print."[server] shutdown error: "
+                println.$error
+            }
+        }
+
+        println."[server] stopped"
+    }
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Main
+# ------------------------------------------------------------
+
+async.fn.main.{
+    call.log."initializing"
+
+    let.$server_task.spawn.call.start_server
+
+    try.{
+        let.$result.await.$server_task
+
+        if.$result.{
+            call.log."server exited normally"
+
+            ret.0
+        }
+
+        call.log."server exited with an error"
+
+        ret.1
+    }
+    .catch.$error.{
+        print."[server] unhandled error: "
+        println.$error
+
+        ret.1
+    }
+}
+
+# ------------------------------------------------------------
+# Entry point
+# ------------------------------------------------------------
+
+let.$main_task.spawn.call.main
+let.$exit_code.await.$main_task
+
+print."[server] exit code: "
+println.$exit_code

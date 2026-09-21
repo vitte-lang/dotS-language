@@ -1,7 +1,793 @@
-module.events_jsonl
-fn.main.$stream
-call.events.append."1.1.0"."core"."info"."example started"
-call.events.append."1.1.0"."core"."warn"."token=abc"
-call.events.append."1.1.0"."transport"."error"."bearer xyz"
-call.events.tail.10
-ret.true
+# ============================================================
+# DotS Script Language
+# examples/events_jsonl.dotS
+#
+# JSON Lines event-stream demonstration.
+#
+# Demonstrates:
+#   - structured events
+#   - event validation
+#   - JSONL-style serialization
+#   - event routing
+#   - event processing
+#   - error events
+#   - metrics
+#   - filtering
+#   - assertions
+#
+# JSONL:
+#   one JSON object per line
+#
+# Native JSON parsing/serialization belongs to the future
+# DotS standard library.
+# ============================================================
+
+module.examples.events_jsonl
+
+# ------------------------------------------------------------
+# Constants
+# ------------------------------------------------------------
+
+const.$EVENT_START."start"
+const.$EVENT_MESSAGE."message"
+const.$EVENT_METRIC."metric"
+const.$EVENT_WARNING."warning"
+const.$EVENT_ERROR."error"
+const.$EVENT_STOP."stop"
+
+const.$LEVEL_INFO."info"
+const.$LEVEL_WARNING."warning"
+const.$LEVEL_ERROR."error"
+
+const.$SOURCE_RUNTIME."runtime"
+const.$SOURCE_SERVER."server"
+const.$SOURCE_WORKER."worker"
+const.$SOURCE_CLIENT."client"
+
+const.$EXIT_OK.0
+const.$EXIT_ERROR.1
+
+# ------------------------------------------------------------
+# Logging
+# ------------------------------------------------------------
+
+fn.log.$message.{
+    print."[events] "
+    println.$message
+
+    ret.true
+}
+
+fn.separator.{
+    println."----------------------------------------"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Event constructors
+# ------------------------------------------------------------
+
+fn.make_event.$id.$type.$source.$message.{
+    ret.{
+        "id": $id,
+        "type": $type,
+        "source": $source,
+        "message": $message,
+        "level": $LEVEL_INFO,
+        "value": null,
+        "success": true
+    }
+}
+
+fn.make_start_event.$id.$source.$message.{
+    let.$event.
+        call.make_event.
+            $id.
+            $EVENT_START.
+            $source.
+            $message
+
+    ret.$event
+}
+
+fn.make_message_event.$id.$source.$message.{
+    let.$event.
+        call.make_event.
+            $id.
+            $EVENT_MESSAGE.
+            $source.
+            $message
+
+    ret.$event
+}
+
+fn.make_metric_event.$id.$source.$message.$value.{
+    let.$event.
+        call.make_event.
+            $id.
+            $EVENT_METRIC.
+            $source.
+            $message
+
+    set.$event.["value"].$value
+
+    ret.$event
+}
+
+fn.make_warning_event.$id.$source.$message.{
+    let.$event.
+        call.make_event.
+            $id.
+            $EVENT_WARNING.
+            $source.
+            $message
+
+    set.$event.["level"].$LEVEL_WARNING
+
+    ret.$event
+}
+
+fn.make_error_event.$id.$source.$message.{
+    let.$event.
+        call.make_event.
+            $id.
+            $EVENT_ERROR.
+            $source.
+            $message
+
+    set.$event.["level"].$LEVEL_ERROR
+    set.$event.["success"].false
+
+    ret.$event
+}
+
+fn.make_stop_event.$id.$source.$message.{
+    let.$event.
+        call.make_event.
+            $id.
+            $EVENT_STOP.
+            $source.
+            $message
+
+    ret.$event
+}
+
+# ------------------------------------------------------------
+# Event type validation
+# ------------------------------------------------------------
+
+fn.valid_event_type.$type.{
+    match.$type.{
+        case."start".{
+            ret.true
+        }
+
+        case."message".{
+            ret.true
+        }
+
+        case."metric".{
+            ret.true
+        }
+
+        case."warning".{
+            ret.true
+        }
+
+        case."error".{
+            ret.true
+        }
+
+        case."stop".{
+            ret.true
+        }
+
+        default.{
+            ret.false
+        }
+    }
+}
+
+# ------------------------------------------------------------
+# Event level validation
+# ------------------------------------------------------------
+
+fn.valid_event_level.$level.{
+    match.$level.{
+        case."info".{
+            ret.true
+        }
+
+        case."warning".{
+            ret.true
+        }
+
+        case."error".{
+            ret.true
+        }
+
+        default.{
+            ret.false
+        }
+    }
+}
+
+# ------------------------------------------------------------
+# Event validation
+# ------------------------------------------------------------
+
+fn.validate_event.$event.{
+    if.$event.["id"].lt.0.{
+        throw."event id cannot be negative"
+    }
+
+    if.not.call.valid_event_type.$event.["type"].{
+        throw."invalid event type"
+    }
+
+    if.$event.["source"].eq."".{
+        throw."event source cannot be empty"
+    }
+
+    if.not.call.valid_event_level.$event.["level"].{
+        throw."invalid event level"
+    }
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Event inspection
+# ------------------------------------------------------------
+
+fn.is_error_event.$event.{
+    ret.$event.["type"].eq.$EVENT_ERROR
+}
+
+fn.is_warning_event.$event.{
+    ret.$event.["type"].eq.$EVENT_WARNING
+}
+
+fn.is_metric_event.$event.{
+    ret.$event.["type"].eq.$EVENT_METRIC
+}
+
+fn.is_terminal_event.$event.{
+    if.$event.["type"].eq.$EVENT_STOP.{
+        ret.true
+    }
+
+    if.$event.["type"].eq.$EVENT_ERROR.{
+        ret.true
+    }
+
+    ret.false
+}
+
+# ------------------------------------------------------------
+# JSONL serialization
+#
+# DotS currently has no string-concatenation primitive defined
+# for arbitrary values, so serialization is emitted directly
+# through print statements.
+#
+# Every invocation emits exactly one JSON object followed by
+# one newline.
+# ------------------------------------------------------------
+
+fn.emit_jsonl_event.$event.{
+    call.validate_event.$event
+
+    print."{\"id\":"
+    print.$event.["id"]
+
+    print.",\"type\":\""
+    print.$event.["type"]
+
+    print."\",\"source\":\""
+    print.$event.["source"]
+
+    print."\",\"message\":\""
+    print.$event.["message"]
+
+    print."\",\"level\":\""
+    print.$event.["level"]
+
+    print."\",\"value\":"
+
+    if.$event.["value"].eq.null.{
+        print."null"
+    }
+    else.{
+        print.$event.["value"]
+    }
+
+    print.",\"success\":"
+    print.$event.["success"]
+
+    println."}"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Human-readable event display
+# ------------------------------------------------------------
+
+fn.print_event.$event.{
+    print."["
+    print.$event.["id"]
+    print."] "
+
+    print.$event.["type"]
+    print." / "
+
+    print.$event.["source"]
+    print." / "
+
+    print.$event.["level"]
+    print." : "
+
+    println.$event.["message"]
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Event routing
+# ------------------------------------------------------------
+
+fn.route_event.$event.{
+    call.validate_event.$event
+
+    match.$event.["type"].{
+        case."start".{
+            print."[router:start] "
+            println.$event.["message"]
+
+            ret.true
+        }
+
+        case."message".{
+            print."[router:message] "
+            println.$event.["message"]
+
+            ret.true
+        }
+
+        case."metric".{
+            print."[router:metric] "
+            print.$event.["message"]
+            print." = "
+            println.$event.["value"]
+
+            ret.true
+        }
+
+        case."warning".{
+            print."[router:warning] "
+            println.$event.["message"]
+
+            ret.true
+        }
+
+        case."error".{
+            print."[router:error] "
+            println.$event.["message"]
+
+            ret.false
+        }
+
+        case."stop".{
+            print."[router:stop] "
+            println.$event.["message"]
+
+            ret.true
+        }
+
+        default.{
+            throw."unhandled event type"
+        }
+    }
+}
+
+# ------------------------------------------------------------
+# Event stream
+# ------------------------------------------------------------
+
+fn.build_event_stream.{
+    let.$start.
+        call.make_start_event.
+            1.
+            $SOURCE_RUNTIME.
+            "runtime started"
+
+    let.$connected.
+        call.make_message_event.
+            2.
+            $SOURCE_SERVER.
+            "client connected"
+
+    let.$requests.
+        call.make_metric_event.
+            3.
+            $SOURCE_SERVER.
+            "requests".
+            128
+
+    let.$worker.
+        call.make_message_event.
+            4.
+            $SOURCE_WORKER.
+            "worker processing batch"
+
+    let.$latency.
+        call.make_metric_event.
+            5.
+            $SOURCE_WORKER.
+            "latency_ms".
+            17
+
+    let.$warning.
+        call.make_warning_event.
+            6.
+            $SOURCE_SERVER.
+            "queue approaching limit"
+
+    let.$client.
+        call.make_message_event.
+            7.
+            $SOURCE_CLIENT.
+            "message received"
+
+    let.$error.
+        call.make_error_event.
+            8.
+            $SOURCE_WORKER.
+            "simulated worker failure"
+
+    let.$recovery.
+        call.make_message_event.
+            9.
+            $SOURCE_WORKER.
+            "worker recovered"
+
+    let.$stop.
+        call.make_stop_event.
+            10.
+            $SOURCE_RUNTIME.
+            "runtime stopped"
+
+    ret.[
+        $start,
+        $connected,
+        $requests,
+        $worker,
+        $latency,
+        $warning,
+        $client,
+        $error,
+        $recovery,
+        $stop
+    ]
+}
+
+# ------------------------------------------------------------
+# JSONL demonstration
+#
+# The current grammar has foreach, so the stream can be
+# processed without requiring a list-length primitive.
+# ------------------------------------------------------------
+
+fn.emit_stream.$events.{
+    foreach.$event.in.$events.{
+        call.emit_jsonl_event.$event
+    }
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Human-readable stream
+# ------------------------------------------------------------
+
+fn.print_stream.$events.{
+    foreach.$event.in.$events.{
+        call.print_event.$event
+    }
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Route complete stream
+# ------------------------------------------------------------
+
+fn.route_stream.$events.{
+    let.$processed.0
+    let.$failed.0
+
+    foreach.$event.in.$events.{
+        try.{
+            let.$success.call.route_event.$event
+
+            if.$success.{
+                add.$processed.1
+            }
+            else.{
+                add.$failed.1
+            }
+        }
+        .catch.$error.{
+            print."[router] exception: "
+            println.$error
+
+            add.$failed.1
+        }
+    }
+
+    ret.(
+        $processed,
+        $failed
+    )
+}
+
+# ------------------------------------------------------------
+# Metrics
+# ------------------------------------------------------------
+
+fn.collect_metrics.$events.{
+    let.$total.0
+    let.$messages.0
+    let.$metrics.0
+    let.$warnings.0
+    let.$errors.0
+
+    foreach.$event.in.$events.{
+        add.$total.1
+
+        match.$event.["type"].{
+            case."message".{
+                add.$messages.1
+            }
+
+            case."metric".{
+                add.$metrics.1
+            }
+
+            case."warning".{
+                add.$warnings.1
+            }
+
+            case."error".{
+                add.$errors.1
+            }
+
+            default.{
+            }
+        }
+    }
+
+    ret.{
+        "total": $total,
+        "messages": $messages,
+        "metrics": $metrics,
+        "warnings": $warnings,
+        "errors": $errors
+    }
+}
+
+fn.print_metrics.$metrics.{
+    println."Event metrics"
+    call.separator
+
+    print."total    : "
+    println.$metrics.["total"]
+
+    print."messages : "
+    println.$metrics.["messages"]
+
+    print."metrics  : "
+    println.$metrics.["metrics"]
+
+    print."warnings : "
+    println.$metrics.["warnings"]
+
+    print."errors   : "
+    println.$metrics.["errors"]
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Filtering
+#
+# Without a list-append primitive in the current grammar,
+# filtered events are processed directly rather than copied
+# into another dynamically-built list.
+# ------------------------------------------------------------
+
+fn.print_error_events.$events.{
+    foreach.$event.in.$events.{
+        if.call.is_error_event.$event.{
+            call.print_event.$event
+        }
+    }
+
+    ret.true
+}
+
+fn.print_metric_events.$events.{
+    foreach.$event.in.$events.{
+        if.call.is_metric_event.$event.{
+            call.print_event.$event
+        }
+    }
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Invalid event demonstration
+# ------------------------------------------------------------
+
+fn.invalid_event_demo.{
+    println.""
+    println."--- invalid event ---"
+
+    let.$event.{
+        "id": 999,
+        "type": "unknown",
+        "source": "test",
+        "message": "invalid event",
+        "level": "info",
+        "value": null,
+        "success": false
+    }
+
+    try.{
+        call.validate_event.$event
+
+        println."unexpected validation success"
+
+        ret.false
+    }
+    .catch.$error.{
+        print."validation error: "
+        println.$error
+
+        ret.true
+    }
+}
+
+# ------------------------------------------------------------
+# Self-test
+# ------------------------------------------------------------
+
+fn.self_test.$events.{
+    println.""
+    println."--- self-test ---"
+
+    let.$metrics.call.collect_metrics.$events
+
+    assert.$metrics.["total"].eq.10.
+        "expected ten events"
+
+    assert.$metrics.["messages"].eq.4.
+        "unexpected message count"
+
+    assert.$metrics.["metrics"].eq.2.
+        "unexpected metric count"
+
+    assert.$metrics.["warnings"].eq.1.
+        "unexpected warning count"
+
+    assert.$metrics.["errors"].eq.1.
+        "unexpected error count"
+
+    let.$test_error.
+        call.make_error_event.
+            100.
+            "test".
+            "failure"
+
+    assert.call.is_error_event.$test_error.
+        "error event predicate failed"
+
+    assert.call.is_terminal_event.$test_error.
+        "error event should be terminal"
+
+    let.$test_metric.
+        call.make_metric_event.
+            101.
+            "test".
+            "counter".
+            42
+
+    assert.call.is_metric_event.$test_metric.
+        "metric event predicate failed"
+
+    assert.$test_metric.["value"].eq.42.
+        "metric value lost"
+
+    println."[self-test] passed"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Main
+# ------------------------------------------------------------
+
+fn.main.{
+    println."========================================"
+    println."          DotS JSONL Events"
+    println."========================================"
+
+    let.$events.call.build_event_stream
+
+    println.""
+    println."--- human-readable events ---"
+
+    call.print_stream.$events
+
+    println.""
+    println."--- JSONL output ---"
+
+    call.emit_stream.$events
+
+    println.""
+    println."--- routing ---"
+
+    let.$route_result.call.route_stream.$events
+
+    print."processed: "
+    println.$route_result.[0]
+
+    print."failed: "
+    println.$route_result.[1]
+
+    println.""
+    println."--- metrics ---"
+
+    let.$metrics.call.collect_metrics.$events
+
+    call.print_metrics.$metrics
+
+    println.""
+    println."--- metric events ---"
+
+    call.print_metric_events.$events
+
+    println.""
+    println."--- error events ---"
+
+    call.print_error_events.$events
+
+    call.invalid_event_demo
+
+    call.self_test.$events
+
+    println.""
+    println."========================================"
+    println."       JSONL Event Demo Completed"
+    println."========================================"
+
+    ret.$EXIT_OK
+}
+
+# ------------------------------------------------------------
+# Entry point
+# ------------------------------------------------------------
+
+try.{
+    let.$exit_code.call.main
+
+    print."exit code: "
+    println.$exit_code
+}
+.catch.$error.{
+    print."fatal event error: "
+    println.$error
+}

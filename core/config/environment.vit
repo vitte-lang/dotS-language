@@ -1,306 +1,973 @@
-space core/environment
+space dots.core.config.environment
 
-use core/str
-use core/fs
-use core/time
-use core/process
-use core/config
+export *
 
-form EnvSpec
-{
-    env_key: string
-    aliases_csv: string
-    config_key: string
-    kind: string
-    default_value: string
-    min_v: i64
-    max_v: i64
-    enum_csv: string
-    secret: bool
+const DOTS_DEFAULT_EXECUTABLE: string = "dots";
+const DOTS_DEFAULT_PROJECT_ROOT: string = ".";
+const DOTS_DEFAULT_CORE_PATH: string = "core";
+const DOTS_DEFAULT_STDLIB_PATH: string = "stdlib";
+const DOTS_DEFAULT_MODULE_PATH: string = "modules";
+
+const DOTS_DEFAULT_LOCALE: string = "C";
+const DOTS_DEFAULT_ENCODING: string = "UTF-8";
+
+const DOTS_DEFAULT_MAX_OPEN_FILES: usize = 256;
+const DOTS_DEFAULT_MAX_PROCESSES: usize = 32;
+const DOTS_DEFAULT_MAX_ENVIRONMENT_VARIABLES: usize = 4096;
+
+pick Platform {
+    Unknown,
+    Linux,
+    MacOS,
+    Windows,
+    FreeBSD,
+    OpenBSD,
+    NetBSD,
 }
 
-form EnvPair
-{
-    key: string
-    value: string
-    source: string
-    warning: string
+pick Architecture {
+    Unknown,
+    X86,
+    X86_64,
+    Arm,
+    Arm64,
+    RiscV32,
+    RiscV64,
+    Wasm32,
+    Wasm64,
 }
 
-proc spec_table() -> [EnvSpec]
-{
-    give [
-        EnvSpec("DOTS_CONFIG_SCHEMA_VERSION", "", "schema_version", "string", config.CONFIG_SCHEMA_VERSION, 0, 0, "", false),
-        EnvSpec("DOTS_MODE", "DOTS_ENV", "mode", "enum", "dev", 0, 0, "dev,ci,perf,release", false),
-        EnvSpec("DOTS_COLOR", "", "color", "enum", "auto", 0, 0, "auto,always,never", false),
-        EnvSpec("DOTS_PROFILE", "", "profile", "string", "dev", 0, 0, "", false),
-        EnvSpec("DOTS_WORKSPACE_ROOT", "", "workspace_root", "path", process.cwd(), 0, 0, "", false),
-        EnvSpec("DOTS_CACHE_DIR", "", "cache_dir", "path", ".dots-cache", 0, 0, "", false),
-        EnvSpec("DOTS_REGISTRY_URL", "DOTS_ENDPOINT", "registry_url", "url", "https://registry.example.invalid:443", 0, 0, "", false),
-        EnvSpec("DOTS_INCLUDE", "DOTS_INCLUDE_LIST", "include", "list", "", 0, 0, "", false),
-        EnvSpec("DOTS_RETRIES", "", "retries", "int", "2", 0, 100, "", false),
-        EnvSpec("DOTS_WORKERS", "DOTS_THREADS", "workers", "int", "4", 1, 4096, "", false),
-        EnvSpec("DOTS_TIMEOUT_REQUEST", "DOTS_REQUEST_TIMEOUT", "timeout_request_ms", "duration", "30000", 1, 3600000, "", false),
-        EnvSpec("DOTS_TIMEOUT_OVERALL", "DOTS_OVERALL_TIMEOUT", "timeout_overall_ms", "duration", "120000", 1, 7200000, "", false),
-        EnvSpec("DOTS_CONFIG_STRICT", "", "strict", "bool", "false", 0, 0, "", false),
-        EnvSpec("DOTS_DRY_RUN_CONFIG", "", "dry_run_config", "bool", "false", 0, 0, "", false),
-        EnvSpec("DOTS_API_TOKEN", "DOTS_TOKEN", "api_token", "string", "", 0, 0, "", true)
-    ]
+pick EnvironmentMode {
+    Development,
+    Production,
+    Test,
 }
 
-proc get_env_with_alias(spec: EnvSpec) -> EnvPair
-{
-    let v = process.env(spec.env_key)
-    if v != "" { give EnvPair(spec.env_key, v, "env", "") }
-
-    let aliases = str.split(spec.aliases_csv, ",")
-    for a in aliases
-    {
-        let alias = str.trim(a)
-        if alias == "" { continue }
-        let vv = process.env(alias)
-        if vv != ""
-        {
-            give EnvPair(spec.env_key, vv, "env", "legacy alias used: " + alias + " -> " + spec.env_key)
-        }
-    }
-
-    give EnvPair(spec.env_key, "", "default", "")
+pick Endianness {
+    Unknown,
+    Little,
+    Big,
 }
 
-proc parse_bool(raw: string) -> Option[bool]
-{
-    if config.is_true(raw) { give true }
-    if config.is_false(raw) { give false }
-    give null
+pick TerminalMode {
+    None,
+    Basic,
+    Interactive,
 }
 
-proc parse_duration_ms(raw: string) -> Option[i64]
-{
-    let v = str.trim(raw)
-    if v == "" { give null }
-
-    if str.ends_with(v, "ms")
-    {
-        give config.parse_i64_strict(str.replace(v, "ms", ""))
-    }
-
-    if str.ends_with(v, "s")
-    {
-        let sec = config.parse_i64_strict(str.replace(v, "s", ""))
-        if sec == null { give null }
-        give sec * 1000
-    }
-
-    if str.ends_with(v, "m")
-    {
-        let min = config.parse_i64_strict(str.replace(v, "m", ""))
-        if min == null { give null }
-        give min * 60000
-    }
-
-    give config.parse_i64_strict(v)
+pick SandboxMode {
+    Disabled,
+    Restricted,
+    Strict,
 }
 
-proc parse_bytes(raw: string) -> Option[i64]
-{
-    let v = str.trim(raw)
-    if v == "" { give null }
+form EnvironmentPaths {
+    pub working_directory: string,
+    pub executable: string,
 
-    if str.ends_with(v, "KB")  or  str.ends_with(v, "kb")
-    {
-        let n = config.parse_i64_strict(str.replace(str.replace(v, "KB", ""), "kb", ""))
-        if n == null { give null }
-        give n * 1024
-    }
+    pub project_root: string,
+    pub core: string,
+    pub stdlib: string,
+    pub modules: string,
 
-    if str.ends_with(v, "MB")  or  str.ends_with(v, "mb")
-    {
-        let n2 = config.parse_i64_strict(str.replace(str.replace(v, "MB", ""), "mb", ""))
-        if n2 == null { give null }
-        give n2 * 1024 * 1024
-    }
+    pub temporary: string,
+    pub home: string,
 
-    if str.ends_with(v, "GB")  or  str.ends_with(v, "gb")
-    {
-        let n3 = config.parse_i64_strict(str.replace(str.replace(v, "GB", ""), "gb", ""))
-        if n3 == null { give null }
-        give n3 * 1024 * 1024 * 1024
-    }
-
-    give config.parse_i64_strict(v)
+    pub cache: string,
+    pub config: string,
+    pub data: string,
 }
 
-proc normalize_value(spec: EnvSpec, raw: string) -> Option[string]
-{
-    let v = str.trim(raw)
-
-    if spec.kind == "bool"
-    {
-        let b = parse_bool(v)
-        if b == null { give null }
-        give str.from_bool(b)
-    }
-
-    if spec.kind == "int"
-    {
-        let n = config.parse_i64_bounded(v, spec.min_v, spec.max_v)
-        if n == null { give null }
-        give str.from_i64(n)
-    }
-
-    if spec.kind == "duration"
-    {
-        let d = parse_duration_ms(v)
-        if d == null { give null }
-        if d < spec.min_v  or  d > spec.max_v { give null }
-        give str.from_i64(d)
-    }
-
-    if spec.kind == "bytes"
-    {
-        let b2 = parse_bytes(v)
-        if b2 == null { give null }
-        if b2 < spec.min_v  or  b2 > spec.max_v { give null }
-        give str.from_i64(b2)
-    }
-
-    if spec.kind == "enum"
-    {
-        if not config.validate_enum(v, str.split(spec.enum_csv, ",")) { give null }
-        give v
-    }
-
-    if spec.kind == "list"
-    {
-        give config.join_csv(config.normalize_csv_list(v))
-    }
-
-    if spec.kind == "path"
-    {
-        let x = config.validate_path(v, false, process.cwd())
-        if x != null { give null }
-        give v
-    }
-
-    if spec.kind == "url"
-    {
-        let u = config.validate_url(v)
-        if u != null { give null }
-        give v
-    }
-
-    give v
+form FilesystemCapabilities {
+    pub read: bool,
+    pub write: bool,
+    pub create: bool,
+    pub remove: bool,
+    pub rename: bool,
+    pub metadata: bool,
 }
 
-proc cache_file() -> string
-{
-    give ".dots/config_env_snapshot.v1.cache"
+form ProcessCapabilities {
+    pub spawn: bool,
+    pub execute: bool,
+    pub terminate: bool,
+    pub environment: bool,
 }
 
-proc cache_ttl_ms() -> i64
-{
-    let n = config.parse_i64_strict(process.env("DOTS_CONFIG_ENV_CACHE_MS"))
-    if n == null  or  n < 0 { give 3000 }
-    give n
+form NetworkCapabilities {
+    pub enabled: bool,
+    pub client: bool,
+    pub server: bool,
 }
 
-proc env_snapshot(refresh: bool) -> [config.ConfigKV]
-{
-    fs.mkdir_p(".dots")
+form StreamCapabilities {
+    pub stdin: bool,
+    pub stdout: bool,
+    pub stderr: bool,
+}
 
-    if not refresh  and  fs.exists(cache_file())
-    {
-        let age = time.now_ms() - fs.mtime_ms(cache_file())
-        if age <= cache_ttl_ms()
-        {
-            give parse_cache(fs.read_file(cache_file()))
-        }
+form EnvironmentCapabilities {
+    pub filesystem: FilesystemCapabilities,
+    pub process: ProcessCapabilities,
+    pub network: NetworkCapabilities,
+    pub streams: StreamCapabilities,
+
+    pub environment_variables: bool,
+    pub clock: bool,
+    pub random: bool,
+}
+
+form EnvironmentLimits {
+    pub max_open_files: usize,
+    pub max_processes: usize,
+    pub max_environment_variables: usize,
+}
+
+form EnvironmentLocale {
+    pub language: string,
+    pub encoding: string,
+}
+
+form EnvironmentTerminal {
+    pub mode: TerminalMode,
+
+    pub interactive: bool,
+    pub color: bool,
+    pub unicode: bool,
+}
+
+form EnvironmentSecurity {
+    pub sandbox: SandboxMode,
+
+    pub allow_absolute_paths: bool,
+    pub allow_parent_paths: bool,
+    pub allow_external_modules: bool,
+    pub allow_native_processes: bool,
+}
+
+form EnvironmentSystem {
+    pub platform: Platform,
+    pub architecture: Architecture,
+    pub endianness: Endianness,
+
+    pub pointer_bits: usize,
+    pub cpu_count: usize,
+}
+
+form Environment {
+    pub mode: EnvironmentMode,
+
+    pub system: EnvironmentSystem,
+    pub paths: EnvironmentPaths,
+    pub capabilities: EnvironmentCapabilities,
+    pub limits: EnvironmentLimits,
+    pub locale: EnvironmentLocale,
+    pub terminal: EnvironmentTerminal,
+    pub security: EnvironmentSecurity,
+
+    pub debug: bool,
+}
+
+proc default_temporary_path(
+    platform: Platform
+) -> string {
+    match platform {
+        case Platform.Windows => give ".";
+        else => give "/tmp";
+    }
+}
+
+proc default_environment_paths() -> EnvironmentPaths {
+    give EnvironmentPaths {
+        working_directory: ".",
+        executable: DOTS_DEFAULT_EXECUTABLE,
+
+        project_root: DOTS_DEFAULT_PROJECT_ROOT,
+        core: DOTS_DEFAULT_CORE_PATH,
+        stdlib: DOTS_DEFAULT_STDLIB_PATH,
+        modules: DOTS_DEFAULT_MODULE_PATH,
+
+        temporary: "/tmp",
+        home: "",
+
+        cache: "",
+        config: "",
+        data: "",
+    };
+}
+
+proc default_filesystem_capabilities() -> FilesystemCapabilities {
+    give FilesystemCapabilities {
+        read: true,
+        write: true,
+        create: true,
+        remove: true,
+        rename: true,
+        metadata: true,
+    };
+}
+
+proc readonly_filesystem_capabilities() -> FilesystemCapabilities {
+    give FilesystemCapabilities {
+        read: true,
+        write: false,
+        create: false,
+        remove: false,
+        rename: false,
+        metadata: true,
+    };
+}
+
+proc disabled_filesystem_capabilities() -> FilesystemCapabilities {
+    give FilesystemCapabilities {
+        read: false,
+        write: false,
+        create: false,
+        remove: false,
+        rename: false,
+        metadata: false,
+    };
+}
+
+proc default_process_capabilities() -> ProcessCapabilities {
+    give ProcessCapabilities {
+        spawn: false,
+        execute: false,
+        terminate: false,
+        environment: true,
+    };
+}
+
+proc disabled_process_capabilities() -> ProcessCapabilities {
+    give ProcessCapabilities {
+        spawn: false,
+        execute: false,
+        terminate: false,
+        environment: false,
+    };
+}
+
+proc default_network_capabilities() -> NetworkCapabilities {
+    give NetworkCapabilities {
+        enabled: false,
+        client: false,
+        server: false,
+    };
+}
+
+proc disabled_network_capabilities() -> NetworkCapabilities {
+    give NetworkCapabilities {
+        enabled: false,
+        client: false,
+        server: false,
+    };
+}
+
+proc default_stream_capabilities() -> StreamCapabilities {
+    give StreamCapabilities {
+        stdin: true,
+        stdout: true,
+        stderr: true,
+    };
+}
+
+proc disabled_stream_capabilities() -> StreamCapabilities {
+    give StreamCapabilities {
+        stdin: false,
+        stdout: false,
+        stderr: false,
+    };
+}
+
+proc default_environment_capabilities() -> EnvironmentCapabilities {
+    give EnvironmentCapabilities {
+        filesystem: default_filesystem_capabilities(),
+        process: default_process_capabilities(),
+        network: default_network_capabilities(),
+        streams: default_stream_capabilities(),
+
+        environment_variables: true,
+        clock: true,
+        random: true,
+    };
+}
+
+proc default_environment_limits() -> EnvironmentLimits {
+    give EnvironmentLimits {
+        max_open_files: DOTS_DEFAULT_MAX_OPEN_FILES,
+        max_processes: DOTS_DEFAULT_MAX_PROCESSES,
+        max_environment_variables: DOTS_DEFAULT_MAX_ENVIRONMENT_VARIABLES,
+    };
+}
+
+proc default_environment_locale() -> EnvironmentLocale {
+    give EnvironmentLocale {
+        language: DOTS_DEFAULT_LOCALE,
+        encoding: DOTS_DEFAULT_ENCODING,
+    };
+}
+
+proc default_environment_terminal() -> EnvironmentTerminal {
+    give EnvironmentTerminal {
+        mode: TerminalMode.Basic,
+
+        interactive: false,
+        color: true,
+        unicode: true,
+    };
+}
+
+proc default_environment_security() -> EnvironmentSecurity {
+    give EnvironmentSecurity {
+        sandbox: SandboxMode.Restricted,
+
+        allow_absolute_paths: true,
+        allow_parent_paths: false,
+        allow_external_modules: false,
+        allow_native_processes: false,
+    };
+}
+
+proc default_environment_system() -> EnvironmentSystem {
+    give EnvironmentSystem {
+        platform: Platform.Unknown,
+        architecture: Architecture.Unknown,
+        endianness: Endianness.Unknown,
+
+        pointer_bits: 0,
+        cpu_count: 1,
+    };
+}
+
+proc default_environment() -> Environment {
+    give Environment {
+        mode: EnvironmentMode.Development,
+
+        system: default_environment_system(),
+        paths: default_environment_paths(),
+        capabilities: default_environment_capabilities(),
+        limits: default_environment_limits(),
+        locale: default_environment_locale(),
+        terminal: default_environment_terminal(),
+        security: default_environment_security(),
+
+        debug: false,
+    };
+}
+
+proc repl_environment() -> Environment {
+    let mut environment: Environment = default_environment();
+
+    set environment.terminal.mode = TerminalMode.Interactive;
+    set environment.terminal.interactive = true;
+    set environment.terminal.color = true;
+
+    set environment.capabilities.streams.stdin = true;
+    set environment.capabilities.streams.stdout = true;
+    set environment.capabilities.streams.stderr = true;
+
+    give environment;
+}
+
+proc test_environment() -> Environment {
+    let mut environment: Environment = default_environment();
+
+    set environment.mode = EnvironmentMode.Test;
+
+    set environment.capabilities.filesystem =
+        disabled_filesystem_capabilities();
+
+    set environment.capabilities.process =
+        disabled_process_capabilities();
+
+    set environment.capabilities.network =
+        disabled_network_capabilities();
+
+    set environment.capabilities.environment_variables = false;
+
+    set environment.security.sandbox = SandboxMode.Strict;
+    set environment.security.allow_absolute_paths = false;
+    set environment.security.allow_parent_paths = false;
+    set environment.security.allow_external_modules = false;
+    set environment.security.allow_native_processes = false;
+
+    set environment.terminal.mode = TerminalMode.None;
+    set environment.terminal.interactive = false;
+
+    set environment.debug = true;
+
+    give environment;
+}
+
+proc production_environment() -> Environment {
+    let mut environment: Environment = default_environment();
+
+    set environment.mode = EnvironmentMode.Production;
+
+    set environment.security.sandbox = SandboxMode.Restricted;
+    set environment.security.allow_parent_paths = false;
+    set environment.security.allow_external_modules = false;
+    set environment.security.allow_native_processes = false;
+
+    set environment.debug = false;
+
+    give environment;
+}
+
+proc sandbox_environment() -> Environment {
+    let mut environment: Environment = default_environment();
+
+    set environment.capabilities.filesystem =
+        readonly_filesystem_capabilities();
+
+    set environment.capabilities.process =
+        disabled_process_capabilities();
+
+    set environment.capabilities.network =
+        disabled_network_capabilities();
+
+    set environment.capabilities.environment_variables = false;
+
+    set environment.security.sandbox = SandboxMode.Strict;
+    set environment.security.allow_absolute_paths = false;
+    set environment.security.allow_parent_paths = false;
+    set environment.security.allow_external_modules = false;
+    set environment.security.allow_native_processes = false;
+
+    give environment;
+}
+
+proc environment_can_read_files(
+    environment: &Environment
+) -> bool {
+    give environment.capabilities.filesystem.read;
+}
+
+proc environment_can_write_files(
+    environment: &Environment
+) -> bool {
+    give environment.capabilities.filesystem.write;
+}
+
+proc environment_can_create_files(
+    environment: &Environment
+) -> bool {
+    give environment.capabilities.filesystem.create;
+}
+
+proc environment_can_remove_files(
+    environment: &Environment
+) -> bool {
+    give environment.capabilities.filesystem.remove;
+}
+
+proc environment_can_rename_files(
+    environment: &Environment
+) -> bool {
+    give environment.capabilities.filesystem.rename;
+}
+
+proc environment_can_read_metadata(
+    environment: &Environment
+) -> bool {
+    give environment.capabilities.filesystem.metadata;
+}
+
+proc environment_can_spawn_process(
+    environment: &Environment
+) -> bool {
+    if not environment.capabilities.process.spawn {
+        give false;
     }
 
-    let out: [config.ConfigKV] = []
-    let warn_once: [string] = []
+    if not environment.security.allow_native_processes {
+        give false;
+    }
 
-    for spec in spec_table()
-    {
-        let p = get_env_with_alias(spec)
+    give true;
+}
 
-        if p.warning != ""
-        {
-            let seen = false
-            for w in warn_once
-            {
-                if w == p.warning { seen = true }
+proc environment_can_execute_process(
+    environment: &Environment
+) -> bool {
+    if not environment.capabilities.process.execute {
+        give false;
+    }
+
+    if not environment.security.allow_native_processes {
+        give false;
+    }
+
+    give true;
+}
+
+proc environment_can_terminate_process(
+    environment: &Environment
+) -> bool {
+    give environment.capabilities.process.terminate;
+}
+
+proc environment_can_access_network(
+    environment: &Environment
+) -> bool {
+    give environment.capabilities.network.enabled;
+}
+
+proc environment_can_open_network_client(
+    environment: &Environment
+) -> bool {
+    if not environment.capabilities.network.enabled {
+        give false;
+    }
+
+    give environment.capabilities.network.client;
+}
+
+proc environment_can_open_network_server(
+    environment: &Environment
+) -> bool {
+    if not environment.capabilities.network.enabled {
+        give false;
+    }
+
+    give environment.capabilities.network.server;
+}
+
+proc environment_can_read_stdin(
+    environment: &Environment
+) -> bool {
+    give environment.capabilities.streams.stdin;
+}
+
+proc environment_can_write_stdout(
+    environment: &Environment
+) -> bool {
+    give environment.capabilities.streams.stdout;
+}
+
+proc environment_can_write_stderr(
+    environment: &Environment
+) -> bool {
+    give environment.capabilities.streams.stderr;
+}
+
+proc environment_can_read_variables(
+    environment: &Environment
+) -> bool {
+    give environment.capabilities.environment_variables;
+}
+
+proc environment_has_clock(
+    environment: &Environment
+) -> bool {
+    give environment.capabilities.clock;
+}
+
+proc environment_has_random(
+    environment: &Environment
+) -> bool {
+    give environment.capabilities.random;
+}
+
+proc environment_is_interactive(
+    environment: &Environment
+) -> bool {
+    give environment.terminal.interactive;
+}
+
+proc environment_is_sandboxed(
+    environment: &Environment
+) -> bool {
+    match environment.security.sandbox {
+        case SandboxMode.Disabled => give false;
+        else => give true;
+    };
+}
+
+proc environment_is_strictly_sandboxed(
+    environment: &Environment
+) -> bool {
+    match environment.security.sandbox {
+        case SandboxMode.Strict => give true;
+        else => give false;
+    };
+}
+
+proc environment_is_unix(
+    environment: &Environment
+) -> bool {
+    match environment.system.platform {
+        case Platform.Linux => give true;
+        case Platform.MacOS => give true;
+        case Platform.FreeBSD => give true;
+        case Platform.OpenBSD => give true;
+        case Platform.NetBSD => give true;
+        else => give false;
+    };
+}
+
+proc environment_is_windows(
+    environment: &Environment
+) -> bool {
+    match environment.system.platform {
+        case Platform.Windows => give true;
+        else => give false;
+    };
+}
+
+proc environment_is_64_bit(
+    environment: &Environment
+) -> bool {
+    give environment.system.pointer_bits == 64;
+}
+
+proc environment_is_32_bit(
+    environment: &Environment
+) -> bool {
+    give environment.system.pointer_bits == 32;
+}
+
+proc architecture_pointer_bits(
+    architecture: Architecture
+) -> usize {
+    match architecture {
+        case Architecture.X86 => give 32;
+        case Architecture.X86_64 => give 64;
+
+        case Architecture.Arm => give 32;
+        case Architecture.Arm64 => give 64;
+
+        case Architecture.RiscV32 => give 32;
+        case Architecture.RiscV64 => give 64;
+
+        case Architecture.Wasm32 => give 32;
+        case Architecture.Wasm64 => give 64;
+
+        else => give 0;
+    };
+}
+
+proc platform_name(
+    platform: Platform
+) -> string {
+    match platform {
+        case Platform.Linux => give "linux";
+        case Platform.MacOS => give "macos";
+        case Platform.Windows => give "windows";
+        case Platform.FreeBSD => give "freebsd";
+        case Platform.OpenBSD => give "openbsd";
+        case Platform.NetBSD => give "netbsd";
+        else => give "unknown";
+    };
+}
+
+proc architecture_name(
+    architecture: Architecture
+) -> string {
+    match architecture {
+        case Architecture.X86 => give "x86";
+        case Architecture.X86_64 => give "x86_64";
+
+        case Architecture.Arm => give "arm";
+        case Architecture.Arm64 => give "arm64";
+
+        case Architecture.RiscV32 => give "riscv32";
+        case Architecture.RiscV64 => give "riscv64";
+
+        case Architecture.Wasm32 => give "wasm32";
+        case Architecture.Wasm64 => give "wasm64";
+
+        else => give "unknown";
+    };
+}
+
+proc environment_mode_name(
+    mode: EnvironmentMode
+) -> string {
+    match mode {
+        case EnvironmentMode.Development => give "development";
+        case EnvironmentMode.Production => give "production";
+        case EnvironmentMode.Test => give "test";
+    };
+}
+
+proc configure_platform(
+    environment: &mut Environment,
+    platform: Platform
+) {
+    set environment.system.platform = platform;
+
+    set environment.paths.temporary =
+        default_temporary_path(platform);
+}
+
+proc configure_architecture(
+    environment: &mut Environment,
+    architecture: Architecture
+) {
+    set environment.system.architecture = architecture;
+
+    set environment.system.pointer_bits =
+        architecture_pointer_bits(architecture);
+}
+
+proc configure_project_root(
+    environment: &mut Environment,
+    root: string
+) {
+    set environment.paths.project_root = root;
+}
+
+proc configure_home(
+    environment: &mut Environment,
+    home: string
+) {
+    set environment.paths.home = home;
+}
+
+proc configure_working_directory(
+    environment: &mut Environment,
+    directory: string
+) {
+    set environment.paths.working_directory = directory;
+}
+
+proc enable_network_client(
+    environment: &mut Environment
+) {
+    set environment.capabilities.network.enabled = true;
+    set environment.capabilities.network.client = true;
+}
+
+proc enable_network_server(
+    environment: &mut Environment
+) {
+    set environment.capabilities.network.enabled = true;
+    set environment.capabilities.network.server = true;
+}
+
+proc disable_network(
+    environment: &mut Environment
+) {
+    set environment.capabilities.network.enabled = false;
+    set environment.capabilities.network.client = false;
+    set environment.capabilities.network.server = false;
+}
+
+proc enable_native_processes(
+    environment: &mut Environment
+) {
+    set environment.capabilities.process.spawn = true;
+    set environment.capabilities.process.execute = true;
+    set environment.capabilities.process.terminate = true;
+
+    set environment.security.allow_native_processes = true;
+}
+
+proc disable_native_processes(
+    environment: &mut Environment
+) {
+    set environment.capabilities.process.spawn = false;
+    set environment.capabilities.process.execute = false;
+    set environment.capabilities.process.terminate = false;
+
+    set environment.security.allow_native_processes = false;
+}
+
+proc apply_strict_sandbox(
+    environment: &mut Environment
+) {
+    set environment.security.sandbox = SandboxMode.Strict;
+
+    set environment.capabilities.filesystem =
+        readonly_filesystem_capabilities();
+
+    set environment.capabilities.process =
+        disabled_process_capabilities();
+
+    set environment.capabilities.network =
+        disabled_network_capabilities();
+
+    set environment.capabilities.environment_variables = false;
+
+    set environment.security.allow_absolute_paths = false;
+    set environment.security.allow_parent_paths = false;
+    set environment.security.allow_external_modules = false;
+    set environment.security.allow_native_processes = false;
+}
+
+proc validate_environment_paths(
+    paths: &EnvironmentPaths
+) -> bool {
+    if paths.working_directory == "" {
+        give false;
+    }
+
+    if paths.executable == "" {
+        give false;
+    }
+
+    if paths.project_root == "" {
+        give false;
+    }
+
+    if paths.core == "" {
+        give false;
+    }
+
+    if paths.stdlib == "" {
+        give false;
+    }
+
+    if paths.modules == "" {
+        give false;
+    }
+
+    if paths.temporary == "" {
+        give false;
+    }
+
+    give true;
+}
+
+proc validate_environment_limits(
+    limits: &EnvironmentLimits
+) -> bool {
+    if limits.max_open_files == 0 {
+        give false;
+    }
+
+    if limits.max_processes == 0 {
+        give false;
+    }
+
+    if limits.max_environment_variables == 0 {
+        give false;
+    }
+
+    give true;
+}
+
+proc validate_environment_locale(
+    locale: &EnvironmentLocale
+) -> bool {
+    if locale.language == "" {
+        give false;
+    }
+
+    if locale.encoding == "" {
+        give false;
+    }
+
+    give true;
+}
+
+proc validate_environment_system(
+    system: &EnvironmentSystem
+) -> bool {
+    if system.cpu_count == 0 {
+        give false;
+    }
+
+    if system.pointer_bits != 0
+        and system.pointer_bits != 32
+        and system.pointer_bits != 64 {
+        give false;
+    }
+
+    let expected: usize =
+        architecture_pointer_bits(system.architecture);
+
+    if expected != 0
+        and system.pointer_bits != 0
+        and expected != system.pointer_bits {
+        give false;
+    }
+
+    give true;
+}
+
+proc validate_environment_capabilities(
+    capabilities: &EnvironmentCapabilities
+) -> bool {
+    if capabilities.network.client
+        and not capabilities.network.enabled {
+        give false;
+    }
+
+    if capabilities.network.server
+        and not capabilities.network.enabled {
+        give false;
+    }
+
+    give true;
+}
+
+proc validate_environment_security(
+    environment: &Environment
+) -> bool {
+    if environment.security.allow_native_processes
+        and not environment.capabilities.process.execute {
+        give false;
+    }
+
+    match environment.security.sandbox {
+        case SandboxMode.Strict => {
+            if environment.capabilities.network.enabled {
+                give false;
             }
-            if not seen { warn_once = warn_once.push(p.warning) }
+
+            if environment.capabilities.process.spawn {
+                give false;
+            }
+
+            if environment.capabilities.process.execute {
+                give false;
+            }
+
+            if environment.security.allow_parent_paths {
+                give false;
+            }
+
+            if environment.security.allow_external_modules {
+                give false;
+            }
         }
 
-        if p.value == ""
-        {
-            continue
-        }
+        else => {}
+    };
 
-        let norm = normalize_value(spec, p.value)
-        if norm == null
-        {
-            # fallback explicite: garder default hors mode strict, ignorer sinon.
-            out = out.push(config.ConfigKV(spec.config_key, spec.default_value, "default", "<env-fallback:" + spec.env_key + ">"))
-            continue
-        }
-
-        out = out.push(config.ConfigKV(spec.config_key, norm, "env", spec.env_key))
-    }
-
-    fs.write_file(cache_file(), encode_cache(out, warn_once))
-    give out
+    give true;
 }
 
-proc encode_cache(items: [config.ConfigKV], warnings: [string]) -> string
-{
-    let out = ""
-    out = out + "schema_version=1\n"
-    out = out + "cached_at_ms=" + str.from_i64(time.now_ms()) + "\n"
-    for w in warnings
-    {
-        out = out + "warn=" + str.replace(w, "\n", " ") + "\n"
+proc validate_environment(
+    environment: &Environment
+) -> bool {
+    if not validate_environment_paths(&environment.paths) {
+        give false;
     }
-    for kv in items
-    {
-        out = out + kv.key + "|" + kv.value + "|" + kv.source + "|" + kv.source_path + "\n"
-    }
-    give out
-}
 
-proc parse_cache(raw: string) -> [config.ConfigKV]
-{
-    let out: [config.ConfigKV] = []
-    let lines = str.split(raw, "\n")
-    for l in lines
-    {
-        let line = str.trim(l)
-        if line == "" { continue }
-        if str.starts_with(line, "schema_version=") { continue }
-        if str.starts_with(line, "cached_at_ms=") { continue }
-        if str.starts_with(line, "warn=") { continue }
-
-        let p = str.split(line, "|")
-        if p.len < 4 { continue }
-        out = out.push(config.ConfigKV(p[0], p[1], p[2], p[3]))
+    if not validate_environment_limits(&environment.limits) {
+        give false;
     }
-    give out
-}
 
-proc env_to_pairs_redacted(items: [config.ConfigKV]) -> [string]
-{
-    let out: [string] = []
-    for kv in items
-    {
-        let v = kv.value
-        if str.contains(kv.key, "token")  or  str.contains(kv.key, "secret")  or  str.contains(kv.source_path, "TOKEN")
-        {
-            v = "***REDACTED***"
-        }
-        out = out.push(kv.key + "=" + v + " (source=" + kv.source + ")")
+    if not validate_environment_locale(&environment.locale) {
+        give false;
     }
-    give out
+
+    if not validate_environment_system(&environment.system) {
+        give false;
+    }
+
+    if not validate_environment_capabilities(
+        &environment.capabilities
+    ) {
+        give false;
+    }
+
+    if not validate_environment_security(environment) {
+        give false;
+    }
+
+    give true;
 }

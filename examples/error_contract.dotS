@@ -1,7 +1,761 @@
-module.error_contract
-fn.main.$request
-set.$schema."1.1.0"
-call.sys.env.get."DOTS_RUN_ID".$run_id
-call.sys.env.get."DOTS_REQUEST_ID".$request_id
-call.error.emit.$schema."EXAMPLE_ERROR"."something went wrong".$run_id.$request_id
-ret.false
+# ============================================================
+# DotS Script Language
+# examples/error_contract.dotS
+#
+# Error contract demonstration
+#
+# Demonstrates:
+#   - throw
+#   - try / catch / finally
+#   - validation
+#   - propagation
+#   - recovery
+#   - explicit result contracts
+#   - assertions
+#   - nested error handling
+# ============================================================
+
+module.examples.error_contract
+
+# ------------------------------------------------------------
+# Constants
+# ------------------------------------------------------------
+
+const.$STATUS_OK."ok"
+const.$STATUS_ERROR."error"
+
+const.$ERROR_INVALID_VALUE."invalid_value"
+const.$ERROR_DIVISION_BY_ZERO."division_by_zero"
+const.$ERROR_NOT_FOUND."not_found"
+const.$ERROR_PERMISSION_DENIED."permission_denied"
+const.$ERROR_INTERNAL."internal"
+
+const.$EXIT_OK.0
+const.$EXIT_ERROR.1
+
+# ------------------------------------------------------------
+# Logging
+# ------------------------------------------------------------
+
+fn.log.$message.{
+    print."[error-contract] "
+    println.$message
+
+    ret.true
+}
+
+fn.log_error.$error.{
+    print."[error] "
+    println.$error
+
+    ret.true
+}
+
+fn.separator.{
+    println."----------------------------------------"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Result contract
+#
+# Result representation:
+#
+#   success:
+#       {
+#           "status": "ok",
+#           "value": <value>,
+#           "error": null
+#       }
+#
+#   failure:
+#       {
+#           "status": "error",
+#           "value": null,
+#           "error": <error>
+#       }
+# ------------------------------------------------------------
+
+fn.ok.$value.{
+    ret.{
+        "status": $STATUS_OK,
+        "value": $value,
+        "error": null
+    }
+}
+
+fn.err.$error.{
+    ret.{
+        "status": $STATUS_ERROR,
+        "value": null,
+        "error": $error
+    }
+}
+
+fn.is_ok.$result.{
+    ret.$result.["status"].eq.$STATUS_OK
+}
+
+fn.is_error.$result.{
+    ret.$result.["status"].eq.$STATUS_ERROR
+}
+
+# ------------------------------------------------------------
+# Structured error contract
+# ------------------------------------------------------------
+
+fn.make_error.$code.$message.{
+    ret.{
+        "code": $code,
+        "message": $message
+    }
+}
+
+fn.error_code.$error.{
+    ret.$error.["code"]
+}
+
+fn.error_message.$error.{
+    ret.$error.["message"]
+}
+
+fn.print_error.$error.{
+    print."error code    : "
+    println.$error.["code"]
+
+    print."error message : "
+    println.$error.["message"]
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Validation
+# ------------------------------------------------------------
+
+fn require_positive.$value.{
+    if.$value.lte.0.{
+        throw.call.make_error.
+            $ERROR_INVALID_VALUE.
+            "value must be positive"
+    }
+
+    ret.$value
+}
+
+fn require_non_zero.$value.{
+    if.$value.eq.0.{
+        throw.call.make_error.
+            $ERROR_DIVISION_BY_ZERO.
+            "division by zero"
+    }
+
+    ret.$value
+}
+
+# ------------------------------------------------------------
+# Basic throwing operation
+# ------------------------------------------------------------
+
+fn.divide.$left.$right.{
+    call.require_non_zero.$right
+
+    ret.$left.div.$right
+}
+
+# ------------------------------------------------------------
+# Explicit Result version
+#
+# Converts the throwing API into an explicit result contract.
+# ------------------------------------------------------------
+
+fn.safe_divide.$left.$right.{
+    try.{
+        let.$value.call.divide.$left.$right
+
+        ret.call.ok.$value
+    }
+    .catch.$error.{
+        ret.call.err.$error
+    }
+}
+
+# ------------------------------------------------------------
+# Simulated lookup
+# ------------------------------------------------------------
+
+fn.find_user.$id.{
+    call.require_positive.$id
+
+    if.$id.eq.1.{
+        ret.{
+            "id": 1,
+            "name": "Alice",
+            "active": true
+        }
+    }
+
+    if.$id.eq.2.{
+        ret.{
+            "id": 2,
+            "name": "Bob",
+            "active": false
+        }
+    }
+
+    throw.call.make_error.
+        $ERROR_NOT_FOUND.
+        "user not found"
+}
+
+# ------------------------------------------------------------
+# Permission validation
+# ------------------------------------------------------------
+
+fn require_active_user.$user.{
+    if.not.$user.["active"].{
+        throw.call.make_error.
+            $ERROR_PERMISSION_DENIED.
+            "inactive user cannot perform this operation"
+    }
+
+    ret.$user
+}
+
+# ------------------------------------------------------------
+# Protected operation
+# ------------------------------------------------------------
+
+fn protected_operation.$user_id.{
+    let.$user.call.find_user.$user_id
+
+    call.require_active_user.$user
+
+    print."protected operation executed for "
+    println.$user.["name"]
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Propagation
+#
+# No catch here. Errors from find_user or
+# require_active_user propagate to the caller.
+# ------------------------------------------------------------
+
+fn propagated_operation.$user_id.{
+    call.log."entering propagated operation"
+
+    let.$result.call.protected_operation.$user_id
+
+    call.log."leaving propagated operation"
+
+    ret.$result
+}
+
+# ------------------------------------------------------------
+# Recovery
+# ------------------------------------------------------------
+
+fn operation_with_fallback.$user_id.{
+    try.{
+        let.$user.call.find_user.$user_id
+
+        ret.call.ok.$user
+    }
+    .catch.$error.{
+        print."[fallback] lookup failed: "
+        println.call.error_message.$error
+
+        let.$fallback.{
+            "id": 0,
+            "name": "Guest",
+            "active": true
+        }
+
+        ret.call.ok.$fallback
+    }
+}
+
+# ------------------------------------------------------------
+# Finally contract
+# ------------------------------------------------------------
+
+fn resource_operation.$should_fail.{
+    println."[resource] acquire"
+
+    try.{
+        println."[resource] use"
+
+        if.$should_fail.{
+            throw.call.make_error.
+                $ERROR_INTERNAL.
+                "resource operation failed"
+        }
+
+        println."[resource] operation succeeded"
+
+        ret.true
+    }
+    .catch.$error.{
+        print."[resource] caught: "
+        println.call.error_message.$error
+
+        ret.false
+    }
+    .finally.{
+        println."[resource] release"
+    }
+}
+
+# ------------------------------------------------------------
+# Nested error handling
+# ------------------------------------------------------------
+
+fn nested_operation.$user_id.{
+    try.{
+        println."[outer] begin"
+
+        try.{
+            println."[inner] begin"
+
+            call.protected_operation.$user_id
+
+            println."[inner] success"
+        }
+        .catch.$error.{
+            print."[inner] caught: "
+            println.call.error_message.$error
+
+            throw.$error
+        }
+        .finally.{
+            println."[inner] finally"
+        }
+
+        println."[outer] success"
+
+        ret.true
+    }
+    .catch.$error.{
+        print."[outer] caught propagated error: "
+        println.call.error_message.$error
+
+        ret.false
+    }
+    .finally.{
+        println."[outer] finally"
+    }
+}
+
+# ------------------------------------------------------------
+# Basic throw demonstration
+# ------------------------------------------------------------
+
+fn.demo_throw.{
+    println.""
+    println."--- throw / catch ---"
+
+    try.{
+        call.require_positive.0
+
+        println."unexpected success"
+
+        ret.false
+    }
+    .catch.$error.{
+        call.print_error.$error
+
+        assert.call.error_code.$error.eq.$ERROR_INVALID_VALUE.
+            "unexpected error code"
+
+        ret.true
+    }
+}
+
+# ------------------------------------------------------------
+# Division demonstration
+# ------------------------------------------------------------
+
+fn.demo_division.{
+    println.""
+    println."--- division contract ---"
+
+    let.$success.call.safe_divide.84.2
+
+    assert.call.is_ok.$success.
+        "84 / 2 should succeed"
+
+    print."84 / 2 = "
+    println.$success.["value"]
+
+    let.$failure.call.safe_divide.84.0
+
+    assert.call.is_error.$failure.
+        "division by zero should fail"
+
+    print."division failure: "
+    println.call.error_message.$failure.["error"]
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Lookup demonstration
+# ------------------------------------------------------------
+
+fn.demo_lookup.{
+    println.""
+    println."--- lookup contract ---"
+
+    try.{
+        let.$user.call.find_user.1
+
+        print."found user: "
+        println.$user.["name"]
+    }
+    .catch.$error.{
+        call.print_error.$error
+
+        ret.false
+    }
+
+    try.{
+        call.find_user.999
+
+        println."unexpected lookup success"
+
+        ret.false
+    }
+    .catch.$error.{
+        print."expected lookup failure: "
+        println.call.error_message.$error
+
+        assert.call.error_code.$error.eq.$ERROR_NOT_FOUND.
+            "expected not_found error"
+    }
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Propagation demonstration
+# ------------------------------------------------------------
+
+fn.demo_propagation.{
+    println.""
+    println."--- propagation ---"
+
+    try.{
+        call.propagated_operation.2
+
+        println."unexpected protected-operation success"
+
+        ret.false
+    }
+    .catch.$error.{
+        print."propagated error: "
+        println.call.error_message.$error
+
+        assert.call.error_code.$error.eq.$ERROR_PERMISSION_DENIED.
+            "expected permission_denied error"
+
+        ret.true
+    }
+}
+
+# ------------------------------------------------------------
+# Fallback demonstration
+# ------------------------------------------------------------
+
+fn.demo_fallback.{
+    println.""
+    println."--- fallback ---"
+
+    let.$result.call.operation_with_fallback.999
+
+    assert.call.is_ok.$result.
+        "fallback operation should succeed"
+
+    let.$user.$result.["value"]
+
+    print."fallback user: "
+    println.$user.["name"]
+
+    assert.$user.["name"].eq."Guest".
+        "expected Guest fallback"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Finally demonstration
+# ------------------------------------------------------------
+
+fn.demo_finally.{
+    println.""
+    println."--- finally ---"
+
+    let.$success.call.resource_operation.false
+
+    assert.$success.
+        "successful resource operation failed"
+
+    let.$failure.call.resource_operation.true
+
+    assert.not.$failure.
+        "failing resource operation unexpectedly succeeded"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Nested handler demonstration
+# ------------------------------------------------------------
+
+fn.demo_nested.{
+    println.""
+    println."--- nested error handlers ---"
+
+    let.$success.call.nested_operation.1
+
+    assert.$success.
+        "nested success case failed"
+
+    println.""
+
+    let.$failure.call.nested_operation.999
+
+    assert.not.$failure.
+        "nested failure case unexpectedly succeeded"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Error classification
+# ------------------------------------------------------------
+
+fn classify_error.$error.{
+    let.$code.call.error_code.$error
+
+    match.$code.{
+        case."invalid_value".{
+            ret."validation"
+        }
+
+        case."division_by_zero".{
+            ret."arithmetic"
+        }
+
+        case."not_found".{
+            ret."lookup"
+        }
+
+        case."permission_denied".{
+            ret."permission"
+        }
+
+        case."internal".{
+            ret."internal"
+        }
+
+        default.{
+            ret."unknown"
+        }
+    }
+}
+
+fn.demo_classification.{
+    println.""
+    println."--- error classification ---"
+
+    let.$error.call.make_error.
+        $ERROR_NOT_FOUND.
+        "example"
+
+    let.$category.call.classify_error.$error
+
+    print."category: "
+    println.$category
+
+    assert.$category.eq."lookup".
+        "error classification failed"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Result inspection
+# ------------------------------------------------------------
+
+fn inspect_result.$result.{
+    if.call.is_ok.$result.{
+        print."[result] success: "
+        println.$result.["value"]
+
+        ret.true
+    }
+
+    if.call.is_error.$result.{
+        println."[result] failure"
+
+        call.print_error.$result.["error"]
+
+        ret.false
+    }
+
+    throw.call.make_error.
+        $ERROR_INTERNAL.
+        "invalid result contract"
+}
+
+fn.demo_result_contract.{
+    println.""
+    println."--- explicit result contract ---"
+
+    let.$success.call.safe_divide.100.4
+    call.inspect_result.$success
+
+    let.$failure.call.safe_divide.100.0
+    call.inspect_result.$failure
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Self-test
+# ------------------------------------------------------------
+
+fn.self_test.{
+    println.""
+    println."--- contract self-test ---"
+
+    let.$ok_result.call.ok.42
+
+    assert.call.is_ok.$ok_result.
+        "ok result not recognized"
+
+    assert.not.call.is_error.$ok_result.
+        "ok result recognized as error"
+
+    assert.$ok_result.["value"].eq.42.
+        "ok result lost its value"
+
+    let.$test_error.call.make_error.
+        $ERROR_INTERNAL.
+        "test"
+
+    let.$error_result.call.err.$test_error
+
+    assert.call.is_error.$error_result.
+        "error result not recognized"
+
+    assert.call.error_code.$error_result.["error"].
+        eq.$ERROR_INTERNAL.
+        "error result lost its code"
+
+    let.$division.call.safe_divide.10.2
+
+    assert.call.is_ok.$division.
+        "safe division failed"
+
+    assert.$division.["value"].eq.5.
+        "safe division returned wrong value"
+
+    println."[self-test] passed"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Main
+# ------------------------------------------------------------
+
+fn.main.{
+    println."========================================"
+    println."        DotS Error Contract Demo"
+    println."========================================"
+
+    let.$failures.0
+
+    try.{
+        if.not.call.demo_throw.{
+            add.$failures.1
+        }
+
+        if.not.call.demo_division.{
+            add.$failures.1
+        }
+
+        if.not.call.demo_lookup.{
+            add.$failures.1
+        }
+
+        if.not.call.demo_propagation.{
+            add.$failures.1
+        }
+
+        if.not.call.demo_fallback.{
+            add.$failures.1
+        }
+
+        if.not.call.demo_finally.{
+            add.$failures.1
+        }
+
+        if.not.call.demo_nested.{
+            add.$failures.1
+        }
+
+        if.not.call.demo_classification.{
+            add.$failures.1
+        }
+
+        if.not.call.demo_result_contract.{
+            add.$failures.1
+        }
+
+        if.not.call.self_test.{
+            add.$failures.1
+        }
+    }
+    .catch.$error.{
+        println.""
+        println."[main] unhandled contract error"
+
+        call.print_error.$error
+
+        ret.$EXIT_ERROR
+    }
+    .finally.{
+        println.""
+        println."[main] error-contract tests finished"
+    }
+
+    println.""
+
+    if.$failures.eq.0.{
+        println."========================================"
+        println."      All Error Contracts Passed"
+        println."========================================"
+
+        ret.$EXIT_OK
+    }
+
+    print."failed demonstrations: "
+    println.$failures
+
+    ret.$EXIT_ERROR
+}
+
+# ------------------------------------------------------------
+# Entry point
+# ------------------------------------------------------------
+
+let.$exit_code.call.main
+
+print."exit code: "
+println.$exit_code

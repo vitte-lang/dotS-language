@@ -1,7 +1,1029 @@
-module.ffi_protocol_parse
-fn.main.$payload
-set.$payload_ok."protocol_version=1.1.0"
-set.$payload_err."error_type=CALL_FAILED"
-call.ffi.protocol.parse.$payload_ok
-call.ffi.protocol.parse.$payload_err
-ret.true
+# ============================================================
+# DotS Script Language
+# examples/ffi_protocol_parse.dotS
+#
+# FFI protocol parsing demonstration.
+#
+# Demonstrates:
+#   - protocol messages
+#   - request validation
+#   - operation dispatch
+#   - typed value envelopes
+#   - success/error responses
+#   - batch processing
+#   - protocol version checking
+#   - assertions
+#   - error handling
+#
+# This example models the protocol used between DotS and a
+# future native FFI layer. It does not invent native ABI calls.
+# ============================================================
+
+module.examples.ffi_protocol_parse
+
+# ------------------------------------------------------------
+# Protocol constants
+# ------------------------------------------------------------
+
+const.$PROTOCOL_NAME."dots-ffi"
+const.$PROTOCOL_VERSION.1
+
+const.$KIND_REQUEST."request"
+const.$KIND_RESPONSE."response"
+
+const.$OP_PING."ping"
+const.$OP_ADD."add"
+const.$OP_MUL."mul"
+const.$OP_NEGATE."negate"
+const.$OP_ECHO."echo"
+const.$OP_VERSION."version"
+
+const.$TYPE_NULL."null"
+const.$TYPE_BOOL."bool"
+const.$TYPE_INT."int"
+const.$TYPE_FLOAT."float"
+const.$TYPE_STRING."string"
+
+const.$STATUS_OK."ok"
+const.$STATUS_ERROR."error"
+
+const.$ERROR_PROTOCOL."protocol_error"
+const.$ERROR_VERSION."version_error"
+const.$ERROR_REQUEST."request_error"
+const.$ERROR_OPERATION."operation_error"
+const.$ERROR_ARGUMENT."argument_error"
+const.$ERROR_INTERNAL."internal_error"
+
+const.$EXIT_OK.0
+const.$EXIT_ERROR.1
+
+# ------------------------------------------------------------
+# Logging
+# ------------------------------------------------------------
+
+fn.log.$message.{
+    print."[ffi] "
+    println.$message
+
+    ret.true
+}
+
+fn.log_error.$message.{
+    print."[ffi:error] "
+    println.$message
+
+    ret.true
+}
+
+fn.separator.{
+    println."----------------------------------------"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Typed FFI values
+# ------------------------------------------------------------
+
+fn.ffi_null.{
+    ret.{
+        "type": $TYPE_NULL,
+        "value": null
+    }
+}
+
+fn.ffi_bool.$value.{
+    ret.{
+        "type": $TYPE_BOOL,
+        "value": $value
+    }
+}
+
+fn.ffi_int.$value.{
+    ret.{
+        "type": $TYPE_INT,
+        "value": $value
+    }
+}
+
+fn.ffi_float.$value.{
+    ret.{
+        "type": $TYPE_FLOAT,
+        "value": $value
+    }
+}
+
+fn.ffi_string.$value.{
+    ret.{
+        "type": $TYPE_STRING,
+        "value": $value
+    }
+}
+
+# ------------------------------------------------------------
+# Type validation
+# ------------------------------------------------------------
+
+fn.valid_value_type.$type.{
+    match.$type.{
+        case."null".{
+            ret.true
+        }
+
+        case."bool".{
+            ret.true
+        }
+
+        case."int".{
+            ret.true
+        }
+
+        case."float".{
+            ret.true
+        }
+
+        case."string".{
+            ret.true
+        }
+
+        default.{
+            ret.false
+        }
+    }
+}
+
+fn.validate_value.$value.{
+    if.$value.eq.null.{
+        throw."FFI value cannot be null envelope"
+    }
+
+    if.not.call.valid_value_type.$value.["type"].{
+        throw."unknown FFI value type"
+    }
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Value access
+# ------------------------------------------------------------
+
+fn.value_type.$value.{
+    call.validate_value.$value
+
+    ret.$value.["type"]
+}
+
+fn.value_data.$value.{
+    call.validate_value.$value
+
+    ret.$value.["value"]
+}
+
+fn.require_type.$value.$expected.{
+    call.validate_value.$value
+
+    if.$value.["type"].neq.$expected.{
+        throw."unexpected FFI argument type"
+    }
+
+    ret.$value.["value"]
+}
+
+# ------------------------------------------------------------
+# Error object
+# ------------------------------------------------------------
+
+fn.make_protocol_error.$code.$message.{
+    ret.{
+        "code": $code,
+        "message": $message
+    }
+}
+
+# ------------------------------------------------------------
+# Request
+# ------------------------------------------------------------
+
+fn.make_request.$id.$operation.$arguments.{
+    ret.{
+        "protocol": $PROTOCOL_NAME,
+        "version": $PROTOCOL_VERSION,
+        "kind": $KIND_REQUEST,
+
+        "id": $id,
+        "operation": $operation,
+        "arguments": $arguments
+    }
+}
+
+# ------------------------------------------------------------
+# Responses
+# ------------------------------------------------------------
+
+fn.make_success_response.$id.$value.{
+    ret.{
+        "protocol": $PROTOCOL_NAME,
+        "version": $PROTOCOL_VERSION,
+        "kind": $KIND_RESPONSE,
+
+        "id": $id,
+        "status": $STATUS_OK,
+
+        "value": $value,
+        "error": null
+    }
+}
+
+fn.make_error_response.$id.$code.$message.{
+    let.$error.
+        call.make_protocol_error.
+            $code.
+            $message
+
+    ret.{
+        "protocol": $PROTOCOL_NAME,
+        "version": $PROTOCOL_VERSION,
+        "kind": $KIND_RESPONSE,
+
+        "id": $id,
+        "status": $STATUS_ERROR,
+
+        "value": null,
+        "error": $error
+    }
+}
+
+# ------------------------------------------------------------
+# Operation validation
+# ------------------------------------------------------------
+
+fn.valid_operation.$operation.{
+    match.$operation.{
+        case."ping".{
+            ret.true
+        }
+
+        case."add".{
+            ret.true
+        }
+
+        case."mul".{
+            ret.true
+        }
+
+        case."negate".{
+            ret.true
+        }
+
+        case."echo".{
+            ret.true
+        }
+
+        case."version".{
+            ret.true
+        }
+
+        default.{
+            ret.false
+        }
+    }
+}
+
+# ------------------------------------------------------------
+# Request validation
+# ------------------------------------------------------------
+
+fn.validate_request.$request.{
+    if.$request.eq.null.{
+        throw."request cannot be null"
+    }
+
+    if.$request.["protocol"].neq.$PROTOCOL_NAME.{
+        throw."invalid FFI protocol"
+    }
+
+    if.$request.["version"].neq.$PROTOCOL_VERSION.{
+        throw."unsupported FFI protocol version"
+    }
+
+    if.$request.["kind"].neq.$KIND_REQUEST.{
+        throw."message is not an FFI request"
+    }
+
+    if.$request.["id"].lt.0.{
+        throw."request id cannot be negative"
+    }
+
+    if.not.call.valid_operation.$request.["operation"].{
+        throw."unknown FFI operation"
+    }
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Protocol header validation
+# ------------------------------------------------------------
+
+fn.validate_protocol_header.$message.{
+    if.$message.["protocol"].neq.$PROTOCOL_NAME.{
+        throw."protocol name mismatch"
+    }
+
+    if.$message.["version"].neq.$PROTOCOL_VERSION.{
+        throw."protocol version mismatch"
+    }
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Ping operation
+# ------------------------------------------------------------
+
+fn.operation_ping.$arguments.{
+    ret.call.ffi_string."pong"
+}
+
+# ------------------------------------------------------------
+# Version operation
+# ------------------------------------------------------------
+
+fn.operation_version.$arguments.{
+    ret.call.ffi_int.$PROTOCOL_VERSION
+}
+
+# ------------------------------------------------------------
+# Echo operation
+# ------------------------------------------------------------
+
+fn.operation_echo.$arguments.{
+    let.$value.$arguments.[0]
+
+    call.validate_value.$value
+
+    ret.$value
+}
+
+# ------------------------------------------------------------
+# Add operation
+# ------------------------------------------------------------
+
+fn.operation_add.$arguments.{
+    let.$left.$arguments.[0]
+    let.$right.$arguments.[1]
+
+    let.$a.call.require_type.$left.$TYPE_INT
+    let.$b.call.require_type.$right.$TYPE_INT
+
+    ret.call.ffi_int.$a.add.$b
+}
+
+# ------------------------------------------------------------
+# Multiply operation
+# ------------------------------------------------------------
+
+fn.operation_mul.$arguments.{
+    let.$left.$arguments.[0]
+    let.$right.$arguments.[1]
+
+    let.$a.call.require_type.$left.$TYPE_INT
+    let.$b.call.require_type.$right.$TYPE_INT
+
+    ret.call.ffi_int.$a.mul.$b
+}
+
+# ------------------------------------------------------------
+# Negate operation
+# ------------------------------------------------------------
+
+fn.operation_negate.$arguments.{
+    let.$value.$arguments.[0]
+
+    let.$number.
+        call.require_type.
+            $value.
+            $TYPE_INT
+
+    ret.call.ffi_int.neg.$number
+}
+
+# ------------------------------------------------------------
+# Dispatch
+# ------------------------------------------------------------
+
+fn.dispatch_operation.$operation.$arguments.{
+    match.$operation.{
+        case."ping".{
+            ret.call.operation_ping.$arguments
+        }
+
+        case."version".{
+            ret.call.operation_version.$arguments
+        }
+
+        case."echo".{
+            ret.call.operation_echo.$arguments
+        }
+
+        case."add".{
+            ret.call.operation_add.$arguments
+        }
+
+        case."mul".{
+            ret.call.operation_mul.$arguments
+        }
+
+        case."negate".{
+            ret.call.operation_negate.$arguments
+        }
+
+        default.{
+            throw."unsupported FFI operation"
+        }
+    }
+}
+
+# ------------------------------------------------------------
+# Request processing
+# ------------------------------------------------------------
+
+fn.process_request.$request.{
+    let.$id.$request.["id"]
+
+    try.{
+        call.validate_request.$request
+
+        let.$result.
+            call.dispatch_operation.
+                $request.["operation"].
+                $request.["arguments"]
+
+        ret.call.make_success_response.
+            $id.
+            $result
+    }
+    .catch.$error.{
+        ret.call.make_error_response.
+            $id.
+            $ERROR_REQUEST.
+            $error
+    }
+}
+
+# ------------------------------------------------------------
+# Response inspection
+# ------------------------------------------------------------
+
+fn.response_is_ok.$response.{
+    ret.$response.["status"].eq.$STATUS_OK
+}
+
+fn.response_is_error.$response.{
+    ret.$response.["status"].eq.$STATUS_ERROR
+}
+
+fn.print_value.$value.{
+    call.validate_value.$value
+
+    print."type="
+    print.$value.["type"]
+
+    print." value="
+    println.$value.["value"]
+
+    ret.true
+}
+
+fn.print_response.$response.{
+    print."response #"
+    println.$response.["id"]
+
+    print."status: "
+    println.$response.["status"]
+
+    if.call.response_is_ok.$response.{
+        print."result: "
+
+        call.print_value.$response.["value"]
+
+        ret.true
+    }
+
+    print."error code: "
+    println.$response.["error"].["code"]
+
+    print."error message: "
+    println.$response.["error"].["message"]
+
+    ret.false
+}
+
+# ------------------------------------------------------------
+# Protocol serialization demonstration
+#
+# This emits protocol messages in a JSON-like transport format.
+# Native JSON serialization is intentionally not assumed.
+# ------------------------------------------------------------
+
+fn.emit_value.$value.{
+    print."{\"type\":\""
+    print.$value.["type"]
+    print."\",\"value\":"
+
+    if.$value.["value"].eq.null.{
+        print."null"
+    }
+    else.{
+        if.$value.["type"].eq.$TYPE_STRING.{
+            print."\""
+            print.$value.["value"]
+            print."\""
+        }
+        else.{
+            print.$value.["value"]
+        }
+    }
+
+    print."}"
+
+    ret.true
+}
+
+fn.emit_response.$response.{
+    print."{\"protocol\":\""
+    print.$response.["protocol"]
+
+    print."\",\"version\":"
+    print.$response.["version"]
+
+    print.",\"kind\":\""
+    print.$response.["kind"]
+
+    print."\",\"id\":"
+    print.$response.["id"]
+
+    print.",\"status\":\""
+    print.$response.["status"]
+    print."\""
+
+    if.call.response_is_ok.$response.{
+        print.",\"value\":"
+
+        call.emit_value.$response.["value"]
+
+        print.",\"error\":null"
+    }
+    else.{
+        print.",\"value\":null"
+
+        print.",\"error\":{\"code\":\""
+        print.$response.["error"].["code"]
+
+        print."\",\"message\":\""
+        print.$response.["error"].["message"]
+
+        print."\"}"
+    }
+
+    println."}"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Request fixtures
+# ------------------------------------------------------------
+
+fn.make_ping_request.{
+    ret.call.make_request.
+        1.
+        $OP_PING.
+        []
+}
+
+fn.make_add_request.{
+    let.$left.call.ffi_int.20
+    let.$right.call.ffi_int.22
+
+    ret.call.make_request.
+        2.
+        $OP_ADD.
+        [
+            $left,
+            $right
+        ]
+}
+
+fn.make_mul_request.{
+    let.$left.call.ffi_int.6
+    let.$right.call.ffi_int.7
+
+    ret.call.make_request.
+        3.
+        $OP_MUL.
+        [
+            $left,
+            $right
+        ]
+}
+
+fn.make_negate_request.{
+    let.$value.call.ffi_int.42
+
+    ret.call.make_request.
+        4.
+        $OP_NEGATE.
+        [
+            $value
+        ]
+}
+
+fn.make_echo_request.{
+    let.$value.
+        call.ffi_string.
+            "Hello from DotS FFI"
+
+    ret.call.make_request.
+        5.
+        $OP_ECHO.
+        [
+            $value
+        ]
+}
+
+fn.make_version_request.{
+    ret.call.make_request.
+        6.
+        $OP_VERSION.
+        []
+}
+
+# ------------------------------------------------------------
+# Invalid fixtures
+# ------------------------------------------------------------
+
+fn.make_invalid_version_request.{
+    let.$request.call.make_ping_request
+
+    set.$request.["id"].100
+    set.$request.["version"].999
+
+    ret.$request
+}
+
+fn.make_invalid_operation_request.{
+    let.$request.call.make_ping_request
+
+    set.$request.["id"].101
+    set.$request.["operation"]."unknown"
+
+    ret.$request
+}
+
+fn.make_invalid_argument_request.{
+    let.$left.call.ffi_string."not-an-int"
+    let.$right.call.ffi_int.10
+
+    ret.call.make_request.
+        102.
+        $OP_ADD.
+        [
+            $left,
+            $right
+        ]
+}
+
+# ------------------------------------------------------------
+# Batch
+# ------------------------------------------------------------
+
+fn.build_request_batch.{
+    let.$ping.call.make_ping_request
+    let.$add.call.make_add_request
+    let.$mul.call.make_mul_request
+    let.$negate.call.make_negate_request
+    let.$echo.call.make_echo_request
+    let.$version.call.make_version_request
+
+    ret.[
+        $ping,
+        $add,
+        $mul,
+        $negate,
+        $echo,
+        $version
+    ]
+}
+
+fn.process_batch.$requests.{
+    let.$processed.0
+    let.$failed.0
+
+    foreach.$request.in.$requests.{
+        let.$response.
+            call.process_request.
+                $request
+
+        call.emit_response.$response
+
+        if.call.response_is_ok.$response.{
+            add.$processed.1
+        }
+        else.{
+            add.$failed.1
+        }
+    }
+
+    ret.(
+        $processed,
+        $failed
+    )
+}
+
+# ------------------------------------------------------------
+# Ping test
+# ------------------------------------------------------------
+
+fn.test_ping.{
+    let.$request.call.make_ping_request
+    let.$response.call.process_request.$request
+
+    assert.call.response_is_ok.$response.
+        "ping request failed"
+
+    assert.$response.["value"].["type"].eq.$TYPE_STRING.
+        "ping returned wrong type"
+
+    assert.$response.["value"].["value"].eq."pong".
+        "ping returned wrong value"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Arithmetic tests
+# ------------------------------------------------------------
+
+fn.test_add.{
+    let.$request.call.make_add_request
+    let.$response.call.process_request.$request
+
+    assert.call.response_is_ok.$response.
+        "add request failed"
+
+    assert.$response.["value"].["value"].eq.42.
+        "add returned wrong result"
+
+    ret.true
+}
+
+fn.test_mul.{
+    let.$request.call.make_mul_request
+    let.$response.call.process_request.$request
+
+    assert.call.response_is_ok.$response.
+        "mul request failed"
+
+    assert.$response.["value"].["value"].eq.42.
+        "mul returned wrong result"
+
+    ret.true
+}
+
+fn.test_negate.{
+    let.$request.call.make_negate_request
+    let.$response.call.process_request.$request
+
+    assert.call.response_is_ok.$response.
+        "negate request failed"
+
+    assert.$response.["value"].["value"].eq.-42.
+        "negate returned wrong result"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Echo test
+# ------------------------------------------------------------
+
+fn.test_echo.{
+    let.$request.call.make_echo_request
+    let.$response.call.process_request.$request
+
+    assert.call.response_is_ok.$response.
+        "echo request failed"
+
+    assert.$response.["value"].["value"].
+        eq."Hello from DotS FFI".
+        "echo returned wrong value"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Version test
+# ------------------------------------------------------------
+
+fn.test_version.{
+    let.$request.call.make_version_request
+    let.$response.call.process_request.$request
+
+    assert.call.response_is_ok.$response.
+        "version request failed"
+
+    assert.$response.["value"].["value"].
+        eq.$PROTOCOL_VERSION.
+        "wrong protocol version"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Invalid protocol tests
+# ------------------------------------------------------------
+
+fn.test_invalid_version.{
+    let.$request.
+        call.make_invalid_version_request
+
+    let.$response.
+        call.process_request.
+            $request
+
+    assert.call.response_is_error.$response.
+        "invalid version should fail"
+
+    ret.true
+}
+
+fn.test_invalid_operation.{
+    let.$request.
+        call.make_invalid_operation_request
+
+    let.$response.
+        call.process_request.
+            $request
+
+    assert.call.response_is_error.$response.
+        "invalid operation should fail"
+
+    ret.true
+}
+
+fn.test_invalid_argument.{
+    let.$request.
+        call.make_invalid_argument_request
+
+    let.$response.
+        call.process_request.
+            $request
+
+    assert.call.response_is_error.$response.
+        "invalid argument should fail"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Self-test
+# ------------------------------------------------------------
+
+fn.self_test.{
+    println.""
+    println."--- protocol self-test ---"
+
+    assert.call.test_ping.
+        "ping test failed"
+
+    assert.call.test_add.
+        "add test failed"
+
+    assert.call.test_mul.
+        "mul test failed"
+
+    assert.call.test_negate.
+        "negate test failed"
+
+    assert.call.test_echo.
+        "echo test failed"
+
+    assert.call.test_version.
+        "version test failed"
+
+    assert.call.test_invalid_version.
+        "invalid-version test failed"
+
+    assert.call.test_invalid_operation.
+        "invalid-operation test failed"
+
+    assert.call.test_invalid_argument.
+        "invalid-argument test failed"
+
+    println."[self-test] all protocol tests passed"
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Invalid-message demonstration
+# ------------------------------------------------------------
+
+fn.invalid_demo.{
+    println.""
+    println."--- invalid requests ---"
+
+    let.$version_request.
+        call.make_invalid_version_request
+
+    let.$version_response.
+        call.process_request.
+            $version_request
+
+    call.print_response.$version_response
+
+    call.separator
+
+    let.$operation_request.
+        call.make_invalid_operation_request
+
+    let.$operation_response.
+        call.process_request.
+            $operation_request
+
+    call.print_response.$operation_response
+
+    call.separator
+
+    let.$argument_request.
+        call.make_invalid_argument_request
+
+    let.$argument_response.
+        call.process_request.
+            $argument_request
+
+    call.print_response.$argument_response
+
+    ret.true
+}
+
+# ------------------------------------------------------------
+# Main
+# ------------------------------------------------------------
+
+fn.main.{
+    println."========================================"
+    println."       DotS FFI Protocol Parser"
+    println."========================================"
+
+    print."protocol: "
+    println.$PROTOCOL_NAME
+
+    print."version : "
+    println.$PROTOCOL_VERSION
+
+    println.""
+    println."--- request batch ---"
+
+    let.$requests.call.build_request_batch
+
+    let.$batch_result.
+        call.process_batch.
+            $requests
+
+    println.""
+
+    print."successful requests: "
+    println.$batch_result.[0]
+
+    print."failed requests: "
+    println.$batch_result.[1]
+
+    call.invalid_demo
+
+    call.self_test
+
+    println.""
+    println."========================================"
+    println."       FFI Protocol Demo Completed"
+    println."========================================"
+
+    ret.$EXIT_OK
+}
+
+# ------------------------------------------------------------
+# Entry point
+# ------------------------------------------------------------
+
+try.{
+    let.$exit_code.call.main
+
+    print."exit code: "
+    println.$exit_code
+}
+.catch.$error.{
+    print."fatal FFI protocol error: "
+    println.$error
+}
